@@ -20,34 +20,34 @@ type LoggerOptions struct {
 // and provides Error, Debug, Warning and Info functions, that will forward a message
 // to the appropriate logger.
 type Logger struct {
-	_debug   log.Logger
-	_info    log.Logger
-	_warning log.Logger
-	_error   log.Logger
+	debugLogger   log.Logger
+	infoLogger    log.Logger
+	warningLogger log.Logger
+	errorLogger   log.Logger
 }
 
 // Debug ...
 // Log a message with Debug level
 func (l *Logger) Debug(msg ...interface{}) {
-	l._debug.Println(msg)
+	l.debugLogger.Println(msg)
 }
 
 // Info ...
 // Log a message with Info level
 func (l *Logger) Info(msg ...interface{}) {
-	l._info.Println(msg)
+	l.infoLogger.Println(msg)
 }
 
 // Warning ...
 // Log a message with Warning level
 func (l *Logger) Warning(msg ...interface{}) {
-	l._warning.Println(msg)
+	l.warningLogger.Println(msg)
 }
 
 // Error ...
 // Log a message with Error level
 func (l *Logger) Error(msg ...interface{}) {
-	l._error.Println(msg)
+	l.errorLogger.Println(msg)
 }
 
 // NewLogger ...
@@ -66,9 +66,9 @@ func NewLogger(options *LoggerOptions) *Logger {
 	}
 
 	return &Logger{
-		_debug:   *log.New(commonWriter, "DEBUG - ", 1),
-		_info:    *log.New(commonWriter, "IFO - ", 1),
-		_warning: *log.New(commonWriter, "WARNING - ", 1),
-		_error:   *log.New(errorWriter, "ERROR - ", 1),
+		debugLogger:   *log.New(commonWriter, "DEBUG - ", 1),
+		infoLogger:    *log.New(commonWriter, "INFO - ", 1),
+		warningLogger: *log.New(commonWriter, "WARNING - ", 1),
+		errorLogger:   *log.New(errorWriter, "ERROR - ", 1),
 	}
 }

@@ -77,29 +77,26 @@ func TestPost(t *testing.T) {
 	}
 }
 
-//func TestHeaders(t *testing.T) {
-//	before()
-//	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//		fmt.Fprintln(w, "Hello, client")
-//	}))
-//	defer ts.Close()
-//
-//	os.Setenv(envSdkURLNamespace, ts.URL)
-//	os.Setenv(envEventsURLNamespace, ts.URL)
-//
-//	Initialize()
-//
-//	sdkClient.AddHeader("someHeader", "HeaderValue")
-//	_, ok1 := sdkClient.headers["someHeader"]
-//	if !ok1 {
-//		t.Error("Header could not be added")
-//	}
-//
-//	sdkClient.ResetHeaders()
-//	_, ok2 := sdkClient.headers["someHeader"]
-//	if ok2 {
-//		t.Error("Reset Header fails")
-//	}
-//
-//	reset()
-//}
+func TestHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello, client")
+	}))
+	defer ts.Close()
+
+	os.Setenv(envSdkURLNamespace, ts.URL)
+	os.Setenv(envEventsURLNamespace, ts.URL)
+
+	logger := logging.NewLogger(&logging.LoggerOptions{})
+	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
+	httpClient.AddHeader("someHeader", "HeaderValue")
+	_, ok1 := httpClient.headers["someHeader"]
+	if !ok1 {
+		t.Error("Header could not be added")
+	}
+
+	httpClient.ResetHeaders()
+	_, ok2 := httpClient.headers["someHeader"]
+	if ok2 {
+		t.Error("Reset Header fails")
+	}
+}

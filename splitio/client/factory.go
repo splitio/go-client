@@ -1,15 +1,13 @@
-// Package client ...
-// This package contains implementations of the Split SDK client and the factory used
+// Package client contains implementations of the Split SDK client and the factory used
 // to instantiate it.
 package client
 
 import (
-	//"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/logging"
 )
 
-// SplitFactory responsible for instantiating and storing instances of client and manager.
+// SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
 	Client *SplitClient
 }
@@ -33,14 +31,11 @@ func setupLogger(cfg *configuration.SplitSdkConfig) logging.LoggerInterface {
 	return logger
 }
 
-// NewFactory ...
-// Factory constructor. Accepts a SplitSdkConfig struct as an argument, which will be used
+// NewFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument, which will be used
 // to instantiate both the client and the manager
 func NewFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
 
 	logger := setupLogger(cfg)
-	//	splitFetcher := api.NewHTTPSplitFetcher(cfg, logger)
-	//	segmentFetcher := api.NewHTTPSegmentFetcher(cfg, logger)
 
 	client := &SplitClient{
 		Apikey: cfg.Apikey,

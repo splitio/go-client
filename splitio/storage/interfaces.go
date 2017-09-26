@@ -13,8 +13,8 @@ type SplitStorage interface {
 
 // SegmentStorage Interface should be implemented by all segments storage storage forms
 type SegmentStorage interface {
-	Get(segmentName string) dtos.SegmentDTO
-	Put(segment *dtos.Segment)
+	Get(segmentName string) []string
+	Put(segment []string)
 	Remove(segmentName string)
 }
 
@@ -30,6 +30,6 @@ type MetricsStorage interface {
 	PutLatencies(latencies *[]dtos.LatenciesDTO)
 	PutCounters(counters *[]dtos.CounterDTO)
 	GetGauge() dtos.GaugeDTO
-	GetLatencies() *[]dtos.Latencies
+	GetLatencies() *[]dtos.LatenciesDTO
 	GetCounters() *[]dtos.CounterDTO
 }

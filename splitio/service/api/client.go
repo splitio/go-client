@@ -22,9 +22,7 @@ const prodEventsURL = "https://events.split.io/api"
 const envSdkURLNamespace = "SPLITIO_SDK_URL"
 const envEventsURLNamespace = "SPLITIO_EVENTS_URL"
 
-func getUrls() (string, string) {
-	var sdkURL string
-	var eventsURL string
+func getUrls() (sdkURL string, eventsURL string) {
 	envSdkURL := os.Getenv(envSdkURLNamespace)
 	if envSdkURL != "" {
 		sdkURL = envSdkURL
@@ -129,7 +127,7 @@ func (c *HTTPClient) Post(service string, body []byte) error {
 
 	req.Header.Add("Authorization", "Bearer "+authorization)
 	//SplitSDKVersion added by poster tasks
-	req.Header.Add("User-Agent", "SplitIO-GO-AGENT/0.1")
+	req.Header.Add("User-Agent", "SplitIO-GO-SDK/1.0")
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 

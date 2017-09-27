@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/splitio/set"
 	"sync"
 )
 
@@ -51,7 +52,7 @@ func (m *MMSplitStorage) Remove(splitName string) {
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
 type MMSegmentStorage struct {
-	data         map[string][]string
+	data         map[string]*set.ThreadUnsafeSet
 	mutex        *sync.RWMutex
 	ChangeNumber int64
 }
@@ -59,24 +60,27 @@ type MMSegmentStorage struct {
 // NewMMSegmentStorage instantiates a new MMSegmentStorage
 func NewMMSegmentStorage() *MMSegmentStorage {
 	return &MMSegmentStorage{
-		data:  make(map[string][]string),
+		data:  make(map[string]*set.ThreadUnsafeSet),
 		mutex: &sync.RWMutex{},
 	}
 }
 
 // Get retrieves a segment from the in-memory storage
-func (m *MMSegmentStorage) Get(segmentName string) (*[]string, bool) {
+func (m *MMSegmentStorage) Get(segmentName string) (*set.ThreadUnsafeSet, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	item, exists := m.data[segmentName]
-	return &item, exists
+	return item, exists
 }
 
 // Put adds a new segment to the in-memory storage
 func (m *MMSegmentStorage) Put(name string, segment []string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.data[name] = segment
+	m.data[name] = set.NewSet()
+	for _, item := range segment {
+		m.data[name].Add(item)
+	}
 }
 
 // Remove deletes a segment from the in-memmory storage
@@ -116,11 +120,11 @@ func (m *MMImpressionStorage) PopAll() []dtos.ImpressionsDTO {
 	// After the function finishes, first replace the map with a fresh empty new one,
 	// and then fully unlock the mutex
 	defer func() {
+		m.data = make(map[string][]dtos.ImpressionDTO)
 		m.mutex.Unlock()
-		m.data = make(map[string][]dtos.ImpressionDTO) // THIS deffered statement is executed first!
 	}()
 
-	impressions := make([]dtos.ImpressionsDTO, len(m.data))
+	impressions := make([]dtos.ImpressionsDTO, 0)
 	for testName, testImpressions := range m.data {
 		impressions = append(impressions, dtos.ImpressionsDTO{
 			TestName:       testName,
@@ -170,7 +174,7 @@ func (m *MMMetricsStorage) PopGauges() []dtos.GaugeDTO {
 		m.gaugeMutex.Unlock()
 	}()
 
-	gauges := make([]dtos.GaugeDTO, len(m.gaugeData))
+	gauges := make([]dtos.GaugeDTO, 0)
 	for key, gauge := range m.gaugeData {
 		gauges = append(gauges, dtos.GaugeDTO{
 			MetricName: key,
@@ -201,7 +205,7 @@ func (m *MMMetricsStorage) PopCounters() []dtos.CounterDTO {
 		m.countersMutex.Unlock()
 	}()
 
-	counters := make([]dtos.CounterDTO, len(m.counterData))
+	counters := make([]dtos.CounterDTO, 0)
 	for key, counter := range m.counterData {
 		counters = append(counters, dtos.CounterDTO{
 			MetricName: key,
@@ -236,7 +240,7 @@ func (m *MMMetricsStorage) PopLatencies() []dtos.LatenciesDTO {
 		m.latenciesMutex.Unlock()
 	}()
 
-	latencies := make([]dtos.LatenciesDTO, len(m.latenciesData))
+	latencies := make([]dtos.LatenciesDTO, 0)
 	for key, latency := range m.latenciesData {
 		latencies = append(latencies, dtos.LatenciesDTO{
 			Latencies:  latency,

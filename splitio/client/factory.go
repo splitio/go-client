@@ -31,9 +31,9 @@ func setupLogger(cfg *configuration.SplitSdkConfig) logging.LoggerInterface {
 	return logger
 }
 
-// NewFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument, which will be used
+// NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument, which will be used
 // to instantiate both the client and the manager
-func NewFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
+func NewSplitFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
 
 	logger := setupLogger(cfg)
 

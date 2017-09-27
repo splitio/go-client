@@ -11,8 +11,8 @@ type SplitClient struct {
 	LoggerConfig logging.LoggerOptions
 }
 
-// GetTreatment implements the main functionality of split. Retrieve treatments of a specific feature
+// Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
-func (c *SplitClient) GetTreatment(key string, feature string, attributes *map[string]interface{}) string {
+func (c *SplitClient) Treatment(key string, feature string, attributes *map[string]interface{}) string {
 	return "CONTROL"
 }

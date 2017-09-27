@@ -9,8 +9,9 @@ import (
 
 // MMSplitStorage struct contains is an in-memory implementation of split storage
 type MMSplitStorage struct {
-	data  map[string]dtos.SplitDTO
-	mutex *sync.RWMutex
+	data         map[string]dtos.SplitDTO
+	mutex        *sync.RWMutex
+	ChangeNumber int64
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
@@ -50,8 +51,9 @@ func (m *MMSplitStorage) Remove(splitName string) {
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
 type MMSegmentStorage struct {
-	data  map[string][]string
-	mutex *sync.RWMutex
+	data         map[string][]string
+	mutex        *sync.RWMutex
+	ChangeNumber int64
 }
 
 // NewMMSegmentStorage instantiates a new MMSegmentStorage
@@ -89,14 +91,14 @@ func (m *MMSegmentStorage) Remove(splitName string) {
 //MMImpressionStorage contains an in-memory implementation of Impressions storage
 type MMImpressionStorage struct {
 	data  map[string][]dtos.ImpressionDTO
-	mutex *sync.RWMutex
+	mutex *sync.Mutex
 }
 
 // NewMMImpressionStorage instantiates an MMImpressionStorage
 func NewMMImpressionStorage() *MMImpressionStorage {
 	return &MMImpressionStorage{
 		data:  make(map[string][]dtos.ImpressionDTO),
-		mutex: &sync.RWMutex{},
+		mutex: &sync.Mutex{},
 	}
 }
 
@@ -134,22 +136,22 @@ func (m *MMImpressionStorage) PopAll() []dtos.ImpressionsDTO {
 // MMMetricsStorage contains an in-memory implementation of Metrics storage
 type MMMetricsStorage struct {
 	gaugeData      map[string]float64
-	gaugeMutex     *sync.RWMutex
+	gaugeMutex     *sync.Mutex
 	counterData    map[string]int64
-	countersMutex  *sync.RWMutex
+	countersMutex  *sync.Mutex
 	latenciesData  map[string][]int64
-	latenciesMutex *sync.RWMutex
+	latenciesMutex *sync.Mutex
 }
 
 // NewMMMetricsStorage instantiates a new MMMetricsStorage
 func NewMMMetricsStorage() *MMMetricsStorage {
 	return &MMMetricsStorage{
 		counterData:    make(map[string]int64),
-		countersMutex:  &sync.RWMutex{},
+		countersMutex:  &sync.Mutex{},
 		gaugeData:      make(map[string]float64),
-		gaugeMutex:     &sync.RWMutex{},
+		gaugeMutex:     &sync.Mutex{},
 		latenciesData:  make(map[string][]int64),
-		latenciesMutex: &sync.RWMutex{},
+		latenciesMutex: &sync.Mutex{},
 	}
 }
 

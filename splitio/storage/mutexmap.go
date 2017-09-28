@@ -10,9 +10,9 @@ import (
 
 // MMSplitStorage struct contains is an in-memory implementation of split storage
 type MMSplitStorage struct {
-	data         map[string]dtos.SplitDTO
-	mutex        *sync.RWMutex
-	ChangeNumber int64
+	data  map[string]dtos.SplitDTO
+	mutex *sync.RWMutex
+	till  int64
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
@@ -20,6 +20,7 @@ func NewMMSplitStorage() *MMSplitStorage {
 	return &MMSplitStorage{
 		data:  make(map[string]dtos.SplitDTO),
 		mutex: &sync.RWMutex{},
+		till:  0,
 	}
 
 }
@@ -33,12 +34,13 @@ func (m *MMSplitStorage) Get(splitName string) (*dtos.SplitDTO, bool) {
 }
 
 // PutMany bulk inserts splits into the in-memory storage
-func (m *MMSplitStorage) PutMany(splits *[]dtos.SplitDTO) {
+func (m *MMSplitStorage) PutMany(splits *[]dtos.SplitDTO, till int64) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	for _, split := range *splits {
 		m.data[split.Name] = split
 	}
+	m.till = till
 }
 
 // Remove deletes a split from the in-memory storage
@@ -48,13 +50,18 @@ func (m *MMSplitStorage) Remove(splitName string) {
 	delete(m.data, splitName)
 }
 
+// Till returns the last timestamp the split was fetched
+func (m *MMSplitStorage) Till() int64 {
+	return m.till
+}
+
 // ** SEGMENT STORAGE **
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
 type MMSegmentStorage struct {
-	data         map[string]*set.ThreadUnsafeSet
-	mutex        *sync.RWMutex
-	ChangeNumber int64
+	data  map[string]*set.ThreadUnsafeSet
+	mutex *sync.RWMutex
+	till  map[string]int64
 }
 
 // NewMMSegmentStorage instantiates a new MMSegmentStorage
@@ -62,6 +69,7 @@ func NewMMSegmentStorage() *MMSegmentStorage {
 	return &MMSegmentStorage{
 		data:  make(map[string]*set.ThreadUnsafeSet),
 		mutex: &sync.RWMutex{},
+		till:  make(map[string]int64),
 	}
 }
 
@@ -74,20 +82,24 @@ func (m *MMSegmentStorage) Get(segmentName string) (*set.ThreadUnsafeSet, bool) 
 }
 
 // Put adds a new segment to the in-memory storage
-func (m *MMSegmentStorage) Put(name string, segment []string) {
+func (m *MMSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, till int64) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.data[name] = set.NewSet()
-	for _, item := range segment {
-		m.data[name].Add(item)
-	}
+	m.data[name] = segment
+	m.till[name] = till
 }
 
 // Remove deletes a segment from the in-memmory storage
-func (m *MMSegmentStorage) Remove(splitName string) {
+func (m *MMSegmentStorage) Remove(segmentName string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	delete(m.data, splitName)
+	delete(m.data, segmentName)
+	delete(m.till, segmentName)
+}
+
+// Till returns the latest timestamp the segment was fetched
+func (m *MMSegmentStorage) Till(segmentName string) int64 {
+	return m.till[segmentName]
 }
 
 // ** IMPRESSIONS STORAGE **

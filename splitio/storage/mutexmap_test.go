@@ -2,10 +2,25 @@ package storage
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/splitio/set"
 )
+
+func indexOf(caca interface{}, callback func(item interface{}) bool) (int, bool) {
+	switch reflect.TypeOf(caca).Kind() {
+	case reflect.Slice:
+		castedCaca := reflect.ValueOf(caca)
+		for i := 0; i < castedCaca.Len(); i++ {
+			if callback(castedCaca.Index(i).Interface()) {
+				return i, true
+			}
+		}
+	}
+	return 0, false
+}
 
 func TestMMSplitStorage(t *testing.T) {
 	splitStorage := NewMMSplitStorage()
@@ -17,7 +32,7 @@ func TestMMSplitStorage(t *testing.T) {
 		})
 	}
 
-	splitStorage.PutMany(&splits)
+	splitStorage.PutMany(&splits, 123)
 	for index := 0; index < 10; index++ {
 		splitName := fmt.Sprintf("SomeSplit_%d", index)
 		split, found := splitStorage.Get(splitName)
@@ -55,7 +70,11 @@ func TestMMSegmentStorage(t *testing.T) {
 
 	segmentStorage := NewMMSegmentStorage()
 	for index, segment := range segments {
-		segmentStorage.Put(fmt.Sprintf("segmentito_%d", index), segment)
+		setito := set.NewSet()
+		for _, item := range segment {
+			setito.Add(item)
+		}
+		segmentStorage.Put(fmt.Sprintf("segmentito_%d", index), setito, 123)
 	}
 
 	for i := 0; i < 3; i++ {
@@ -127,17 +146,27 @@ func TestImpressionStorage(t *testing.T) {
 		t.Error("Incorrect number of impressions for feature_b")
 	}
 
+	impressionsBak := impressionStorage.data
 	impressions := impressionStorage.PopAll()
 	if len(impressionStorage.data) > 0 {
 		t.Error("Impressions not removed correctly from storage")
 	}
 
-	if impressions[0].TestName != "feature_a" || impressions[1].TestName != "feature_b" {
-		t.Error("TestName not set correctly")
-	}
-
-	if len(impressions[0].KeyImpressions) != 2 || len(impressions[1].KeyImpressions) != 2 {
-		t.Error("Incorrect number of impressions per feature")
+	for key := range impressionsBak {
+		index, found := indexOf(impressions, func(i interface{}) bool {
+			imps, ok := i.(dtos.ImpressionsDTO)
+			if ok && imps.TestName == key {
+				return true
+			}
+			return false
+		})
+		if !found {
+			t.Errorf("%s not should be in storage and isn't", key)
+		} else {
+			if len(impressions[index].KeyImpressions) != len(impressionsBak[key]) {
+				t.Errorf("Incorrect number of impressions for %s", key)
+			}
+		}
 	}
 }
 

@@ -9,12 +9,12 @@ import (
 	"github.com/splitio/go-toolkit/splitio/set"
 )
 
-func indexOf(caca interface{}, callback func(item interface{}) bool) (int, bool) {
-	switch reflect.TypeOf(caca).Kind() {
+func indexOf(array interface{}, callback func(item interface{}) bool) (int, bool) {
+	switch reflect.TypeOf(array).Kind() {
 	case reflect.Slice:
-		castedCaca := reflect.ValueOf(caca)
-		for i := 0; i < castedCaca.Len(); i++ {
-			if callback(castedCaca.Index(i).Interface()) {
+		castedArray := reflect.ValueOf(array)
+		for i := 0; i < castedArray.Len(); i++ {
+			if callback(castedArray.Index(i).Interface()) {
 				return i, true
 			}
 		}
@@ -146,13 +146,14 @@ func TestImpressionStorage(t *testing.T) {
 		t.Error("Incorrect number of impressions for feature_b")
 	}
 
-	impressionsBak := impressionStorage.data
+	impressionsBak := impressionStorage.data // Keep a copy of impressions in storage before calling PopAll()
 	impressions := impressionStorage.PopAll()
 	if len(impressionStorage.data) > 0 {
 		t.Error("Impressions not removed correctly from storage")
 	}
 
 	for key := range impressionsBak {
+		// Find the index of the impression in the struct returned by PopAll()
 		index, found := indexOf(impressions, func(i interface{}) bool {
 			imps, ok := i.(dtos.ImpressionsDTO)
 			if ok && imps.TestName == key {
@@ -182,10 +183,28 @@ func TestMetricsStorage(t *testing.T) {
 		t.Error("Incorrect number of gauges in storage")
 	}
 
+	gaugesBak := metricsStorage.gaugeData
 	gauges := metricsStorage.PopGauges()
 
 	if len(gauges) != 3 {
 		t.Error("Incorrect number of gauges popped")
+	}
+
+	for key := range gaugesBak {
+		index, found := indexOf(gauges, func(i interface{}) bool {
+			orig, ok := i.(dtos.GaugeDTO)
+			if ok && orig.MetricName == key {
+				return true
+			}
+			return false
+		})
+		if !found {
+			t.Errorf("Gauge %s should be present in storage and is not.", key)
+		} else {
+			if gauges[index].Gauge != gaugesBak[key] {
+				t.Errorf("Value for gauge %s is incorrect", key)
+			}
+		}
 	}
 
 	metricsStorage.IncCounter("counter1")
@@ -197,9 +216,27 @@ func TestMetricsStorage(t *testing.T) {
 		t.Error("Incorrect number of counters in storage")
 	}
 
+	countersBak := metricsStorage.counterData
 	counters := metricsStorage.PopCounters()
 	if len(counters) != 2 {
 		t.Error("Incorrect number of counters popped")
+	}
+
+	for key := range countersBak {
+		index, found := indexOf(counters, func(i interface{}) bool {
+			orig, ok := i.(dtos.CounterDTO)
+			if ok && orig.MetricName == key {
+				return true
+			}
+			return false
+		})
+		if !found {
+			t.Errorf("Counter %s should be present in storage and is not.", key)
+		} else {
+			if counters[index].Count != countersBak[key] {
+				t.Errorf("Value for counter %s is incorrect", key)
+			}
+		}
 	}
 
 	metricsStorage.IncLatency("http_io", 1)
@@ -212,8 +249,33 @@ func TestMetricsStorage(t *testing.T) {
 		t.Error("Incorrect number of latencies in storage")
 	}
 
+	latenciesBak := metricsStorage.latenciesData
 	latencies := metricsStorage.PopLatencies()
 	if len(latencies) != 2 {
 		t.Error("Incorrect number of latencies popped")
 	}
+
+	for key := range latenciesBak {
+		index, found := indexOf(latencies, func(i interface{}) bool {
+			orig, ok := i.(dtos.LatenciesDTO)
+			if ok && orig.MetricName == key {
+				return true
+			}
+			return false
+		})
+		if !found {
+			t.Errorf("Counter %s should be present in storage and is not.", key)
+		} else {
+			eq := true
+			for li := range latenciesBak[key] {
+				if latencies[index].Latencies[li] != latenciesBak[key][li] {
+					eq = false
+				}
+			}
+			if !eq {
+				t.Errorf("Value for counter %s is incorrect", key)
+			}
+		}
+	}
+
 }

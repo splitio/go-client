@@ -10,17 +10,19 @@ import (
 
 // MMSplitStorage struct contains is an in-memory implementation of split storage
 type MMSplitStorage struct {
-	data  map[string]dtos.SplitDTO
-	mutex *sync.RWMutex
-	till  int64
+	data      map[string]dtos.SplitDTO
+	mutex     *sync.RWMutex
+	till      int64
+	tillMutex *sync.Mutex
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
 func NewMMSplitStorage() *MMSplitStorage {
 	return &MMSplitStorage{
-		data:  make(map[string]dtos.SplitDTO),
-		mutex: &sync.RWMutex{},
-		till:  0,
+		data:      make(map[string]dtos.SplitDTO),
+		mutex:     &sync.RWMutex{},
+		till:      0,
+		tillMutex: &sync.Mutex{},
 	}
 
 }
@@ -36,7 +38,9 @@ func (m *MMSplitStorage) Get(splitName string) (*dtos.SplitDTO, bool) {
 // PutMany bulk inserts splits into the in-memory storage
 func (m *MMSplitStorage) PutMany(splits *[]dtos.SplitDTO, till int64) {
 	m.mutex.Lock()
+	m.tillMutex.Lock()
 	defer m.mutex.Unlock()
+	defer m.tillMutex.Unlock()
 	for _, split := range *splits {
 		m.data[split.Name] = split
 	}
@@ -52,6 +56,8 @@ func (m *MMSplitStorage) Remove(splitName string) {
 
 // Till returns the last timestamp the split was fetched
 func (m *MMSplitStorage) Till() int64 {
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
 	return m.till
 }
 
@@ -99,6 +105,8 @@ func (m *MMSegmentStorage) Remove(segmentName string) {
 
 // Till returns the latest timestamp the segment was fetched
 func (m *MMSegmentStorage) Till(segmentName string) int64 {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	return m.till[segmentName]
 }
 

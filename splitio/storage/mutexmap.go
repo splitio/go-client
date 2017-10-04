@@ -28,11 +28,14 @@ func NewMMSplitStorage() *MMSplitStorage {
 }
 
 // Get retrieves a split from the MMSplitStorage
-func (m *MMSplitStorage) Get(splitName string) (*dtos.SplitDTO, bool) {
+func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	item, exists := m.data[splitName]
-	return &item, exists
+	if !exists {
+		return nil
+	}
+	return &item
 }
 
 // PutMany bulk inserts splits into the in-memory storage
@@ -80,11 +83,14 @@ func NewMMSegmentStorage() *MMSegmentStorage {
 }
 
 // Get retrieves a segment from the in-memory storage
-func (m *MMSegmentStorage) Get(segmentName string) (*set.ThreadUnsafeSet, bool) {
+func (m *MMSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	item, exists := m.data[segmentName]
-	return item, exists
+	if !exists {
+		return nil
+	}
+	return item
 }
 
 // Put adds a new segment to the in-memory storage

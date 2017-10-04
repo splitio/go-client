@@ -88,3 +88,8 @@ func (s *Split) Algo() int {
 func (s *Split) Conditions() []Condition {
 	return s.conditions
 }
+
+// ChangeNumber returns the change number for this split
+func (s *Split) ChangeNumber() int64 {
+	return s.splitData.ChangeNumber
+}

@@ -17,7 +17,7 @@ func (e *Engine) DoEvaluation(
 	key string,
 	bucketingKey string,
 	attributes map[string]interface{},
-) (string, string, error) {
+) (*string, string) {
 
 	if bucketingKey == "" {
 		bucketingKey = key
@@ -29,7 +29,8 @@ func (e *Engine) DoEvaluation(
 			if split.TrafficAllocation() < 100 {
 				bucket := e.calculateBucket(split.Algo(), bucketingKey, split.TrafficAllocationSeed())
 				if bucket >= split.TrafficAllocation() {
-					return split.DefaultTreatment(), impressionlabels.NotInSplit, nil
+					defaultTreatment := split.DefaultTreatment()
+					return &defaultTreatment, impressionlabels.NotInSplit
 				}
 				inRollOut = true
 			}
@@ -37,10 +38,10 @@ func (e *Engine) DoEvaluation(
 		if condition.Matches(key, attributes) {
 			bucket := e.calculateBucket(split.Algo(), bucketingKey, split.TrafficAllocationSeed())
 			treatment := condition.CalculateTreatment(bucket)
-			return treatment, condition.Label(), nil
+			return treatment, condition.Label()
 		}
 	}
-	return "", impressionlabels.NoConditionMatched, nil
+	return nil, impressionlabels.NoConditionMatched
 }
 
 func (e *Engine) calculateBucket(algo int, bucketingKey string, seed int64) int {

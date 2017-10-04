@@ -2,7 +2,7 @@ package storage
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-toolkit/splitio/set"
+	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
 // SplitStorage Interface should be implemented by all split storage storage forms

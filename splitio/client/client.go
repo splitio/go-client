@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/util/logging"
 )
 
@@ -9,6 +10,7 @@ type SplitClient struct {
 	Apikey       string
 	Logger       logging.LoggerInterface
 	LoggerConfig logging.LoggerOptions
+	Evaluator    *evaluator.Evaluator
 }
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature

@@ -7,6 +7,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-toolkit/injection"
 )
 
 // Result represents the result of an evaluation, including the resulting treatment, the label for the impression,
@@ -45,7 +46,11 @@ func (e *Evaluator) Evaluate(key string, bucketingKey string, feature string, at
 		return &Result{Treatment: "CONTROL", Label: impressionlabels.SplitNotFound}
 	}
 
-	split := grammar.NewSplit(splitDto)
+	ctx := injection.NewContext()
+	ctx.AddDependency("segmentStorage", e.segmentStorage)
+	ctx.AddDependency("evaluator", e)
+
+	split := grammar.NewSplit(splitDto, ctx)
 
 	if split.Killed() {
 		return &Result{

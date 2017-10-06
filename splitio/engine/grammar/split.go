@@ -2,27 +2,32 @@ package grammar
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/injection"
 )
 
 // Split struct with added logic that wraps around a DTO
 type Split struct {
+	*injection.Context
 	splitData  *dtos.SplitDTO
 	conditions []Condition
 }
 
 // NewSplit instantiates a new Split object and all it's internal structures mapped to model classes
-func NewSplit(splitDTO *dtos.SplitDTO) *Split {
+func NewSplit(splitDTO *dtos.SplitDTO, ctx *injection.Context) *Split {
 	conditions := make([]Condition, 0)
 	for _, cond := range splitDTO.Conditions {
 		partitions := make([]Partition, 0)
 		for _, part := range cond.Partitions {
 			partitions = append(partitions, Partition{partitionData: &part})
 		}
-		matchers := make([]Matcher, 0)
+		matchers := make([]MatcherInterface, 0)
 		for _, matcher := range cond.MatcherGroup.Matchers {
-			// TODO: CREATE A FUNCTION TO BUILD APPROPRIATE MATCHERS!
-			matchers = append(matchers, Matcher{matcherData: &matcher})
+			m, err := BuildMatcher(&matcher)
+			if err == nil {
+				matchers = append(matchers, m)
+			}
 		}
+
 		conditions = append(conditions, Condition{
 			combiner:      cond.MatcherGroup.Combiner,
 			conditionData: &cond,
@@ -30,10 +35,17 @@ func NewSplit(splitDTO *dtos.SplitDTO) *Split {
 			partitions:    partitions,
 		})
 	}
-	return &Split{
+
+	split := Split{
 		conditions: conditions,
 		splitData:  splitDTO,
 	}
+
+	if ctx != nil {
+		ctx.Inject(&split)
+	}
+
+	return &split
 }
 
 // Name returns the name of the feature

@@ -7,7 +7,7 @@ import (
 // Condition struct with added logic that wraps around a DTO
 type Condition struct {
 	conditionData *dtos.ConditionDTO
-	matchers      []Matcher
+	matchers      []MatcherInterface
 	combiner      string
 	partitions    []Partition
 }
@@ -15,11 +15,6 @@ type Condition struct {
 // Partition struct with added logic that wraps around a DTO
 type Partition struct {
 	partitionData *dtos.PartitionDTO
-}
-
-// Matcher struct with added logic that wraps around a DTO
-type Matcher struct {
-	matcherData *dtos.MatcherDTO
 }
 
 // ConditionType returns validated condition type. Whitelist by default
@@ -38,7 +33,11 @@ func (c *Condition) Label() string {
 
 // Matches returns true if the condition matches for a specific key and/or set of attributes
 func (c *Condition) Matches(key string, attributes map[string]interface{}) bool {
-	// TODO
+	for _, matcher := range c.matchers {
+		if matcher.Match(key, attributes, nil) {
+			return true
+		}
+	}
 	return false
 }
 

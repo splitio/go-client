@@ -7,42 +7,21 @@ import (
 
 // Split struct with added logic that wraps around a DTO
 type Split struct {
-	*injection.Context
 	splitData  *dtos.SplitDTO
-	conditions []Condition
+	conditions []*Condition
 }
 
 // NewSplit instantiates a new Split object and all it's internal structures mapped to model classes
 func NewSplit(splitDTO *dtos.SplitDTO, ctx *injection.Context) *Split {
-	conditions := make([]Condition, 0)
+	conditions := make([]*Condition, 0)
 	for _, cond := range splitDTO.Conditions {
-		partitions := make([]Partition, 0)
-		for _, part := range cond.Partitions {
-			partitions = append(partitions, Partition{partitionData: &part})
-		}
-		matchers := make([]MatcherInterface, 0)
-		for _, matcher := range cond.MatcherGroup.Matchers {
-			m, err := BuildMatcher(&matcher)
-			if err == nil {
-				matchers = append(matchers, m)
-			}
-		}
-
-		conditions = append(conditions, Condition{
-			combiner:      cond.MatcherGroup.Combiner,
-			conditionData: &cond,
-			matchers:      matchers,
-			partitions:    partitions,
-		})
+		condition := NewCondition(&cond, ctx)
+		conditions = append(conditions, condition)
 	}
 
 	split := Split{
 		conditions: conditions,
 		splitData:  splitDTO,
-	}
-
-	if ctx != nil {
-		ctx.Inject(&split)
 	}
 
 	return &split
@@ -97,7 +76,7 @@ func (s *Split) Algo() int {
 }
 
 // Conditions returns a slice of Condition objects
-func (s *Split) Conditions() []Condition {
+func (s *Split) Conditions() []*Condition {
 	return s.conditions
 }
 

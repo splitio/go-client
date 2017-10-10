@@ -15,7 +15,7 @@ import (
 type Result struct {
 	Treatment         string
 	Label             string
-	Latency           int64
+	EvaluationTimeNs  int64
 	SplitChangeNumber int64
 }
 
@@ -26,7 +26,7 @@ type Evaluator struct {
 	eng            engine.Engine
 }
 
-// NewEvaluator lala
+// NewEvaluator instantiates an Evaluator struct and returns a reference to it
 func NewEvaluator(
 	splitStorage storage.SplitStorage,
 	segmentStorage storage.SegmentStorage,
@@ -60,7 +60,6 @@ func (e *Evaluator) Evaluate(key string, bucketingKey string, feature string, at
 		}
 	}
 
-	// TODO: SEBA METRICAS
 	before := time.Now()
 	treatment, label := e.eng.DoEvaluation(split, key, bucketingKey, attributes)
 	after := time.Now()
@@ -74,7 +73,7 @@ func (e *Evaluator) Evaluate(key string, bucketingKey string, feature string, at
 	return &Result{
 		Treatment:         *treatment,
 		Label:             label,
-		Latency:           after.Sub(before).Nanoseconds() / 1000,
+		EvaluationTimeNs:  after.Sub(before).Nanoseconds(),
 		SplitChangeNumber: split.ChangeNumber(),
 	}
 }

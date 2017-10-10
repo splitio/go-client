@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-toolkit/splitio/set"
+	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
 func indexOf(array interface{}, callback func(item interface{}) bool) (int, bool) {
@@ -35,27 +35,27 @@ func TestMMSplitStorage(t *testing.T) {
 	splitStorage.PutMany(&splits, 123)
 	for index := 0; index < 10; index++ {
 		splitName := fmt.Sprintf("SomeSplit_%d", index)
-		split, found := splitStorage.Get(splitName)
-		if !found || split.Name != splitName || split.Algo != index {
+		split := splitStorage.Get(splitName)
+		if split == nil || split.Name != splitName || split.Algo != index {
 			t.Error("Split not returned as expected")
 		}
 	}
 
-	_, found := splitStorage.Get("nonexistant_split")
-	if found {
+	split := splitStorage.Get("nonexistant_split")
+	if split != nil {
 		t.Error("Nil expected but split returned")
 	}
 
 	splitStorage.Remove("SomeSplit_7")
 	for index := 0; index < 10; index++ {
 		splitName := fmt.Sprintf("SomeSplit_%d", index)
-		split, found := splitStorage.Get(splitName)
+		split := splitStorage.Get(splitName)
 		if index == 7 {
-			if found {
+			if split != nil {
 				t.Error("Split Should have been removed and is present")
 			}
 		} else {
-			if !found || split.Name != splitName || split.Algo != index {
+			if split == nil || split.Name != splitName || split.Algo != index {
 				t.Error("Split should not have been removed or modified and it was")
 			}
 		}
@@ -79,8 +79,8 @@ func TestMMSegmentStorage(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		segmentName := fmt.Sprintf("segmentito_%d", i)
-		segment, exists := segmentStorage.Get(segmentName)
-		if !exists {
+		segment := segmentStorage.Get(segmentName)
+		if segment == nil {
 			t.Errorf("%s should exist in storage and it doesn't.", segmentName)
 		}
 
@@ -91,19 +91,19 @@ func TestMMSegmentStorage(t *testing.T) {
 		}
 	}
 
-	_, found := segmentStorage.Get("nonexistant_segment")
-	if found {
+	segment := segmentStorage.Get("nonexistant_segment")
+	if segment != nil {
 		t.Error("Nil expected but segment returned")
 	}
 
 	segmentStorage.Remove("segmentito_1")
 	for index := 0; index < 3; index++ {
 		segmentName := fmt.Sprintf("segmentito_%d", index)
-		_, found := segmentStorage.Get(segmentName)
-		if index == 1 && found {
+		segment := segmentStorage.Get(segmentName)
+		if index == 1 && segment != nil {
 			t.Error("Segment Should have been removed and is present")
 		}
-		if index != 1 && !found {
+		if index != 1 && segment == nil {
 			t.Error("Segment should not have been removed it has")
 		}
 	}

@@ -46,26 +46,47 @@ const (
 // MatcherInterface should be implemented by all matchers
 type MatcherInterface interface {
 	Match(key string, attributes map[string]interface{}, bucketingKey *string) bool
+	Negate() bool
+	base() *Matcher // This method is used to return the embedded matcher when iterating over interfaces
 }
 
 // Matcher struct with added logic that wraps around a DTO
 type Matcher struct {
 	*injection.Context
+	negate bool
+}
+
+// Negate returns whether this mather is negated or not
+func (m *Matcher) Negate() bool {
+	return m.negate
+}
+
+// matcher returns the matcher instance embbeded in structs
+func (m *Matcher) base() *Matcher {
+	return m
 }
 
 // BuildMatcher constructs the appropriate matcher based on the MatcherType attribute of the dto
-func BuildMatcher(dto *dtos.MatcherDTO) (MatcherInterface, error) {
+func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context) (MatcherInterface, error) {
+	var matcher MatcherInterface
 	switch dto.MatcherType {
 	case MatcherTypeAllKeys:
-		return AllKeysMatcher{}, nil
+		matcher = &AllKeysMatcher{Matcher: Matcher{negate: dto.Negate}}
 	default:
 		return nil, errors.New("Matcher not found")
 	}
+
+	if ctx != nil {
+		ctx.Inject(matcher.base())
+	}
+
+	return matcher, nil
 }
 
 // AllKeysMatcher matches any given key and set of attributes
 type AllKeysMatcher struct {
 	Matcher
+	asd int
 }
 
 // Match implementation for AllKeysMatcher

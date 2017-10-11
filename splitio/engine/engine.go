@@ -1,8 +1,11 @@
 package engine
 
 import (
+	"math"
+
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
+	"github.com/splitio/go-client/splitio/engine/hash"
 	"github.com/splitio/go-client/splitio/util/logging"
 )
 
@@ -45,6 +48,16 @@ func (e *Engine) DoEvaluation(
 }
 
 func (e *Engine) calculateBucket(algo int, bucketingKey string, seed int64) int {
-	// TODO
-	return 0
+	var hashedKey uint32
+	switch algo {
+	case grammar.SplitAlgoMurmur:
+		hashedKey = hash.Murmur3_32([]byte(bucketingKey), uint32(seed))
+	case grammar.SplitAlgoLegacy:
+		fallthrough
+	default:
+		hashedKey = hash.Legacy([]byte(bucketingKey), uint32(seed))
+	}
+
+	return int(math.Abs(float64(hashedKey%100)) + 1)
+
 }

@@ -3,6 +3,9 @@
 package client
 
 import (
+	"github.com/splitio/go-client/splitio/engine"
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/logging"
 )
@@ -40,6 +43,11 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
 	client := &SplitClient{
 		Apikey: cfg.Apikey,
 		Logger: logger,
+		Evaluator: evaluator.NewEvaluator(
+			storage.NewMMSplitStorage(),
+			storage.NewMMSegmentStorage(),
+			engine.Engine{Logger: logger},
+		),
 	}
 
 	return &SplitFactory{

@@ -1,4 +1,4 @@
-package grammar
+package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -23,9 +23,9 @@ func TestMatcherConstruction(t *testing.T) {
 		t.Error("Matcher construction shouldn't fail")
 	}
 
-	if reflect.TypeOf(matcher1).String() != "*grammar.AllKeysMatcher" {
+	if reflect.TypeOf(matcher1).String() != "*matchers.AllKeysMatcher" {
 		t.Errorf(
-			"Incorrect matcher created, expected: \"*grammar.AllKeysMatcher\", received: \"%s\"",
+			"Incorrect matcher created, expected: \"*matchers.AllKeysMatcher\", received: \"%s\"",
 			reflect.TypeOf(matcher1).String(),
 		)
 	}

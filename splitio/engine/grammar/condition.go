@@ -1,6 +1,7 @@
 package grammar
 
 import (
+	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
 
@@ -10,7 +11,7 @@ import (
 // Condition struct with added logic that wraps around a DTO
 type Condition struct {
 	conditionData *dtos.ConditionDTO
-	matchers      []MatcherInterface
+	matchers      []matchers.MatcherInterface
 	combiner      string
 	partitions    []Partition
 }
@@ -22,18 +23,18 @@ func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context) *Condition {
 		fmt.Println("Condition:", part)
 		partitions = append(partitions, Partition{partitionData: part})
 	}
-	matchers := make([]MatcherInterface, 0)
+	matcherObjs := make([]matchers.MatcherInterface, 0)
 	for _, matcher := range cond.MatcherGroup.Matchers {
-		m, err := BuildMatcher(&matcher, ctx)
+		m, err := matchers.BuildMatcher(&matcher, ctx)
 		if err == nil {
-			matchers = append(matchers, m)
+			matcherObjs = append(matcherObjs, m)
 		}
 	}
 
 	return &Condition{
 		combiner:      cond.MatcherGroup.Combiner,
 		conditionData: cond,
-		matchers:      matchers,
+		matchers:      matcherObjs,
 		partitions:    partitions,
 	}
 }

@@ -40,7 +40,7 @@ func NewEvaluator(
 }
 
 // Evaluate returns a struct with the resulting treatment and extra information for the impression
-func (e *Evaluator) Evaluate(key string, bucketingKey string, feature string, attributes map[string]interface{}) *Result {
+func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	splitDto := e.splitStorage.Get(feature)
 	if splitDto == nil {
 		return &Result{Treatment: "CONTROL", Label: impressionlabels.SplitNotFound}
@@ -76,4 +76,11 @@ func (e *Evaluator) Evaluate(key string, bucketingKey string, feature string, at
 		EvaluationTimeNs:  after.Sub(before).Nanoseconds(),
 		SplitChangeNumber: split.ChangeNumber(),
 	}
+}
+
+// EvaluateDependency SHOULD ONLY BE USED by DependencyMatcher.
+// It's used to break the dependency cycle between matchers and evaluators.
+func (e *Evaluator) EvaluateDependency(key string, bucketingKey *string, feature string, attributes map[string]interface{}) string {
+	res := e.Evaluate(key, bucketingKey, feature, attributes)
+	return res.Treatment
 }

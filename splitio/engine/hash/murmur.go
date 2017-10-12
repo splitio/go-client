@@ -15,8 +15,6 @@ package hash
 // https://en.wikipedia.org/wiki/MurmurHash
 // https://github.com/spaolacci/murmur3
 
-import "unsafe"
-
 const (
 	c1 uint32 = 0xcc9e2d51
 	c2 uint32 = 0x1b873593
@@ -32,8 +30,8 @@ func Murmur3_32(data []byte, seed uint32) uint32 {
 	hash := seed
 	nblocks := len(data) / 4
 	for i := 0; i < nblocks; i++ {
-		k := *(*uint32)(unsafe.Pointer(&data[i*4]))
-		//		k := uint32(data[i*4+0])<<0 | uint32(data[i*4+1])<<8 | uint32(data[i*4+2])<<16 | uint32(data[i*4+3])<<24
+		// k := *(*uint32)(unsafe.Pointer(&data[i*4]))
+		k := uint32(data[i*4+0])<<0 | uint32(data[i*4+1])<<8 | uint32(data[i*4+2])<<16 | uint32(data[i*4+3])<<24
 		k *= c1
 		k = (k << r1) | (k >> (32 - r1))
 		k *= c2

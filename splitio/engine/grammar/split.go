@@ -68,11 +68,14 @@ func (s *Split) TrafficAllocationSeed() int64 {
 
 // Algo returns the hashing algorithm configured for this split
 func (s *Split) Algo() int {
-	algo := s.splitData.Algo
-	if algo != SplitAlgoLegacy && algo != SplitAlgoMurmur {
+	switch s.splitData.Algo {
+	case SplitAlgoLegacy:
+		return SplitAlgoLegacy
+	case SplitAlgoMurmur:
+		return SplitAlgoMurmur
+	default:
 		return SplitAlgoLegacy
 	}
-	return algo
 }
 
 // Conditions returns a slice of Condition objects

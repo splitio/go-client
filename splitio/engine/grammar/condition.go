@@ -46,11 +46,14 @@ type Partition struct {
 
 // ConditionType returns validated condition type. Whitelist by default
 func (c *Condition) ConditionType() string {
-	cond := c.conditionData.ConditionType
-	if cond != ConditionTypeWhitelist && cond != ConditionTypeRollout {
+	switch c.conditionData.ConditionType {
+	case ConditionTypeRollout:
+		return ConditionTypeRollout
+	case ConditionTypeWhitelist:
+		return ConditionTypeWhitelist
+	default:
 		return ConditionTypeWhitelist
 	}
-	return cond
 }
 
 // Label returns the condition's label

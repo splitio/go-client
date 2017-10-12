@@ -9,12 +9,13 @@ import (
 	"github.com/splitio/go-client/splitio/util/logging"
 )
 
-// Engine lala
+// Engine struct is responsible for cheking if any of the conditions of the split matches,
+// performing traffic allocation, calculating the bucket and returning the appropriate treatment
 type Engine struct {
 	Logger logging.LoggerInterface
 }
 
-// DoEvaluation lala
+// DoEvaluation performs the main evaluation agains each condition
 func (e *Engine) DoEvaluation(
 	split *grammar.Split,
 	key string,

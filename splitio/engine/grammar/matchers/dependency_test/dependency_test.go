@@ -101,7 +101,7 @@ func TestDependencyMatcher(t *testing.T) {
 		t.Errorf("Incorrect matcher constructed. Should be *matchers.DependencyMatcher and was %s", matcherType)
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"value": "caca"}, nil) {
+	if !matcher.Match("asd", map[string]interface{}{"value": "something"}, nil) {
 		t.Errorf("depends on all keys. should match!")
 	}
 

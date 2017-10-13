@@ -89,107 +89,155 @@ func (m *Matcher) base() *Matcher {
 // BuildMatcher constructs the appropriate matcher based on the MatcherType attribute of the dto
 func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context) (MatcherInterface, error) {
 	var matcher MatcherInterface
+
+	var attributeName *string
+	if dto.KeySelector != nil {
+		attributeName = dto.KeySelector.Attribute
+	}
+
 	switch dto.MatcherType {
 	case MatcherTypeAllKeys:
 		matcher = NewAllKeysMatcher(dto.Negate)
 
 	case MatcherTypeEqualTo:
+		if dto.UnaryNumeric == nil {
+			return nil, errors.New("UnaryNumeric is required for EQUAL_TO matcher type")
+		}
 		matcher = NewEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
 			dto.UnaryNumeric.DataType,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeInSegment:
+		if dto.UserDefinedSegment == nil {
+			return nil, errors.New("UserDefinedSegment is required for IN_SEGMENT matcher type")
+		}
 		matcher = NewInSegmentMatcher(
 			dto.Negate,
 			dto.UserDefinedSegment.SegmentName,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeWhitelist:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for WHITELIST matcher type")
+		}
 		matcher = NewWhitelistMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeGreaterThanOrEqualTo:
+		if dto.UnaryNumeric == nil {
+			return nil, errors.New("UnaryNumeric is required for GREATER_THAN_OR_EQUAL_TO matcher type")
+		}
 		matcher = NewGreaterThanOrEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
 			dto.UnaryNumeric.DataType,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeLessThanOrEqualTo:
+		if dto.UnaryNumeric == nil {
+			return nil, errors.New("UnaryNumeric is required for LESS_THAN_OR_EQUAL_TO matcher type")
+		}
 		matcher = NewLessThanOrEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
 			dto.UnaryNumeric.DataType,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeBetween:
+		if dto.Between == nil {
+			return nil, errors.New("Between is required for BETWEEN matcher type")
+		}
 		matcher = NewBetweenMatcher(
 			dto.Negate,
 			dto.Between.Start,
 			dto.Between.End,
 			dto.Between.DataType,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeEqualToSet:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for EQUAL_TO_SET matcher type")
+		}
 		matcher = NewEqualToSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypePartOfSet:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for PART_OF_SET matcher type")
+		}
 		matcher = NewPartOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeContainsAllOfSet:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for CONTAINS_ALL_OF_SET matcher type")
+		}
 		matcher = NewContainsAllOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeContainsAnyOfSet:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for CONTAINS_ANY_OF_SET matcher type")
+		}
 		matcher = NewContainsAnyOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeStartsWith:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for STARTS_WITH matcher type")
+		}
 		matcher = NewStartsWithMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeEndsWith:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for ENDS_WITH matcher type")
+		}
 		matcher = NewEndsWithMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeContainsString:
+		if dto.Whitelist == nil {
+			return nil, errors.New("Whitelist is required for CONTAINS_STRING matcher type")
+		}
 		matcher = NewContainsStringMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
-			dto.KeySelector.Attribute,
+			attributeName,
 		)
 
 	case MatcherTypeInSplitTreatment:
+		if dto.Dependency == nil {
+			return nil, errors.New("Dependency is required for IN_SPLIT_TREATMENT matcher type")
+		}
 		matcher = NewDependencyMatcher(
 			dto.Negate,
 			dto.Dependency.Split,
@@ -197,10 +245,23 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context) (MatcherInterfac
 		)
 
 	case MatcherTypeEqualToBoolean:
+		if dto.Boolean == nil {
+			return nil, errors.New("Boolean is required for EQUAL_TO_BOOLEAN matcher type")
+		}
 		matcher = NewBooleanMatcher(
 			dto.Negate,
 			dto.Boolean,
-			dto.KeySelector.Attribute,
+			attributeName,
+		)
+
+	case MatcherTypeMatchesString:
+		if dto.String == nil {
+			return nil, errors.New("String is required for MATCHES_STRING matcher type")
+		}
+		matcher = NewRegexMatcher(
+			dto.Negate,
+			*dto.String,
+			attributeName,
 		)
 
 	default:

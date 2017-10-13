@@ -41,7 +41,6 @@ func TestPostImpressions(t *testing.T) {
 		}
 
 		rBody, _ := ioutil.ReadAll(r.Body)
-		//fmt.Println(string(rBody))
 		var impressionsInPost []dtos.ImpressionsDTO
 		err := json.Unmarshal(rBody, &impressionsInPost)
 		if err != nil {

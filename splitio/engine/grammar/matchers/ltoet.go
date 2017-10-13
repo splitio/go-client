@@ -8,7 +8,7 @@ import (
 type LessThanOrEqualToMatcher struct {
 	Matcher
 	ComparisonDataType string
-	ComparisonValue    interface{}
+	ComparisonValue    int64
 }
 
 // Match will match if the comparisonValue is less than or equal to the matchingValue
@@ -19,17 +19,25 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 		return false
 	}
 
-	matchingValue, okMatching := matchingRaw.(int64)
-	comparisonValue, okComparison := m.ComparisonValue.(int64)
-	if !okMatching || !okComparison {
+	matchingValue, ok := matchingRaw.(int64)
+	if !ok {
+		var asInt int
+		asInt, ok = matchingRaw.(int)
+		if ok {
+			matchingValue = int64(asInt)
+		}
+	}
+	if !ok {
 		return false
 	}
 
+	var comparisonValue int64
 	switch m.ComparisonDataType {
 	case datatypes.Number:
+		comparisonValue = m.ComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonValue = datatypes.ZeroTimeTS(comparisonValue)
+		comparisonValue = datatypes.ZeroTimeTS(m.ComparisonValue)
 	default:
 		return false
 	}

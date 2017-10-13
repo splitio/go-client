@@ -1,7 +1,6 @@
 package matchers
 
 import (
-	"fmt"
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers/datatypes"
 )
 
@@ -19,10 +18,8 @@ func (m *GreaterThanOrEqualToMatcher) Match(key string, attributes map[string]in
 		return false
 	}
 
-	var matchingValue int64
 	matchingValue, ok := matchingRaw.(int64)
 	if !ok {
-		fmt.Println("AAAA")
 		var asInt int
 		asInt, ok = matchingRaw.(int)
 		if ok {
@@ -39,11 +36,10 @@ func (m *GreaterThanOrEqualToMatcher) Match(key string, attributes map[string]in
 		comparisonValue = m.ComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonValue = datatypes.ZeroTimeTS(comparisonValue)
+		comparisonValue = datatypes.ZeroTimeTS(m.ComparisonValue)
 	default:
 		return false
 	}
-	fmt.Println(matchingValue, comparisonValue)
 	return matchingValue >= comparisonValue
 }
 

@@ -4,8 +4,6 @@ import (
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
-
-	"fmt"
 )
 
 // Condition struct with added logic that wraps around a DTO
@@ -20,7 +18,6 @@ type Condition struct {
 func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context) *Condition {
 	partitions := make([]Partition, 0)
 	for _, part := range cond.Partitions {
-		fmt.Println("Condition:", part)
 		partitions = append(partitions, Partition{partitionData: part})
 	}
 	matcherObjs := make([]matchers.MatcherInterface, 0)
@@ -76,9 +73,7 @@ func (c *Condition) Matches(key string, attributes map[string]interface{}) bool 
 // CalculateTreatment calulates the treatment for a specific condition based on the bucket
 func (c *Condition) CalculateTreatment(bucket int) *string {
 	accum := 0
-	fmt.Println(c.partitions)
 	for _, partition := range c.partitions {
-
 		accum += partition.partitionData.Size
 		if bucket <= accum {
 			return &partition.partitionData.Treatment

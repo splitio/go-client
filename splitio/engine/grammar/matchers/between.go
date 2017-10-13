@@ -8,8 +8,8 @@ import (
 type BetweenMatcher struct {
 	Matcher
 	ComparisonDataType   string
-	LowerComparisonValue interface{}
-	UpperComparisonValue interface{}
+	LowerComparisonValue int64
+	UpperComparisonValue int64
 }
 
 // Match will match if the matchingValue is between lowerComparisonValue and upperComparisonValue
@@ -20,19 +20,29 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		return false
 	}
 
+	var matchingValue int64
 	matchingValue, okMatching := matchingRaw.(int64)
-	comparisonLower, okComparisonLower := m.LowerComparisonValue.(int64)
-	comparisonUpper, okComparisonUpper := m.UpperComparisonValue.(int64)
-	if !okMatching || !okComparisonLower || !okComparisonUpper {
+	if !okMatching {
+		var asInt int
+		asInt, okMatching = matchingRaw.(int)
+		if okMatching {
+			matchingValue = int64(asInt)
+		}
+	}
+	if !okMatching {
 		return false
 	}
 
+	var comparisonLower int64
+	var comparisonUpper int64
 	switch m.ComparisonDataType {
 	case datatypes.Number:
+		comparisonLower = m.LowerComparisonValue
+		comparisonUpper = m.UpperComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonLower = datatypes.ZeroTimeTS(comparisonLower)
-		comparisonUpper = datatypes.ZeroTimeTS(comparisonUpper)
+		comparisonLower = datatypes.ZeroTimeTS(m.LowerComparisonValue)
+		comparisonUpper = datatypes.ZeroTimeTS(m.UpperComparisonValue)
 	default:
 		return false
 	}

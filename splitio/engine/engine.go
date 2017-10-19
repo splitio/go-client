@@ -19,19 +19,19 @@ type Engine struct {
 func (e *Engine) DoEvaluation(
 	split *grammar.Split,
 	key string,
-	bucketingKey string,
+	bucketingKey *string,
 	attributes map[string]interface{},
 ) (*string, string) {
 
-	if bucketingKey == "" {
-		bucketingKey = key
+	if bucketingKey == nil {
+		bucketingKey = &key
 	}
 
 	inRollOut := false
 	for _, condition := range split.Conditions() {
 		if !inRollOut && condition.ConditionType() == grammar.ConditionTypeRollout {
 			if split.TrafficAllocation() < 100 {
-				bucket := e.calculateBucket(split.Algo(), bucketingKey, split.TrafficAllocationSeed())
+				bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
 				if bucket >= split.TrafficAllocation() {
 					defaultTreatment := split.DefaultTreatment()
 					return &defaultTreatment, impressionlabels.NotInSplit
@@ -40,7 +40,7 @@ func (e *Engine) DoEvaluation(
 			}
 		}
 		if condition.Matches(key, attributes) {
-			bucket := e.calculateBucket(split.Algo(), bucketingKey, split.TrafficAllocationSeed())
+			bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
 			treatment := condition.CalculateTreatment(bucket)
 			return treatment, condition.Label()
 		}

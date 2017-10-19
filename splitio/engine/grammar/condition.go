@@ -1,16 +1,15 @@
 package grammar
 
 import (
+	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
-
-	"fmt"
 )
 
 // Condition struct with added logic that wraps around a DTO
 type Condition struct {
 	conditionData *dtos.ConditionDTO
-	matchers      []MatcherInterface
+	matchers      []matchers.MatcherInterface
 	combiner      string
 	partitions    []Partition
 }
@@ -19,21 +18,20 @@ type Condition struct {
 func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context) *Condition {
 	partitions := make([]Partition, 0)
 	for _, part := range cond.Partitions {
-		fmt.Println("Condition:", part)
 		partitions = append(partitions, Partition{partitionData: part})
 	}
-	matchers := make([]MatcherInterface, 0)
+	matcherObjs := make([]matchers.MatcherInterface, 0)
 	for _, matcher := range cond.MatcherGroup.Matchers {
-		m, err := BuildMatcher(&matcher, ctx)
+		m, err := matchers.BuildMatcher(&matcher, ctx)
 		if err == nil {
-			matchers = append(matchers, m)
+			matcherObjs = append(matcherObjs, m)
 		}
 	}
 
 	return &Condition{
 		combiner:      cond.MatcherGroup.Combiner,
 		conditionData: cond,
-		matchers:      matchers,
+		matchers:      matcherObjs,
 		partitions:    partitions,
 	}
 }
@@ -75,9 +73,7 @@ func (c *Condition) Matches(key string, attributes map[string]interface{}) bool 
 // CalculateTreatment calulates the treatment for a specific condition based on the bucket
 func (c *Condition) CalculateTreatment(bucket int) *string {
 	accum := 0
-	fmt.Println(c.partitions)
 	for _, partition := range c.partitions {
-
 		accum += partition.partitionData.Size
 		if bucket <= accum {
 			return &partition.partitionData.Treatment

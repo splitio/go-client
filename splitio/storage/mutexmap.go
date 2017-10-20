@@ -3,6 +3,7 @@ package storage
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/deepcopy"
 	"sync"
 )
 
@@ -28,6 +29,8 @@ func NewMMSplitStorage() *MMSplitStorage {
 }
 
 // Get retrieves a split from the MMSplitStorage
+// NOTE: A pointer TO A COPY is returned, in order to avoid race conditions between
+// evaluations and sdk <-> backend sync
 func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
@@ -35,7 +38,8 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 	if !exists {
 		return nil
 	}
-	return &item
+	c := deepcopy.Copy(item).(dtos.SplitDTO)
+	return &c
 }
 
 // PutMany bulk inserts splits into the in-memory storage
@@ -64,6 +68,24 @@ func (m *MMSplitStorage) Till() int64 {
 	return m.till
 }
 
+// SegmentNames returns a slice with the names of all segments referenced in splits
+func (m *MMSplitStorage) SegmentNames() []string {
+	segments := make([]string, 0)
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	for _, split := range m.data {
+		for _, condition := range split.Conditions {
+			for _, matcher := range condition.MatcherGroup.Matchers {
+				if matcher.UserDefinedSegment != nil {
+					segments = append(segments, matcher.UserDefinedSegment.SegmentName)
+				}
+
+			}
+		}
+	}
+	return segments
+}
+
 // ** SEGMENT STORAGE **
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
@@ -83,6 +105,8 @@ func NewMMSegmentStorage() *MMSegmentStorage {
 }
 
 // Get retrieves a segment from the in-memory storage
+// NOTE: A pointer TO A COPY is returned, in order to avoid race conditions between
+// evaluations and sdk <-> backend sync
 func (m *MMSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
@@ -90,7 +114,8 @@ func (m *MMSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	if !exists {
 		return nil
 	}
-	return item
+	s := item.Copy().(*set.ThreadUnsafeSet)
+	return s
 }
 
 // Put adds a new segment to the in-memory storage

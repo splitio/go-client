@@ -1,0 +1,119 @@
+package tasks
+
+import (
+	"errors"
+	"github.com/splitio/go-client/splitio/service"
+	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/util/logging"
+)
+
+func submitCounters(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	counters := metricsStorage.PopCounters()
+	if len(counters) > 0 {
+		err := metricsRecorder.RecordCounters(counters, sdkVersion, machineIP, machineName)
+		return err
+	}
+	return nil
+}
+
+func submitGauges(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	var errs []error
+	for _, gauge := range metricsStorage.PopGauges() {
+		err := metricsRecorder.RecordGauge(gauge, sdkVersion, machineIP, machineName)
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.New("Some gauges could not be posted")
+	}
+	return nil
+}
+
+func submitLatencies(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	latencies := metricsStorage.PopLatencies()
+	if len(latencies) > 0 {
+		err := metricsRecorder.RecordLatencies(latencies, sdkVersion, machineIP, machineName)
+		return err
+	}
+	return nil
+}
+
+// NewRecordCountersTask creates a new splits fetching and storing task
+func NewRecordCountersTask(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	period int64,
+	sdkVersion,
+	machineIP string,
+	machineName string,
+) *AsyncTask {
+	record := func(logger logging.LoggerInterface) error {
+		return submitCounters(
+			metricsStorage,
+			metricsRecorder,
+			sdkVersion,
+			machineIP,
+			machineName,
+		)
+	}
+	return NewAsyncTask("SubmitCounters", record, period, nil)
+}
+
+// NewRecordGaugesTask creates a new splits fetching and storing task
+func NewRecordGaugesTask(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	period int64,
+	sdkVersion,
+	machineIP string,
+	machineName string,
+) *AsyncTask {
+	record := func(logger logging.LoggerInterface) error {
+		return submitGauges(
+			metricsStorage,
+			metricsRecorder,
+			sdkVersion,
+			machineIP,
+			machineName,
+		)
+	}
+	return NewAsyncTask("SubmitGauges", record, period, nil)
+}
+
+// NewRecordLatenciesTask creates a new splits fetching and storing task
+func NewRecordLatenciesTask(
+	metricsStorage storage.MetricsStorage,
+	metricsRecorder service.MetricsRecorder,
+	period int64,
+	sdkVersion,
+	machineIP string,
+	machineName string,
+) *AsyncTask {
+	record := func(logger logging.LoggerInterface) error {
+		return submitLatencies(
+			metricsStorage,
+			metricsRecorder,
+			sdkVersion,
+			machineIP,
+			machineName,
+		)
+	}
+	return NewAsyncTask("SubmitLatencies", record, period, nil)
+}

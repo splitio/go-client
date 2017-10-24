@@ -64,9 +64,9 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
 	latenciesSyncTask := tasks.NewRecordLatenciesTask(metricsStorage, metricsRecorder, 30, "go-0.1", "1.2.3.4", "m1", logger)
 
 	client := &SplitClient{
-		Apikey:    cfg.Apikey,
-		Logger:    logger,
-		Evaluator: evaluator.NewEvaluator(splitStorage, segmentStorage, engine.Engine{Logger: logger}),
+		apikey:    cfg.Apikey,
+		logger:    logger,
+		evaluator: evaluator.NewEvaluator(splitStorage, segmentStorage, engine.Engine{Logger: logger}),
 		sync: sdkSync{
 			splitSync:      splitSyncTask,
 			segmentSync:    segmentSyncTask,

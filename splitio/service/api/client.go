@@ -13,13 +13,8 @@ import (
 	"github.com/splitio/go-client/splitio/util/logging"
 )
 
-const sdkName = "sdk"
-const eventsName = "events"
 const prodSdkURL = "https://sdk.split.io/api"
 const prodEventsURL = "https://events.split.io/api"
-
-const envSdkURLNamespace = "SPLITIO_SDK_URL"
-const envEventsURLNamespace = "SPLITIO_EVENTS_URL"
 
 func getUrls(cfg *configuration.AdvancedConfig) (sdkURL string, eventsURL string) {
 	if cfg != nil && cfg.SdkURL != "" {

@@ -8,10 +8,10 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	Apikey       string
-	Logger       logging.LoggerInterface
-	LoggerConfig logging.LoggerOptions
-	Evaluator    *evaluator.Evaluator
+	apikey       string
+	logger       logging.LoggerInterface
+	loggerConfig logging.LoggerOptions
+	evaluator    *evaluator.Evaluator
 	sync         sdkSync
 }
 

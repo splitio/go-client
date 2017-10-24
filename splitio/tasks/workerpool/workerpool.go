@@ -30,6 +30,10 @@ type Worker interface {
 }
 
 func (a *WorkerAdmin) workerWrapper(w Worker) {
+	a.enabledMutex.Lock()
+	a.enabled[w.Name()] = true
+	a.enabledMutex.Unlock()
+
 	defer func() {
 		if r := recover(); r != nil {
 			a.logger.Error(fmt.Sprintf(
@@ -71,9 +75,6 @@ func (a *WorkerAdmin) AddWorker(w Worker) {
 		return
 	}
 	go a.workerWrapper(w)
-	a.enabledMutex.Lock()
-	a.enabled[w.Name()] = true
-	a.enabledMutex.Unlock()
 }
 
 // QueueMessage adds a new message that will be popped by a worker and processed

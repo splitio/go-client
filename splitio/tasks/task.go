@@ -3,6 +3,7 @@ package tasks
 import (
 	"fmt"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type AsyncTask struct {
 	task       func(l logging.LoggerInterface) error
 	name       string
 	running    bool
-	stopSignal bool
+	stopSignal atomic.Value
 	period     int64
 	onStop     func(l logging.LoggerInterface)
 	logger     logging.LoggerInterface
@@ -21,7 +22,7 @@ type AsyncTask struct {
 // Start initiates the task. It wraps the execution in a closure guarded by a call to recover() in order
 // to prevent the main application from crashin if something goes wrong while the sdk interacts with the backend.
 func (t *AsyncTask) Start() {
-	t.stopSignal = false
+	t.stopSignal.Store(false)
 
 	if t.running {
 		if t.logger != nil {
@@ -44,7 +45,11 @@ func (t *AsyncTask) Start() {
 				time.Sleep(time.Duration(t.period) * time.Second)
 			}
 		}()
-		for !t.stopSignal {
+		// Load and type assert the contents of the atomic variable `stopSignal`.
+		// Keep the task running as long as the stopSignal is not true or until
+		// something other than a boolean is stored in the atomic variable.
+		stop, ok := t.stopSignal.Load().(bool)
+		for ; ok && !stop; stop, ok = t.stopSignal.Load().(bool) {
 			err := t.task(t.logger)
 			if err != nil && t.logger != nil {
 				t.logger.Error(err.Error())
@@ -60,7 +65,7 @@ func (t *AsyncTask) Start() {
 
 // Stop prevents future executions of the task
 func (t *AsyncTask) Stop() {
-	t.stopSignal = true
+	t.stopSignal.Store(true)
 }
 
 // IsRunning returns true if the task is currently running
@@ -77,14 +82,14 @@ func NewAsyncTask(
 	logger logging.LoggerInterface,
 ) *AsyncTask {
 	t := AsyncTask{
-		name:       name,
-		task:       task,
-		running:    false,
-		stopSignal: false,
-		period:     period,
-		onStop:     onStop,
-		logger:     logger,
+		name:    name,
+		task:    task,
+		running: false,
+		period:  period,
+		onStop:  onStop,
+		logger:  logger,
 	}
+	t.stopSignal.Store(false)
 
 	return &t
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/splitio/go-client/splitio/service"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/asynctask"
 )
 
 func submitCounters(
@@ -66,7 +67,7 @@ func NewRecordCountersTask(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
-) *AsyncTask {
+) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitCounters(
 			metricsStorage,
@@ -76,7 +77,7 @@ func NewRecordCountersTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitCounters", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, logger)
 }
 
 // NewRecordGaugesTask creates a new splits fetching and storing task
@@ -88,7 +89,7 @@ func NewRecordGaugesTask(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
-) *AsyncTask {
+) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitGauges(
 			metricsStorage,
@@ -98,7 +99,7 @@ func NewRecordGaugesTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitGauges", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, logger)
 }
 
 // NewRecordLatenciesTask creates a new splits fetching and storing task
@@ -110,7 +111,7 @@ func NewRecordLatenciesTask(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
-) *AsyncTask {
+) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitLatencies(
 			metricsStorage,
@@ -120,5 +121,5 @@ func NewRecordLatenciesTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitLatencies", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, logger)
 }

@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/asynctask"
 )
 
 // SplitClient is the entry-point of the split SDK.
@@ -16,12 +16,12 @@ type SplitClient struct {
 }
 
 type sdkSync struct {
-	splitSync      *tasks.AsyncTask
-	segmentSync    *tasks.AsyncTask
-	impressionSync *tasks.AsyncTask
-	gaugeSync      *tasks.AsyncTask
-	countersSync   *tasks.AsyncTask
-	latenciesSync  *tasks.AsyncTask
+	splitSync      *asynctask.AsyncTask
+	segmentSync    *asynctask.AsyncTask
+	impressionSync *asynctask.AsyncTask
+	gaugeSync      *asynctask.AsyncTask
+	countersSync   *asynctask.AsyncTask
+	latenciesSync  *asynctask.AsyncTask
 }
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature

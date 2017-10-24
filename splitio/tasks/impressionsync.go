@@ -4,6 +4,7 @@ import (
 	"github.com/splitio/go-client/splitio/service"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/asynctask"
 )
 
 func submitImpressions(
@@ -30,7 +31,7 @@ func NewRecordImpressionsTask(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
-) *AsyncTask {
+) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitImpressions(
 			impressionStorage,
@@ -40,5 +41,5 @@ func NewRecordImpressionsTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitImpressions", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, logger)
 }

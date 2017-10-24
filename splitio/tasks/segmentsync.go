@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"github.com/splitio/go-client/splitio/service"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/tasks/workerpool"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/workerpool"
 )
 
 // SegmentWorker struct contains resources and functions for fetching segments and storing them
@@ -95,7 +96,7 @@ func NewFetchSegmentsTask(
 	workerCount int,
 	queueSize int,
 	logger logging.LoggerInterface,
-) *AsyncTask {
+) *asynctask.AsyncTask {
 	admin := workerpool.NewWorkerAdmin(queueSize, logger)
 	for i := 0; i < workerCount; i++ {
 		admin.AddWorker(&SegmentWorker{
@@ -114,5 +115,5 @@ func NewFetchSegmentsTask(
 		admin.StopAll()
 	}
 
-	return NewAsyncTask("UpdateSegments", update, period, cleanup, logger)
+	return asynctask.NewAsyncTask("UpdateSegments", update, period, cleanup, logger)
 }

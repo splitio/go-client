@@ -32,7 +32,9 @@ func submitGauges(
 	var errs []error
 	for _, gauge := range metricsStorage.PopGauges() {
 		err := metricsRecorder.RecordGauge(gauge, sdkVersion, machineIP, machineName)
-		errs = append(errs, err)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if len(errs) > 0 {
 		return errors.New("Some gauges could not be posted")
@@ -63,6 +65,7 @@ func NewRecordCountersTask(
 	sdkVersion,
 	machineIP string,
 	machineName string,
+	logger logging.LoggerInterface,
 ) *AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitCounters(
@@ -73,7 +76,7 @@ func NewRecordCountersTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitCounters", record, period, nil)
+	return NewAsyncTask("SubmitCounters", record, period, nil, logger)
 }
 
 // NewRecordGaugesTask creates a new splits fetching and storing task
@@ -84,6 +87,7 @@ func NewRecordGaugesTask(
 	sdkVersion,
 	machineIP string,
 	machineName string,
+	logger logging.LoggerInterface,
 ) *AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitGauges(
@@ -94,7 +98,7 @@ func NewRecordGaugesTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitGauges", record, period, nil)
+	return NewAsyncTask("SubmitGauges", record, period, nil, logger)
 }
 
 // NewRecordLatenciesTask creates a new splits fetching and storing task
@@ -105,6 +109,7 @@ func NewRecordLatenciesTask(
 	sdkVersion,
 	machineIP string,
 	machineName string,
+	logger logging.LoggerInterface,
 ) *AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitLatencies(
@@ -115,5 +120,5 @@ func NewRecordLatenciesTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitLatencies", record, period, nil)
+	return NewAsyncTask("SubmitLatencies", record, period, nil, logger)
 }

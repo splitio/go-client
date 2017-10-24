@@ -3,14 +3,16 @@ package workerpool
 import (
 	"fmt"
 	"github.com/splitio/go-client/splitio/util/logging"
+	"sync"
 	"time"
 )
 
 // WorkerAdmin struct handles multiple worker execution, popping jobs from a single queue
 type WorkerAdmin struct {
-	enabled map[string]bool
-	queue   chan interface{}
-	logger  logging.LoggerInterface
+	enabled      map[string]bool
+	queue        chan interface{}
+	logger       logging.LoggerInterface
+	enabledMutex sync.RWMutex
 }
 
 // Worker interface should be implemented by concrete workers that will perform the actual job
@@ -35,15 +37,29 @@ func (a *WorkerAdmin) workerWrapper(w Worker) {
 				w.Name(),
 				r,
 			))
+			a.enabledMutex.Lock()
 			a.enabled[w.Name()] = false
+			a.enabledMutex.Unlock()
 		}
 	}()
 	defer w.Cleanup()
 	for a.shouldBeWorking(w.Name()) {
-		msg := <-a.queue
-		if err := w.DoWork(msg); err != nil {
-			w.OnError(err)
-			time.Sleep(time.Duration(w.FailureTime()) * time.Millisecond)
+		select {
+		case msg := <-a.queue:
+			if !a.shouldBeWorking(w.Name()) {
+				// If by the time the worker wakes up it's execution has been cancelled,
+				// Put the message back in the queue and return
+				a.queue <- msg
+				return
+			}
+			if err := w.DoWork(msg); err != nil {
+				w.OnError(err)
+				time.Sleep(time.Duration(w.FailureTime()) * time.Millisecond)
+			}
+		case <-time.After(time.Millisecond * 500):
+			if !a.shouldBeWorking(w.Name()) {
+				return
+			}
 		}
 	}
 }
@@ -55,33 +71,51 @@ func (a *WorkerAdmin) AddWorker(w Worker) {
 		return
 	}
 	go a.workerWrapper(w)
+	a.enabledMutex.Lock()
 	a.enabled[w.Name()] = true
+	a.enabledMutex.Unlock()
 }
 
 // QueueMessage adds a new message that will be popped by a worker and processed
-func (a *WorkerAdmin) QueueMessage(m interface{}) {
+func (a *WorkerAdmin) QueueMessage(m interface{}) bool {
 	if m == nil {
 		a.logger.Warning("Nil message not added to queue")
-		return
+		return false
 	}
-	a.queue <- m
+	select {
+	case a.queue <- m:
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *WorkerAdmin) shouldBeWorking(name string) bool {
+	a.enabledMutex.RLock()
 	status, found := a.enabled[name]
+	a.enabledMutex.RUnlock()
 	return found && status
 }
 
-// RemoveWorker ends the worker's event loop, preventing it from picking further jobs
-func (a *WorkerAdmin) RemoveWorker(name string) {
+// StopWorker ends the worker's event loop, preventing it from picking further jobs
+func (a *WorkerAdmin) StopWorker(name string) {
+	a.enabledMutex.Lock()
 	a.enabled[name] = false
+	a.enabledMutex.Unlock()
 }
 
 // StopAll ends all worker's event loops
 func (a *WorkerAdmin) StopAll() {
+	a.enabledMutex.Lock()
 	for workerName := range a.enabled {
 		a.enabled[workerName] = false
 	}
+	a.enabledMutex.Unlock()
+}
+
+// QueueSize returns the current queue size
+func (a *WorkerAdmin) QueueSize() int {
+	return len(a.queue)
 }
 
 // NewWorkerAdmin instantiates a new WorkerAdmin and returns a pointer to it.

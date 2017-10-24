@@ -68,9 +68,20 @@ func (w *SegmentWorker) OnError(e error) {}
 // Cleanup callback does nothing
 func (w *SegmentWorker) Cleanup() error { return nil }
 
-func updateSegments(splitStorage storage.SplitStorage, admin *workerpool.WorkerAdmin) error {
-	for _, name := range splitStorage.SegmentNames() {
-		admin.QueueMessage(name)
+func updateSegments(splitStorage storage.SplitStorage, admin *workerpool.WorkerAdmin, logger logging.LoggerInterface) error {
+	segmentNames := splitStorage.SegmentNames()
+	for _, name := range segmentNames {
+		ok := admin.QueueMessage(name)
+		if !ok {
+			logger.Error(fmt.Sprintf("Segment %s could not be added because the job queue is full", name))
+			logger.Error(fmt.Sprintf(
+				"You currently have %d segments and the queue size is %d.",
+				len(segmentNames),
+				admin.QueueSize(),
+			))
+			logger.Error(fmt.Sprintf("Please consider updating the segment queue size accordingly in the configuration options"))
+
+		}
 	}
 	return nil
 }
@@ -82,9 +93,10 @@ func NewFetchSegmentsTask(
 	segmentFetcher service.SegmentFetcher,
 	period int64,
 	workerCount int,
+	queueSize int,
 	logger logging.LoggerInterface,
 ) *AsyncTask {
-	admin := workerpool.NewWorkerAdmin(10, logger)
+	admin := workerpool.NewWorkerAdmin(queueSize, logger)
 	for i := 0; i < workerCount; i++ {
 		admin.AddWorker(&SegmentWorker{
 			name:           fmt.Sprintf("SegmentWorker_%d", i),
@@ -95,12 +107,12 @@ func NewFetchSegmentsTask(
 	}
 
 	update := func(logger logging.LoggerInterface) error {
-		return updateSegments(splitStorage, admin)
+		return updateSegments(splitStorage, admin, logger)
 	}
 
 	cleanup := func(logger logging.LoggerInterface) {
 		admin.StopAll()
 	}
 
-	return NewAsyncTask("UpdateSegments", update, period, cleanup)
+	return NewAsyncTask("UpdateSegments", update, period, cleanup, logger)
 }

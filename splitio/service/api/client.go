@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/splitio/go-client/splitio/util/configuration"
@@ -22,21 +21,18 @@ const prodEventsURL = "https://events.split.io/api"
 const envSdkURLNamespace = "SPLITIO_SDK_URL"
 const envEventsURLNamespace = "SPLITIO_EVENTS_URL"
 
-func getUrls() (sdkURL string, eventsURL string) {
-	envSdkURL := os.Getenv(envSdkURLNamespace)
-	if envSdkURL != "" {
-		sdkURL = envSdkURL
+func getUrls(cfg *configuration.AdvancedConfig) (sdkURL string, eventsURL string) {
+	if cfg != nil && cfg.SdkURL != "" {
+		sdkURL = cfg.SdkURL
 	} else {
 		sdkURL = prodSdkURL
 	}
 
-	envEventsURL := os.Getenv(envEventsURLNamespace)
-	if envEventsURL != "" {
-		eventsURL = envEventsURL
+	if cfg != nil && cfg.EventsURL != "" {
+		eventsURL = cfg.EventsURL
 	} else {
 		eventsURL = prodEventsURL
 	}
-
 	return sdkURL, eventsURL
 }
 

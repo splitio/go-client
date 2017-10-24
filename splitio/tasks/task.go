@@ -29,6 +29,7 @@ func (t *AsyncTask) Start() {
 		}
 		return
 	}
+	t.running = true
 
 	go func() {
 		defer func() {
@@ -43,7 +44,6 @@ func (t *AsyncTask) Start() {
 				time.Sleep(time.Duration(t.period) * time.Second)
 			}
 		}()
-		t.running = true
 		for !t.stopSignal {
 			err := t.task(t.logger)
 			if err != nil && t.logger != nil {
@@ -74,6 +74,7 @@ func NewAsyncTask(
 	task func(l logging.LoggerInterface) error,
 	period int64,
 	onStop func(l logging.LoggerInterface),
+	logger logging.LoggerInterface,
 ) *AsyncTask {
 	t := AsyncTask{
 		name:       name,
@@ -82,6 +83,7 @@ func NewAsyncTask(
 		stopSignal: false,
 		period:     period,
 		onStop:     onStop,
+		logger:     logger,
 	}
 
 	return &t

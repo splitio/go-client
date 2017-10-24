@@ -29,6 +29,7 @@ func NewRecordImpressionsTask(
 	sdkVersion,
 	machineIP string,
 	machineName string,
+	logger logging.LoggerInterface,
 ) *AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitImpressions(
@@ -39,5 +40,5 @@ func NewRecordImpressionsTask(
 			machineName,
 		)
 	}
-	return NewAsyncTask("SubmitImpressions", record, period, nil)
+	return NewAsyncTask("SubmitImpressions", record, period, nil, logger)
 }

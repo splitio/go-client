@@ -17,15 +17,20 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 		return err
 	}
 
-	splitStorage.PutMany(&splits.Splits, splits.Till)
+	splitStorage.PutMany(splits.Splits, splits.Till)
 	return nil
 }
 
 // NewFetchSplitsTask creates a new splits fetching and storing task
-func NewFetchSplitsTask(splitStorage storage.SplitStorage, splitFetcher service.SplitFetcher, period int64) *AsyncTask {
+func NewFetchSplitsTask(
+	splitStorage storage.SplitStorage,
+	splitFetcher service.SplitFetcher,
+	period int64,
+	logger logging.LoggerInterface,
+) *AsyncTask {
 	update := func(logger logging.LoggerInterface) error {
 		return updateSplits(splitStorage, splitFetcher)
 	}
 
-	return NewAsyncTask("UpdateSplits", update, period, nil)
+	return NewAsyncTask("UpdateSplits", update, period, nil, logger)
 }

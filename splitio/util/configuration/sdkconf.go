@@ -16,4 +16,13 @@ type SplitSdkConfig struct {
 	Logger       logging.LoggerInterface
 	LoggerConfig *logging.LoggerOptions
 	HTTPTimeout  int
+	Advanced     *AdvancedConfig
+}
+
+// AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
+type AdvancedConfig struct {
+	SdkURL           string
+	EventsURL        string
+	segmentQueueSize int
+	segmentWorkers   int
 }

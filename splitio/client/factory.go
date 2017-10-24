@@ -5,7 +5,9 @@ package client
 import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/logging"
 )
@@ -40,14 +42,39 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) *SplitFactory {
 
 	logger := setupLogger(cfg)
 
+	// Setup fetchers
+	splitFetcher := api.NewHTTPSplitFetcher(cfg, logger)
+	segmentFetcher := api.NewHTTPSegmentFetcher(cfg, logger)
+	impressionRecorder := api.NewHTTPImpressionRecorder(cfg, logger)
+	metricsRecorder := api.NewHTTPMetricsRecorder(cfg, logger)
+
+	// Setup Storage
+	splitStorage := storage.NewMMSplitStorage()
+	segmentStorage := storage.NewMMSegmentStorage()
+	impressionStorage := storage.NewMMImpressionStorage()
+	metricsStorage := storage.NewMMMetricsStorage()
+
+	// Setup tasks
+	// TODO: PARAMETRIZE!
+	splitSyncTask := tasks.NewFetchSplitsTask(splitStorage, splitFetcher, 30, logger)
+	segmentSyncTask := tasks.NewFetchSegmentsTask(splitStorage, segmentStorage, segmentFetcher, 30, 10, 1000, logger)
+	impressionSyncTask := tasks.NewRecordImpressionsTask(impressionStorage, impressionRecorder, 30, "go-0.1", "1.2.3.4", "m1", logger)
+	countersSyncTask := tasks.NewRecordCountersTask(metricsStorage, metricsRecorder, 30, "go-0.1", "1.2.3.4", "m1", logger)
+	gaugeSyncTask := tasks.NewRecordGaugesTask(metricsStorage, metricsRecorder, 30, "go-0.1", "1.2.3.4", "m1", logger)
+	latenciesSyncTask := tasks.NewRecordLatenciesTask(metricsStorage, metricsRecorder, 30, "go-0.1", "1.2.3.4", "m1", logger)
+
 	client := &SplitClient{
-		Apikey: cfg.Apikey,
-		Logger: logger,
-		Evaluator: evaluator.NewEvaluator(
-			storage.NewMMSplitStorage(),
-			storage.NewMMSegmentStorage(),
-			engine.Engine{Logger: logger},
-		),
+		Apikey:    cfg.Apikey,
+		Logger:    logger,
+		Evaluator: evaluator.NewEvaluator(splitStorage, segmentStorage, engine.Engine{Logger: logger}),
+		sync: sdkSync{
+			splitSync:      splitSyncTask,
+			segmentSync:    segmentSyncTask,
+			impressionSync: impressionSyncTask,
+			countersSync:   countersSyncTask,
+			gaugeSync:      gaugeSyncTask,
+			latenciesSync:  latenciesSyncTask,
+		},
 	}
 
 	return &SplitFactory{

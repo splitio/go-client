@@ -26,7 +26,7 @@ func TestDependencyMatcher(t *testing.T) {
 	}
 
 	splitStorage := storage.NewMMSplitStorage()
-	splitStorage.PutMany(&[]dtos.SplitDTO{
+	splitStorage.PutMany([]dtos.SplitDTO{
 		dtos.SplitDTO{
 			Name: "feature1",
 			Conditions: []dtos.ConditionDTO{

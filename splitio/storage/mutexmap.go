@@ -43,12 +43,12 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 }
 
 // PutMany bulk inserts splits into the in-memory storage
-func (m *MMSplitStorage) PutMany(splits *[]dtos.SplitDTO, till int64) {
+func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 	m.mutex.Lock()
 	m.tillMutex.Lock()
 	defer m.mutex.Unlock()
 	defer m.tillMutex.Unlock()
-	for _, split := range *splits {
+	for _, split := range splits {
 		m.data[split.Name] = split
 	}
 	m.till = till

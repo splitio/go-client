@@ -60,30 +60,30 @@ func TestPost(t *testing.T) {
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
-	httpClient.AddHeader("someHeader", "HeaderValue")
-	errp := httpClient.Post("/", []byte("some text"))
+	//	httpClient.AddHeader("someHeader", "HeaderValue")
+	errp := httpClient.Post("/", []byte("some text"), nil)
 	if errp != nil {
 		t.Error(errp)
 	}
 }
 
-func TestHeaders(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
-	}))
-	defer ts.Close()
-
-	logger := logging.NewLogger(&logging.LoggerOptions{})
-	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
-	httpClient.AddHeader("someHeader", "HeaderValue")
-	_, ok1 := httpClient.headers["someHeader"]
-	if !ok1 {
-		t.Error("Header could not be added")
-	}
-
-	httpClient.ResetHeaders()
-	_, ok2 := httpClient.headers["someHeader"]
-	if ok2 {
-		t.Error("Reset Header fails")
-	}
-}
+// func TestHeaders(t *testing.T) {
+// 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		fmt.Fprintln(w, "Hello, client")
+// 	}))
+// 	defer ts.Close()
+//
+// 	logger := logging.NewLogger(&logging.LoggerOptions{})
+// 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
+// 	//	httpClient.AddHeader("someHeader", "HeaderValue")
+// 	_, ok1 := httpClient.headers["someHeader"]
+// 	if !ok1 {
+// 		t.Error("Header could not be added")
+// 	}
+//
+// //	httpClient.ResetHeaders()
+// 	_, ok2 := httpClient.headers["someHeader"]
+// 	if ok2 {
+// 		t.Error("Reset Header fails")
+// 	}
+// }

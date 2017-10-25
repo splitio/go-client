@@ -22,17 +22,23 @@ func (h *httpRecorderBase) recordRaw(
 	machineIP string,
 	machineName string,
 ) error {
-
-	h.client.ResetHeaders()
-	h.client.AddHeader("SplitSDKVersion", sdkVersion)
-	h.client.AddHeader("SplitSDKMachineIP", machineIP)
+	// 	h.client.ResetHeaders()
+	// 	h.client.AddHeader("SplitSDKVersion", sdkVersion)
+	// 	h.client.AddHeader("SplitSDKMachineIP", machineIP)
+	// 	if machineName == "" && machineIP != "" {
+	// 		h.client.AddHeader("SplitSDKMachineName", fmt.Sprintf("ip-%s", strings.Replace(machineIP, ".", "-", -1)))
+	// 	} else {
+	// 		h.client.AddHeader("SplitSDKMachineName", machineName)
+	// 	}
+	headers := make(map[string]string)
+	headers["SplitSDKVersion"] = sdkVersion
+	headers["SplitSDKMachineIP"] = machineIP
 	if machineName == "" && machineIP != "" {
-		h.client.AddHeader("SplitSDKMachineName", fmt.Sprintf("ip-%s", strings.Replace(machineIP, ".", "-", -1)))
+		headers["SplitSDKMachineName"] = fmt.Sprintf("ip-%s", strings.Replace(machineIP, ".", "-", -1))
 	} else {
-		h.client.AddHeader("SplitSDKMachineName", machineName)
+		headers["SplitSDKMachineName"] = machineName
 	}
-
-	return h.client.Post(url, data)
+	return h.client.Post(url, data, headers)
 }
 
 // HTTPImpressionRecorder is a struct responsible for submitting impression bulks to the backend

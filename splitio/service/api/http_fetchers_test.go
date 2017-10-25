@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/util/configuration"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 var splitsMock, _ = ioutil.ReadFile("../../../testdata/splits_mock.json")

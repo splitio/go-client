@@ -3,8 +3,8 @@ package tasks
 import (
 	"github.com/splitio/go-client/splitio/service"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/logging"
 	"github.com/splitio/go-toolkit/asynctask"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitFetcher) error {

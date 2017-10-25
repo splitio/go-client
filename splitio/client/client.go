@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/util/logging"
 	"github.com/splitio/go-toolkit/asynctask"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // SplitClient is the entry-point of the split SDK.

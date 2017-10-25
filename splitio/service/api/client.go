@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/splitio/util/configuration"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 const prodSdkURL = "https://sdk.split.io/api"

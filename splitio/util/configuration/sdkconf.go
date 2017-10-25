@@ -3,7 +3,7 @@
 package configuration
 
 import (
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // SplitSdkConfig struct ...

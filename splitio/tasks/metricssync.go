@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/splitio/go-client/splitio/service"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/logging"
 	"github.com/splitio/go-toolkit/asynctask"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func submitCounters(

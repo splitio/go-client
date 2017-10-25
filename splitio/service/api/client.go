@@ -50,9 +50,9 @@ func NewHTTPClient(
 	return &HTTPClient{
 		url:        endpoint,
 		httpClient: client,
-		headers:    make(map[string]string),
-		logger:     logger,
-		apikey:     cfg.Apikey,
+		//	headers:    make(map[string]string),
+		logger: logger,
+		apikey: cfg.Apikey,
 	}
 }
 
@@ -105,7 +105,7 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 }
 
 // Post performs a HTTP POST request
-func (c *HTTPClient) Post(service string, body []byte) error {
+func (c *HTTPClient) Post(service string, body []byte, headers map[string]string) error {
 
 	serviceURL := c.url + service
 	c.logger.Debug("[POST] ", serviceURL)
@@ -122,10 +122,11 @@ func (c *HTTPClient) Post(service string, body []byte) error {
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
-	for headerName, headerValue := range c.headers {
-		req.Header.Add(headerName, headerValue)
+	if headers != nil {
+		for headerName, headerValue := range headers {
+			req.Header.Add(headerName, headerValue)
+		}
 	}
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
@@ -146,14 +147,4 @@ func (c *HTTPClient) Post(service string, body []byte) error {
 	}
 
 	return fmt.Errorf("POST method: Status Code: %d - %s", resp.StatusCode, resp.Status)
-}
-
-// AddHeader adds header value to HTTP client
-func (c *HTTPClient) AddHeader(name string, value string) {
-	c.headers[name] = value
-}
-
-// ResetHeaders resets custom headers
-func (c *HTTPClient) ResetHeaders() {
-	c.headers = make(map[string]string)
 }

@@ -68,6 +68,17 @@ func (m *MMSplitStorage) Till() int64 {
 	return m.till
 }
 
+// SplitNames returns a slice with the names of all the current splits
+func (m *MMSplitStorage) SplitNames() []string {
+	splitNames := make([]string, 0)
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	for key := range m.data {
+		splitNames = append(splitNames, key)
+	}
+	return splitNames
+}
+
 // SegmentNames returns a slice with the names of all segments referenced in splits
 func (m *MMSplitStorage) SegmentNames() []string {
 	segments := make([]string, 0)
@@ -84,6 +95,21 @@ func (m *MMSplitStorage) SegmentNames() []string {
 		}
 	}
 	return segments
+}
+
+// GetAll returns a list with a copy of each split.
+// NOTE: This method will block any further operations regarding splits. Use with caution
+func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	splitList := make([]dtos.SplitDTO, 0)
+	for _, split := range m.data {
+		splitCopy, ok := deepcopy.Copy(split).(dtos.SplitDTO)
+		if ok {
+			splitList = append(splitList, splitCopy)
+		}
+	}
+	return splitList
 }
 
 // ** SEGMENT STORAGE **

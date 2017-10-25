@@ -11,7 +11,9 @@ type SplitStorage interface {
 	PutMany(splits []dtos.SplitDTO, changeNumber int64)
 	Remove(splitname string)
 	Till() int64
+	SplitNames() []string
 	SegmentNames() []string
+	GetAll() []dtos.SplitDTO
 }
 
 // SegmentStorage Interface should be implemented by all segments storage storage forms

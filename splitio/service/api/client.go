@@ -122,10 +122,6 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
-	//	for headerName, headerValue := range c.headers {
-	//		req.Header.Add(headerName, headerValue)
-	//	}
-
 	if headers != nil {
 		for headerName, headerValue := range headers {
 			req.Header.Add(headerName, headerValue)
@@ -152,13 +148,3 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 
 	return fmt.Errorf("POST method: Status Code: %d - %s", resp.StatusCode, resp.Status)
 }
-
-// // AddHeader adds header value to HTTP client
-// func (c *HTTPClient) AddHeader(name string, value string) {
-// 	c.headers[name] = value
-// }
-//
-// // ResetHeaders resets custom headers
-// func (c *HTTPClient) ResetHeaders() {
-// 	c.headers = make(map[string]string)
-// }

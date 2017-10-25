@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/util/configuration"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestGet(t *testing.T) {
@@ -18,9 +17,6 @@ func TestGet(t *testing.T) {
 		fmt.Fprintln(w, "Hello, client")
 	}))
 	defer ts.Close()
-
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
@@ -44,9 +40,6 @@ func TestGetGZIP(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
 	txt, errg := httpClient.Get("/")
@@ -65,9 +58,6 @@ func TestPost(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)
 	httpClient.AddHeader("someHeader", "HeaderValue")
@@ -82,9 +72,6 @@ func TestHeaders(t *testing.T) {
 		fmt.Fprintln(w, "Hello, client")
 	}))
 	defer ts.Close()
-
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	httpClient := NewHTTPClient(&configuration.SplitSdkConfig{}, ts.URL, logger)

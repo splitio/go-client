@@ -6,7 +6,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
 	"github.com/splitio/go-client/splitio/engine/hash"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // Engine struct is responsible for cheking if any of the conditions of the split matches,

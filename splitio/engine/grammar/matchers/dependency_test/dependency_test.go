@@ -6,8 +6,8 @@ import (
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/logging"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
@@ -26,7 +26,7 @@ func TestDependencyMatcher(t *testing.T) {
 	}
 
 	splitStorage := storage.NewMMSplitStorage()
-	splitStorage.PutMany(&[]dtos.SplitDTO{
+	splitStorage.PutMany([]dtos.SplitDTO{
 		dtos.SplitDTO{
 			Name: "feature1",
 			Conditions: []dtos.ConditionDTO{

@@ -8,9 +8,10 @@ import (
 // SplitStorage Interface should be implemented by all split storage storage forms
 type SplitStorage interface {
 	Get(splitName string) *dtos.SplitDTO
-	PutMany(splits *[]dtos.SplitDTO, changeNumber int64)
+	PutMany(splits []dtos.SplitDTO, changeNumber int64)
 	Remove(splitname string)
 	Till() int64
+	SegmentNames() []string
 }
 
 // SegmentStorage Interface should be implemented by all segments storage storage forms
@@ -23,16 +24,16 @@ type SegmentStorage interface {
 
 // ImpressionStorage Interface should be implemented by all impressions storage storage forms
 type ImpressionStorage interface {
-	Put(impression *dtos.ImpressionDTO)
-	PopAll() *dtos.ImpressionDTO
+	Put(feature string, impression *dtos.ImpressionDTO)
+	PopAll() []dtos.ImpressionsDTO
 }
 
 // MetricsStorage Interface should be implemented by all metrics storage storage forms
 type MetricsStorage interface {
-	PutGauge(gauge *dtos.GaugeDTO)
-	PutLatencies(latencies *[]dtos.LatenciesDTO)
-	PutCounters(counters *[]dtos.CounterDTO)
-	GetGauge() dtos.GaugeDTO
-	GetLatencies() *[]dtos.LatenciesDTO
-	GetCounters() *[]dtos.CounterDTO
+	PutGauge(key string, gauge float64)
+	IncLatency(metricName string, index int)
+	IncCounter(key string)
+	PopGauges() []dtos.GaugeDTO
+	PopLatencies() []dtos.LatenciesDTO
+	PopCounters() []dtos.CounterDTO
 }

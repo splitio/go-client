@@ -32,7 +32,7 @@ func TestMMSplitStorage(t *testing.T) {
 		})
 	}
 
-	splitStorage.PutMany(&splits, 123)
+	splitStorage.PutMany(splits, 123)
 	for index := 0; index < 10; index++ {
 		splitName := fmt.Sprintf("SomeSplit_%d", index)
 		split := splitStorage.Get(splitName)

@@ -7,7 +7,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/util/configuration"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 type httpRecorderBase struct {
@@ -64,7 +64,7 @@ func (i *HTTPImpressionRecorder) Record(
 
 // NewHTTPImpressionRecorder instantiates an HTTPImpressionRecorder
 func NewHTTPImpressionRecorder(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPImpressionRecorder {
-	_, eventsURL := getUrls()
+	_, eventsURL := getUrls(cfg.Advanced)
 	client := NewHTTPClient(cfg, eventsURL, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
@@ -114,7 +114,7 @@ func (m *HTTPMetricsRecorder) RecordLatencies(
 		return err
 	}
 
-	err = m.recordRaw("/metrics/latencies", data, sdkVersion, machineIP, machineName)
+	err = m.recordRaw("/metrics/times", data, sdkVersion, machineIP, machineName)
 	if err != nil {
 		m.logger.Error("Error posting impressions", err.Error())
 		return err
@@ -147,7 +147,7 @@ func (m *HTTPMetricsRecorder) RecordGauge(
 
 // NewHTTPMetricsRecorder instantiates an HTTPMetricsRecorder
 func NewHTTPMetricsRecorder(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPMetricsRecorder {
-	_, eventsURL := getUrls()
+	_, eventsURL := getUrls(cfg.Advanced)
 	client := NewHTTPClient(cfg, eventsURL, logger)
 	return &HTTPMetricsRecorder{
 		httpRecorderBase: httpRecorderBase{

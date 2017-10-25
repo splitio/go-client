@@ -7,12 +7,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/util/configuration"
-	"github.com/splitio/go-client/splitio/util/logging"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestPostImpressions(t *testing.T) {
@@ -58,9 +57,6 @@ func TestPostImpressions(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	imp1 := dtos.ImpressionDTO{
 		KeyName:      "some_key_1",
 		Treatment:    "on",
@@ -89,7 +85,12 @@ func TestPostImpressions(t *testing.T) {
 	impressions = append(impressions, impressionsTest)
 
 	impressionRecorder := NewHTTPImpressionRecorder(
-		&configuration.SplitSdkConfig{},
+		&configuration.SplitSdkConfig{
+			Advanced: &configuration.AdvancedConfig{
+				EventsURL: ts.URL,
+				SdkURL:    ts.URL,
+			},
+		},
 		logger,
 	)
 	err2 := impressionRecorder.Record(impressions, "test-1.0.0", "127.0.0.1", "SOME_MACHINE_NAME")
@@ -140,16 +141,18 @@ func TestPostMetricsLatency(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	var latencyValues = make([]int64, 23) //23 maximun number of buckets
 	latencyValues[5] = 1234567890
 	var latencies []dtos.LatenciesDTO
 	latencies = append(latencies, dtos.LatenciesDTO{MetricName: "some_metric_name", Latencies: latencyValues})
 
 	metricsRecorder := NewHTTPMetricsRecorder(
-		&configuration.SplitSdkConfig{},
+		&configuration.SplitSdkConfig{
+			Advanced: &configuration.AdvancedConfig{
+				EventsURL: ts.URL,
+				SdkURL:    ts.URL,
+			},
+		},
 		logger,
 	)
 	err2 := metricsRecorder.RecordLatencies(latencies, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
@@ -202,9 +205,6 @@ func TestPostMetricsCounters(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	var counters []dtos.CounterDTO
 	counters = append(
 		counters,
@@ -213,9 +213,15 @@ func TestPostMetricsCounters(t *testing.T) {
 	)
 
 	metricsRecorder := NewHTTPMetricsRecorder(
-		&configuration.SplitSdkConfig{},
+		&configuration.SplitSdkConfig{
+			Advanced: &configuration.AdvancedConfig{
+				EventsURL: ts.URL,
+				SdkURL:    ts.URL,
+			},
+		},
 		logger,
 	)
+
 	err2 := metricsRecorder.RecordCounters(counters, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
 	if err2 != nil {
 		t.Error(err2)
@@ -264,16 +270,19 @@ func TestPostMetricsGauge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	os.Setenv(envSdkURLNamespace, ts.URL)
-	os.Setenv(envEventsURLNamespace, ts.URL)
-
 	var gauge dtos.GaugeDTO
 	gauge = dtos.GaugeDTO{MetricName: "gauge_1", Gauge: 111.1}
 
 	metricsRecorder := NewHTTPMetricsRecorder(
-		&configuration.SplitSdkConfig{},
+		&configuration.SplitSdkConfig{
+			Advanced: &configuration.AdvancedConfig{
+				EventsURL: ts.URL,
+				SdkURL:    ts.URL,
+			},
+		},
 		logger,
 	)
+
 	err2 := metricsRecorder.RecordGauge(gauge, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
 	if err2 != nil {
 		t.Error(err2)

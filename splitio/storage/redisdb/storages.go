@@ -300,23 +300,23 @@ func (r *RedisImpressionStorage) Put(feature string, impression *dtos.Impression
 func (r *RedisImpressionStorage) PopAll() []dtos.ImpressionsDTO {
 	toRemove := strings.Replace(r.impTemplate, "{feature}", "", 1) // String that will be removed from every key
 	rawImpressions := make(map[string][]string)
-	err := r.client.WrapTransaction(func(p *prefixedTx) error {
-		keys, err := p.Keys(strings.Replace(r.impTemplate, "{feature}", "*", 1))
+	err := r.client.WrapTransaction(func(t *prefixedTx) error {
+		keys, err := t.Keys(strings.Replace(r.impTemplate, "{feature}", "*", 1))
 		if err != nil {
 			r.logger.Error("Could not retrieve impression keys from redis")
 			return err
 		}
 
 		for _, key := range keys {
-			members, err := p.Smembers(key)
+			members, err := t.Smembers(key)
 			if err != nil {
 				r.logger.Error(fmt.Sprintf("Could not retrieve impressions for key %s", key))
 				r.logger.Error(err)
 				continue
 			}
 			rawImpressions[strings.Replace(key, toRemove, "", 1)] = members
+			t.Del(key)
 		}
-
 		return nil
 	})
 

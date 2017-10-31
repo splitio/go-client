@@ -138,7 +138,73 @@ func TestSegmentStorage(t *testing.T) {
 	}
 
 	segmentStorage.Remove("segment1")
-	if segmentStorage.Get("segment1") != nil && segmentStorage.Till("segment1") != -1 {
+	if segmentStorage.Get("segment1") != nil || segmentStorage.Till("segment1") != -1 {
 		t.Error("Segment 1 and it's till value should have been removed")
+		t.Error(segmentStorage.Get("segment1"))
+		t.Error(segmentStorage.Till("segment1"))
+	}
+}
+
+func TestImpressionStorage(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
+	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
+
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key1",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "on",
+	})
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key2",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "off",
+	})
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key1",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "off",
+	})
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key2",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "on",
+	})
+
+	impressions := impressionStorage.PopAll()
+
+	if len(impressions) != 2 {
+		t.Error("Incorrect number of features with impressions fetched")
+	}
+
+	var feature1, feature2 dtos.ImpressionsDTO
+	if impressions[0].TestName == "feature1" && impressions[1].TestName == "feature2" {
+		feature1 = impressions[0]
+		feature2 = impressions[1]
+	} else if impressions[1].TestName == "feature1" && impressions[0].TestName == "feature2" {
+		feature1 = impressions[1]
+		feature2 = impressions[0]
+	} else {
+		t.Error("Incorrect impression testnames!")
+		return
+	}
+
+	if len(feature1.KeyImpressions) != 2 {
+		t.Error("Incorrect number of impressions fetched for feature1")
+	}
+
+	if len(feature2.KeyImpressions) != 2 {
+		t.Error("Incorrect number of impressions fetched for feature2")
 	}
 }

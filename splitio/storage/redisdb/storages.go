@@ -101,7 +101,6 @@ func (r *RedisSplitStorage) SplitNames() []string {
 	splitNames := make([]string, 0)
 	keyPattern := strings.Replace(redisSplit, "{split}", "*", 1)
 	keys, err := r.client.Keys(keyPattern)
-	fmt.Println(keys)
 	if err == nil {
 		toRemove := strings.Replace(redisSplit, "{split}", "", 1) // Create a string with all the prefix to remove
 		for _, key := range keys {
@@ -190,6 +189,10 @@ func NewRedisSegmentStorage(
 func (r *RedisSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	keyToFetch := strings.Replace(redisSegment, "{segment}", segmentName, 1)
 	segmentKeys, err := r.client.SMembers(keyToFetch)
+	if len(segmentKeys) <= 0 {
+		r.logger.Error(fmt.Sprintf("Nonexsitant segment requested: \"%s\"", segmentName))
+		return nil
+	}
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("Error retrieving memebers from set %s", segmentName))
 		return nil
@@ -205,10 +208,12 @@ func (r *RedisSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, changeNumber int64) {
 	segmentKey := strings.Replace(redisSegment, "{segment}", name, 1)
 	segmentTillKey := strings.Replace(redisSegmentTill, "{segment}", name, 1)
-	err := r.client.WrapTransaction(func(p *prefixedPipe) {
+	err := r.client.WrapTransaction(func(p *prefixedTx) error {
 		p.Del(segmentKey)
 		p.SAdd(segmentKey, segment.List()...)
 		p.Set(segmentTillKey, changeNumber, 0)
+		// TODO CAPTURE ERRORS!
+		return nil
 	})
 
 	if err != nil {
@@ -245,4 +250,97 @@ func (r *RedisSegmentStorage) Till(segmentName string) int64 {
 		return -1
 	}
 	return asInt
+}
+
+// RedisImpressionStorage is a redis-based implementation of split storage
+type RedisImpressionStorage struct {
+	client      prefixedRedisClient
+	logger      logging.LoggerInterface
+	impTemplate string
+}
+
+// NewRedisImpressionStorage creates a new RedisSplitStorage and returns a reference to it
+func NewRedisImpressionStorage(
+	host string,
+	port int,
+	db int,
+	password string,
+	prefix string,
+	instanceID string,
+	sdkVersion string,
+	logger logging.LoggerInterface,
+) *RedisImpressionStorage {
+	impTemplate := strings.Replace(redisImpressions, "{sdkVersion}", sdkVersion, 1)
+	impTemplate = strings.Replace(impTemplate, "{instanceId}", instanceID, 1)
+	return &RedisImpressionStorage{
+		client:      *newPrefixedRedisClient(host, port, db, password, prefix),
+		logger:      logger,
+		impTemplate: impTemplate,
+	}
+}
+
+// Put stores an impression in redis
+func (r *RedisImpressionStorage) Put(feature string, impression *dtos.ImpressionDTO) {
+	keyToStore := strings.Replace(r.impTemplate, "{feature}", feature, 1)
+	encoded, err := json.Marshal(impression)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Error encoding impression in json for feature %s", feature))
+		r.logger.Error(err)
+		return
+	}
+
+	_, err = r.client.SAdd(keyToStore, string(encoded))
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Error storing impression in redis for feature %s", feature))
+		r.logger.Error(err)
+	}
+}
+
+// PopAll returns and clears all impressions in redis.
+func (r *RedisImpressionStorage) PopAll() []dtos.ImpressionsDTO {
+	toRemove := strings.Replace(r.impTemplate, "{feature}", "", 1) // String that will be removed from every key
+	rawImpressions := make(map[string][]string)
+	r.client.WrapTransaction(func(p *prefixedTx) error {
+		keys, err := p.Keys(strings.Replace(r.impTemplate, "{feature}", "*", 1))
+		if err != nil {
+			r.logger.Error("Could not retrieve impression keys from redis")
+			return err
+		}
+
+		for _, key := range keys {
+			members, err := p.Smembers(key)
+			if err != nil {
+				r.logger.Error(fmt.Sprintf("Could not retrieve impressions for key %s", key))
+				r.logger.Error(err)
+				continue
+			}
+			rawImpressions[strings.Replace(key, toRemove, "", 1)] = members
+		}
+
+		return nil
+	})
+
+	allImpressions := make([]dtos.ImpressionsDTO, len(rawImpressions))
+	index := 0
+	for feature, impressions := range rawImpressions {
+		featureImpressions := make([]dtos.ImpressionDTO, len(impressions))
+		for impressionIndex, impression := range impressions {
+			var impDto dtos.ImpressionDTO
+			err := json.Unmarshal([]byte(impression), &impDto)
+			if err != nil {
+				r.logger.Error("Could not decode json-stored impression")
+				r.logger.Error(err)
+				continue
+			}
+			featureImpressions[impressionIndex] = impDto
+		}
+
+		allImpressions[index] = dtos.ImpressionsDTO{
+			TestName:       feature,
+			KeyImpressions: featureImpressions,
+		}
+
+		index++
+	}
+	return allImpressions
 }

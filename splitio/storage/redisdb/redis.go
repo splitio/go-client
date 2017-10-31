@@ -7,23 +7,13 @@ import (
 	"time"
 )
 
-const (
-	redisSplit       = "SPLITIO.split.{split}"                                              // split object
-	redisSplitTill   = "SPLITIO.splits.till"                                                // last split fetch
-	redisSegments    = "SPLITIO.segments.registered"                                        // segments that appear in fetched splits
-	redisSegment     = "SPLITIO.segment.{segment}"                                          // segment object
-	redisSegmentTill = "SPLITIO.segment.{segment}.till"                                     // last segment fetch
-	redisImpressions = "SPLITIO/{sdkVersion}/{instanceId}/impressions.{feature}"            // impressions for a feature
-	redisLatency     = "SPLITIO/{sdkVersion}/{instanceId}/latency.{metric}.bucket.{bucket}" // latency bucket
-	redisCount       = "SPLITIO/{sdkVersion}/{instanceId}/count.{metric}"                   // counter
-	redisGauge       = "SPLITIO/{sdkVersion}/{instanceId}/gauge.{metric}"                   // gauge
-)
-
+// prefixable is a struct intended to be embedded in anything that can have a prefix added.
+// this currently includes a redis client and a redis transaction.
 type prefixable struct {
 	prefix string
 }
 
-// withPrefix adds a prefix to the key if the prefix supplied is different from an empty string
+// withPrefix adds a prefix to the key if the prefix supplied has a length greater than 0
 func (p *prefixable) withPrefix(key string) string {
 	if len(p.prefix) > 0 {
 		return fmt.Sprintf("%s.%s", p.prefix, key)
@@ -31,33 +21,55 @@ func (p *prefixable) withPrefix(key string) string {
 	return key
 }
 
-// prefixedPipe struct is used to as a wrapper used for redis.Pipeliner in order to
-// automatically populate the prefix if any
-type prefixedPipe struct {
+// withoutPrefix removes the prefix from a key if the prefix has a length greater than 0
+func (p *prefixable) withoutPrefix(key string) string {
+	if len(p.prefix) > 0 {
+		return strings.Replace(key, fmt.Sprintf("%s.", p.prefix), "", 1)
+	}
+	return key
+}
+
+type prefixedTx struct {
 	prefixable
-	pipe redis.Pipeliner
+	tx *redis.Tx
 }
 
 // wrap redis "set" operation with a prefix inside a transaction
-func (p *prefixedPipe) Set(key string, value interface{}, expiration time.Duration) {
-	p.pipe.Set(p.withPrefix(key), value, expiration)
+func (t *prefixedTx) Set(key string, value interface{}, expiration time.Duration) error {
+	return t.tx.Set(t.withPrefix(key), value, expiration).Err()
 }
 
-// wrap redis "sadd" operation with a prefix inside a transaction
-func (p *prefixedPipe) SAdd(key string, members ...interface{}) {
-	p.pipe.SAdd(p.withPrefix(key), members...)
+// wrap redis "sadd" operation with a prefix inside a transaction. returns a future-like result
+func (t *prefixedTx) SAdd(key string, members ...interface{}) error {
+	return t.tx.SAdd(t.withPrefix(key), members...).Err()
 }
 
 // wrap redis "del" operation with a prefix inside a transaction
-func (p *prefixedPipe) Del(key string) {
-	p.pipe.Del(p.withPrefix(key))
+func (t *prefixedTx) Del(key string) error {
+	return t.tx.Del(t.withPrefix(key)).Err()
+}
+
+// Wraps redis "smembers" operation with a prefix inside a transaction
+func (t *prefixedTx) Smembers(key string) ([]string, error) {
+	res := t.tx.SMembers(t.withPrefix(key))
+	return res.Val(), res.Err()
+}
+
+// Keys wraps redis "keys" operation with a prefix inside a transaction
+func (t *prefixedTx) Keys(pattern string) ([]string, error) {
+	res := t.tx.Keys(t.withPrefix(pattern))
+	woPrefix := make([]string, len(res.Val()))
+	for index, key := range res.Val() {
+		woPrefix[index] = t.withoutPrefix(key)
+	}
+	return woPrefix, res.Err()
 }
 
 // newPrefixedPipe instantiates a new pipewrapper and returns a reference
-func newPrefixedPipe(pipe redis.Pipeliner, prefix string) *prefixedPipe {
-	return &prefixedPipe{
+func newPrefixedTx(tx *redis.Tx, prefix string) *prefixedTx {
+	return &prefixedTx{
 		prefixable: prefixable{prefix: prefix},
-		pipe:       pipe,
+		tx:         tx,
 	}
 }
 
@@ -127,8 +139,8 @@ func (r *prefixedRedisClient) SMembers(key string) ([]string, error) {
 }
 
 // SAdd adds new members to a set
-func (r *prefixedRedisClient) SAdd(key string, members ...string) (int64, error) {
-	return r.client.SAdd(r.withPrefix(key), members).Result()
+func (r *prefixedRedisClient) SAdd(key string, members ...interface{}) (int64, error) {
+	return r.client.SAdd(r.withPrefix(key), members...).Result()
 }
 
 // SRem removes members from a set
@@ -144,9 +156,8 @@ func (r *prefixedRedisClient) Exists(key string) (bool, error) {
 
 // WrapTransaction accepts a function that performs a set of operations that will
 // be serialized and executed atomically. The function passed will recive a prefixedPipe
-func (r *prefixedRedisClient) WrapTransaction(f func(p *prefixedPipe)) error {
-	pipe := r.client.TxPipeline()
-	f(&prefixedPipe{pipe: pipe, prefixable: prefixable{prefix: r.prefix}})
-	_, err := pipe.Exec()
-	return err
+func (r *prefixedRedisClient) WrapTransaction(f func(t *prefixedTx) error) error {
+	return r.client.Watch(func(tx *redis.Tx) error {
+		return f(newPrefixedTx(tx, r.prefix))
+	})
 }

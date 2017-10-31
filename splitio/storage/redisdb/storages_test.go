@@ -221,5 +221,99 @@ func TestImpressionStorage(t *testing.T) {
 	).Val() != 0 {
 		t.Error("Keys should have been deleted")
 	}
+}
 
+func TestMetricsStorage(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
+	metricsStorage := NewRedisMetricsStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
+
+	// Gauges
+
+	metricsStorage.PutGauge("g1", 3.345)
+	metricsStorage.PutGauge("g2", 4.456)
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/gauge.g1",
+		"testPrefix.SPLITIO/go-test/instance123/gauge.g2",
+	).Val() != 2 {
+		t.Error("Keys or stored in an incorrect format")
+	}
+
+	gauges := metricsStorage.PopGauges()
+
+	if len(gauges) != 2 {
+		t.Error("Incorrect number of gauges fetched")
+		t.Error(gauges)
+	}
+
+	var g1, g2 dtos.GaugeDTO
+	if gauges[0].MetricName == "g1" {
+		g1 = gauges[0]
+		g2 = gauges[1]
+	} else if gauges[0].MetricName == "g2" {
+		g1 = gauges[1]
+		g2 = gauges[0]
+	} else {
+		t.Error("Incorrect gauges names")
+		return
+	}
+
+	if g1.Gauge != 3.345 || g2.Gauge != 4.456 {
+		t.Error("Incorrect gauge values retrieved")
+	}
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/gauge.g1",
+		"testPrefix.SPLITIO/go-test/instance123/gauge.g2",
+	).Val() != 0 {
+		t.Error("Gauge keys should have been removed after PopAll() function call")
+	}
+
+	// Latencies
+	metricsStorage.IncLatency("m1", 13)
+	metricsStorage.IncLatency("m1", 13)
+	metricsStorage.IncLatency("m1", 13)
+	metricsStorage.IncLatency("m1", 1)
+	metricsStorage.IncLatency("m1", 1)
+	metricsStorage.IncLatency("m2", 1)
+	metricsStorage.IncLatency("m2", 2)
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/latency.m1.bucket.13",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m1.bucket.1",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m2.bucket.1",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m2.bucket.2",
+	).Val() != 4 {
+		t.Error("Keys or stored in an incorrect format")
+	}
+
+	latencies := metricsStorage.PopLatencies()
+	var m1, m2 dtos.LatenciesDTO
+	if latencies[0].MetricName == "m1" {
+		m1 = latencies[0]
+		m2 = latencies[1]
+	} else if latencies[0].MetricName == "m2" {
+		m1 = latencies[1]
+		m2 = latencies[0]
+	} else {
+		t.Error("Incorrect latency names")
+		return
+	}
+
+	if m1.Latencies[13] != 3 || m1.Latencies[1] != 2 {
+		t.Error("Incorrect latencies for m1")
+	}
+
+	if m2.Latencies[1] != 1 || m2.Latencies[2] != 1 {
+		t.Error("Incorrect latencies for m2")
+	}
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/latency.m1.bucket.13",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m1.bucket.1",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m2.bucket.1",
+		"testPrefix.SPLITIO/go-test/instance123/latency.m2.bucket.2",
+	).Val() != 0 {
+		t.Error("Latency keys should have been deleted after PopAll()")
+	}
 }

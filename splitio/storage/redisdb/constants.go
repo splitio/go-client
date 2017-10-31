@@ -11,3 +11,7 @@ const (
 	redisCount       = "SPLITIO/{sdkVersion}/{instanceId}/count.{metric}"                   // counter
 	redisGauge       = "SPLITIO/{sdkVersion}/{instanceId}/gauge.{metric}"                   // gauge
 )
+
+const (
+	redisLatencyRegex = `^(?:.*\.){0,1}SPLITIO/.*/.*/latency\.(.*)\.bucket\.(.*)$`
+)

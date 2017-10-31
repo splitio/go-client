@@ -65,6 +65,11 @@ func (t *prefixedTx) Keys(pattern string) ([]string, error) {
 	return woPrefix, res.Err()
 }
 
+func (t *prefixedTx) Get(key string) (string, error) {
+	res := t.tx.Get(t.withPrefix(key))
+	return res.Val(), res.Err()
+}
+
 // newPrefixedPipe instantiates a new pipewrapper and returns a reference
 func newPrefixedTx(tx *redis.Tx, prefix string) *prefixedTx {
 	return &prefixedTx{
@@ -152,6 +157,11 @@ func (r *prefixedRedisClient) SRem(key string, members ...string) (int64, error)
 func (r *prefixedRedisClient) Exists(key string) (bool, error) {
 	val, err := r.client.Exists(r.withPrefix(key)).Result()
 	return (val == 1), err
+}
+
+// Incr increments a key. Sets it in one if it doesn't exist
+func (r *prefixedRedisClient) Incr(key string) error {
+	return r.client.Incr(r.withPrefix(key)).Err()
 }
 
 // WrapTransaction accepts a function that performs a set of operations that will

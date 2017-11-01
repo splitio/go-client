@@ -53,11 +53,16 @@ func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, cha
 	segmentKey := strings.Replace(redisSegment, "{segment}", name, 1)
 	segmentTillKey := strings.Replace(redisSegmentTill, "{segment}", name, 1)
 	err := r.client.WrapTransaction(func(p *prefixedTx) error {
-		p.Del(segmentKey)
-		p.SAdd(segmentKey, segment.List()...)
-		p.Set(segmentTillKey, changeNumber, 0)
-		// TODO CAPTURE ERRORS!
-		return nil
+		err := p.Del(segmentKey)
+		if err != nil {
+			return err
+		}
+		err = p.SAdd(segmentKey, segment.List()...)
+		if err != nil {
+			return err
+		}
+		err = p.Set(segmentTillKey, changeNumber, 0)
+		return err
 	})
 
 	if err != nil {

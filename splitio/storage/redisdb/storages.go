@@ -404,7 +404,6 @@ func (r *RedisMetricsStorage) PopGauges() []dtos.GaugeDTO {
 			return err
 		}
 
-		fmt.Println(keys)
 		for _, key := range keys {
 			gauge, err := t.Get(key)
 			if err != nil {
@@ -516,10 +515,59 @@ func (r *RedisMetricsStorage) PopLatencies() []dtos.LatenciesDTO {
 	return all
 }
 
-/*
-	IncLatency(metricName string, index int)
-	IncCounter(key string)
-	PopLatencies() []dtos.LatenciesDTO
-	PopCounters() []dtos.CounterDTO
+// IncCounter incraeses the count for a specific metric
+func (r *RedisMetricsStorage) IncCounter(metric string) {
+	keyToIncr := strings.Replace(r.countersTemplate, "{metric}", metric, 1)
+	err := r.client.Incr(keyToIncr)
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Error incrementing counterfor metric \"%s\" in redis", metric))
+		r.logger.Error(err)
+	}
 }
-*/
+
+// PopCounters returns and clears all counters in redis.
+func (r *RedisMetricsStorage) PopCounters() []dtos.CounterDTO {
+	toRemove := strings.Replace(r.countersTemplate, "{metric}", "", 1) // String that will be removed from every key
+	rawCounters := make(map[string]int64)
+	err := r.client.WrapTransaction(func(t *prefixedTx) error {
+		keys, err := t.Keys(strings.Replace(r.countersTemplate, "{metric}", "*", 1))
+		if err != nil {
+			r.logger.Error("Could not retrieve counter keys from redis")
+			return err
+		}
+
+		for _, key := range keys {
+			counter, err := t.Get(key)
+			if err != nil {
+				r.logger.Error(fmt.Sprintf("Could not retrieve counters for key %s", key))
+				r.logger.Error(err)
+				continue
+			}
+
+			asInt, err := strconv.ParseInt(counter, 10, 64)
+			if err != nil {
+				r.logger.Error("Error parsing counter as int")
+				continue
+			}
+
+			rawCounters[strings.Replace(key, toRemove, "", 1)] = asInt
+			t.Del(key)
+		}
+		return nil
+	})
+	if err != nil {
+		r.logger.Error(err)
+		return nil
+	}
+
+	all := make([]dtos.CounterDTO, len(rawCounters))
+	allIndex := 0
+	for metric, counter := range rawCounters {
+		all[allIndex] = dtos.CounterDTO{
+			Count:      counter,
+			MetricName: metric,
+		}
+		allIndex++
+	}
+	return all
+}

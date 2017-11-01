@@ -316,4 +316,50 @@ func TestMetricsStorage(t *testing.T) {
 	).Val() != 0 {
 		t.Error("Latency keys should have been deleted after PopAll()")
 	}
+
+	// Counters
+	metricsStorage.IncCounter("count1")
+	metricsStorage.IncCounter("count1")
+	metricsStorage.IncCounter("count1")
+	metricsStorage.IncCounter("count2")
+	metricsStorage.IncCounter("count2")
+	metricsStorage.IncCounter("count2")
+	metricsStorage.IncCounter("count2")
+	metricsStorage.IncCounter("count2")
+	metricsStorage.IncCounter("count2")
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/count.count1",
+		"testPrefix.SPLITIO/go-test/instance123/count.count2",
+	).Val() != 2 {
+		t.Error("Incorrect counter keys stored in redis")
+	}
+
+	counters := metricsStorage.PopCounters()
+
+	var c1, c2 dtos.CounterDTO
+	if counters[0].MetricName == "count1" {
+		c1 = counters[0]
+		c2 = counters[1]
+	} else if counters[0].MetricName == "count2" {
+		c1 = counters[1]
+		c2 = counters[0]
+	} else {
+		t.Error("Incorrect counters fetched")
+	}
+
+	if c1.Count != 3 {
+		t.Error("Incorrect count for count1")
+	}
+
+	if c2.Count != 6 {
+		t.Error("Incorrect count for count2")
+	}
+
+	if metricsStorage.client.client.Exists(
+		"testPrefix.SPLITIO/go-test/instance123/count.count1",
+		"testPrefix.SPLITIO/go-test/instance123/count.count2",
+	).Val() != 0 {
+		t.Error("Counter keys should have been removed after PopAll()")
+	}
 }

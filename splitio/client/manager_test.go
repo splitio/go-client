@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"testing"
 )
 
@@ -44,7 +45,8 @@ func TestSplitManager(t *testing.T) {
 	manager := Manager{splitStorage: splitStorage}
 
 	splitNames := manager.SplitNames()
-	if splitNames[0] != "split1" && splitNames[1] != "split2" {
+	splitNameSet := set.NewSet(splitNames[0], splitNames[1])
+	if !splitNameSet.IsEqual(set.NewSet("split1", "split2")) {
 		t.Error("Incorrect split names returned")
 	}
 
@@ -65,12 +67,8 @@ func TestSplitManager(t *testing.T) {
 	}
 
 	all := manager.Splits()
-	if s1.Name != all[0].Name || s1.ChangeNumber != all[0].ChangeNumber || s1.Killed != all[0].Killed || s1.TrafficType != all[0].TrafficType {
-		t.Error("Split1 should be the same for Split() and Splits()")
-	}
-
-	if s2.Name != all[1].Name || s2.ChangeNumber != all[1].ChangeNumber || s2.Killed != all[1].Killed || s2.TrafficType != all[1].TrafficType {
-		t.Error("Split2 should be the same for Split() and Splits()")
+	if len(all) != 2 {
+		t.Error("Incorrect number of splits returned")
 	}
 
 	sx := manager.Split("split3492042")

@@ -1,0 +1,4 @@
+ - Make fetchers & storages interfaces smaller & separate producers from consumers whenever possible
+ - Evaluate replacing deepcopy for splits for a custom split copy method
+ - Evaluate adding a cache layer for split objects that wrap around DTOs
+ - Redis Transactions vs Eval()

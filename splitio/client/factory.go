@@ -13,6 +13,7 @@ import (
 	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
+	"time"
 )
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
@@ -101,9 +102,10 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		workers := cfg.Advanced.SegmentWorkers
 		qSize := cfg.Advanced.SegmentQueueSize
 
+		readyChannel := make(chan string)
 		// Sync tasks
 		syncTasks = &sdkSync{
-			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger),
+			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 			segmentSync: tasks.NewFetchSegmentsTask(
 				splitStorage, segmentStorage, segmentFetcher, segmentPeriod, workers, qSize, logger,
 			),
@@ -128,6 +130,12 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		syncTasks.latenciesSync.Start()
 		syncTasks.countersSync.Start()
 		syncTasks.gaugeSync.Start()
+
+		select {
+		case <-readyChannel:
+		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
+			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
+		}
 
 	case "redis-consumer":
 		// No synchronization tasks necessary in redis-consumer mode

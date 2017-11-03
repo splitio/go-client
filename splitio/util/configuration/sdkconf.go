@@ -25,15 +25,16 @@ import (
 // - Redis: (Required for "redis-consumer" & "redis-standalone" operation modes. Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 type SplitSdkConfig struct {
-	Apikey        string
-	OperationMode string
-	InstanceName  string
-	IpAddress     string
-	Logger        logging.LoggerInterface
-	LoggerConfig  *logging.LoggerOptions
-	TaskPeriods   *TaskPeriods
-	Advanced      *AdvancedConfig
-	Redis         *RedisConfig
+	Apikey          string
+	OperationMode   string
+	InstanceName    string
+	IpAddress       string
+	BlockUntilReady int
+	Logger          logging.LoggerInterface
+	LoggerConfig    *logging.LoggerOptions
+	TaskPeriods     *TaskPeriods
+	Advanced        *AdvancedConfig
+	Redis           *RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -143,14 +144,18 @@ func (c *SplitSdkConfig) normalizeAdvancedConfig() {
 // Checks for unset parameters and sets them to the default value.
 // If required parameters are missing returns an error.
 func (c *SplitSdkConfig) Normalize() error {
+
+	// Fail if no apikey is provided
 	if c.Apikey == "" {
 		return errors.New("Config parameter \"Apikey\" is mandatory")
 	}
 
+	// Default to inmemory-standalone if no operation mode is provided
 	if c.OperationMode == "" {
 		c.OperationMode = "inmemory-standalone"
 	}
 
+	// Fail if an invalid operation-mode is provided
 	operationModes := set.NewSet(
 		"inmemory-standalone",
 		"redis-consumer",
@@ -158,6 +163,11 @@ func (c *SplitSdkConfig) Normalize() error {
 	)
 	if !operationModes.Has(c.OperationMode) {
 		return fmt.Errorf("OperationMode parameter must be one of: %v", operationModes.List())
+	}
+
+	// Set Block until ready to default value if not provided
+	if c.BlockUntilReady == 0 {
+		c.BlockUntilReady = defaultBlockUntilReady
 	}
 
 	// Normalize IP and instance ID

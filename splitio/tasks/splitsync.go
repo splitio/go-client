@@ -28,9 +28,27 @@ func NewFetchSplitsTask(
 	splitFetcher service.SplitFetcher,
 	period int,
 	logger logging.LoggerInterface,
+	readyChannel chan string,
 ) *asynctask.AsyncTask {
+	ready := false
+	lastTill := splitStorage.Till()
 	update := func(logger logging.LoggerInterface) error {
-		return updateSplits(splitStorage, splitFetcher)
+		err := updateSplits(splitStorage, splitFetcher)
+		if err != nil {
+			return err
+		}
+
+		if !ready {
+			newTill := splitStorage.Till()
+			if lastTill != -1 && lastTill == newTill {
+				ready = true
+				readyChannel <- "READY"
+			} else {
+				lastTill = newTill
+			}
+		}
+
+		return err
 	}
 
 	return asynctask.NewAsyncTask("UpdateSplits", update, period, nil, logger)

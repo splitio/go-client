@@ -8,4 +8,5 @@ const (
 	defaultRedisDb          = 0
 	defaultSegmentQueueSize = 500
 	defaultSegmentWorkers   = 10
+	defaultBlockUntilReady  = 60
 )

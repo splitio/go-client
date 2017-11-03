@@ -26,7 +26,7 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 func NewFetchSplitsTask(
 	splitStorage storage.SplitStorage,
 	splitFetcher service.SplitFetcher,
-	period int64,
+	period int,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	update := func(logger logging.LoggerInterface) error {

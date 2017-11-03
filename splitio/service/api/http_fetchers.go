@@ -99,7 +99,6 @@ func (f *HTTPSegmentFetcher) Fetch(segmentName string, since int64) (*dtos.Segme
 	bufferQuery.WriteString(segmentName)
 
 	data, err := f.fetchRaw(bufferQuery.String(), since)
-	f.logger.Error("ASD")
 	if err != nil {
 		//		f.logger.Error("Error fetching segment changes ", err)
 		return nil, err

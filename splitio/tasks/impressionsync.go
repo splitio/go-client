@@ -26,7 +26,7 @@ func submitImpressions(
 func NewRecordImpressionsTask(
 	impressionStorage storage.ImpressionStorage,
 	impressionRecorder service.ImpressionsRecorder,
-	period int64,
+	period int,
 	sdkVersion,
 	machineIP string,
 	machineName string,

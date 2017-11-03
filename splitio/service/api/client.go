@@ -15,6 +15,7 @@ import (
 
 const prodSdkURL = "https://sdk.split.io/api"
 const prodEventsURL = "https://events.split.io/api"
+const defaultHTTPTimeout = 30
 
 func getUrls(cfg *configuration.AdvancedConfig) (sdkURL string, eventsURL string) {
 	if cfg != nil && cfg.SdkURL != "" {
@@ -46,13 +47,18 @@ func NewHTTPClient(
 	endpoint string,
 	logger logging.LoggerInterface,
 ) *HTTPClient {
-	client := &http.Client{Timeout: time.Duration(cfg.HTTPTimeout) * time.Second}
+	var timeout int
+	if cfg.Advanced != nil && cfg.Advanced.HTTPTimeout != 0 {
+		timeout = cfg.Advanced.HTTPTimeout
+	} else {
+		timeout = defaultHTTPTimeout
+	}
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	return &HTTPClient{
 		url:        endpoint,
 		httpClient: client,
-		//	headers:    make(map[string]string),
-		logger: logger,
-		apikey: cfg.Apikey,
+		logger:     logger,
+		apikey:     cfg.Apikey,
 	}
 }
 

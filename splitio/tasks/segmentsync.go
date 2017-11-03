@@ -92,7 +92,7 @@ func NewFetchSegmentsTask(
 	splitStorage storage.SplitStorage,
 	segmentStorage storage.SegmentStorage,
 	segmentFetcher service.SegmentFetcher,
-	period int64,
+	period int,
 	workerCount int,
 	queueSize int,
 	logger logging.LoggerInterface,

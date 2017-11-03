@@ -5,8 +5,8 @@ import (
 	"github.com/splitio/go-client/splitio/storage"
 )
 
-// Manager provides information of the currently stored splits
-type Manager struct {
+// SplitManager provides information of the currently stored splits
+type SplitManager struct {
 	splitStorage storage.SplitStorage
 }
 
@@ -36,12 +36,12 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 }
 
 // SplitNames returns a list with the name of all the currently stored splits
-func (m *Manager) SplitNames() []string {
+func (m *SplitManager) SplitNames() []string {
 	return m.splitStorage.SplitNames()
 }
 
 // Splits returns a list of a partial view of every currently stored split
-func (m *Manager) Splits() []SplitView {
+func (m *SplitManager) Splits() []SplitView {
 	splitViews := make([]SplitView, 0)
 	splits := m.splitStorage.GetAll()
 	for _, split := range splits {
@@ -51,7 +51,7 @@ func (m *Manager) Splits() []SplitView {
 }
 
 // Split returns a partial view of a particular split
-func (m *Manager) Split(feature string) *SplitView {
+func (m *SplitManager) Split(feature string) *SplitView {
 	split := m.splitStorage.Get(feature)
 	if split != nil {
 		return newSplitView(split)

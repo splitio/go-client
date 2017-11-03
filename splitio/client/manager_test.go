@@ -42,7 +42,7 @@ func TestSplitManager(t *testing.T) {
 		},
 	}, 123)
 
-	manager := Manager{splitStorage: splitStorage}
+	manager := SplitManager{splitStorage: splitStorage}
 
 	splitNames := manager.SplitNames()
 	splitNameSet := set.NewSet(splitNames[0], splitNames[1])

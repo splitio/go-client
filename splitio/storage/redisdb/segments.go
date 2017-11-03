@@ -57,9 +57,11 @@ func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, cha
 		if err != nil {
 			return err
 		}
-		err = p.SAdd(segmentKey, segment.List()...)
-		if err != nil {
-			return err
+		if !segment.IsEmpty() {
+			err = p.SAdd(segmentKey, segment.List()...)
+			if err != nil {
+				return err
+			}
 		}
 		err = p.Set(segmentTillKey, changeNumber, 0)
 		return err

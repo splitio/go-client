@@ -62,7 +62,7 @@ func submitLatencies(
 func NewRecordCountersTask(
 	metricsStorage storage.MetricsStorage,
 	metricsRecorder service.MetricsRecorder,
-	period int64,
+	period int,
 	sdkVersion,
 	machineIP string,
 	machineName string,
@@ -84,7 +84,7 @@ func NewRecordCountersTask(
 func NewRecordGaugesTask(
 	metricsStorage storage.MetricsStorage,
 	metricsRecorder service.MetricsRecorder,
-	period int64,
+	period int,
 	sdkVersion,
 	machineIP string,
 	machineName string,
@@ -106,7 +106,7 @@ func NewRecordGaugesTask(
 func NewRecordLatenciesTask(
 	metricsStorage storage.MetricsStorage,
 	metricsRecorder service.MetricsRecorder,
-	period int64,
+	period int,
 	sdkVersion,
 	machineIP string,
 	machineName string,

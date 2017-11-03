@@ -37,6 +37,8 @@ func (r *RedisSplitStorage) Get(feature string) *dtos.SplitDTO {
 
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("Could not fetch feature \"%s\" from redis", feature))
+		r.logger.Error(val)
+		r.logger.Error(err)
 		return nil
 	}
 

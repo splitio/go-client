@@ -77,7 +77,7 @@ func NewRecordCountersTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, nil, logger)
 }
 
 // NewRecordGaugesTask creates a new splits fetching and storing task
@@ -99,7 +99,7 @@ func NewRecordGaugesTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, nil, logger)
 }
 
 // NewRecordLatenciesTask creates a new splits fetching and storing task
@@ -121,5 +121,5 @@ func NewRecordLatenciesTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, nil, logger)
 }

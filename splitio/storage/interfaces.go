@@ -12,7 +12,7 @@ type SplitStorage interface {
 	Remove(splitname string)
 	Till() int64
 	SplitNames() []string
-	SegmentNames() []string
+	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO
 }
 

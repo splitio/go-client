@@ -107,7 +107,14 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 			segmentSync: tasks.NewFetchSegmentsTask(
-				splitStorage, segmentStorage, segmentFetcher, segmentPeriod, workers, qSize, logger,
+				splitStorage,
+				segmentStorage,
+				segmentFetcher,
+				segmentPeriod,
+				workers,
+				qSize,
+				logger,
+				readyChannel,
 			),
 			impressionSync: tasks.NewRecordImpressionsTask(
 				impressionStorage, impressionRecorder, impressionPeriod, version, ip, instance, logger,
@@ -123,17 +130,37 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			),
 		}
 
-		// Start tasks!
+		// Start split fetching task
 		syncTasks.splitSync.Start()
-		syncTasks.segmentSync.Start()
-		syncTasks.impressionSync.Start()
-		syncTasks.latenciesSync.Start()
-		syncTasks.countersSync.Start()
-		syncTasks.gaugeSync.Start()
 
+		// Block until ready part 1: splits
+		preSplitsTS := time.Now()
 		select {
-		case <-readyChannel:
+		case msg := <-readyChannel:
+			switch msg {
+			case "SPLITS_READY":
+				// Once splits are ready, start segment fetching task
+				syncTasks.segmentSync.Start()
+				break
+			}
 		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
+			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
+		}
+
+		// Block until ready part 2: segments
+		remaining := cfg.BlockUntilReady - int(time.Now().Sub(preSplitsTS).Seconds())
+		select {
+		case msg := <-readyChannel:
+			switch msg {
+			case "SEGMENTS_READY":
+				// Once segments are ready, start impressions and metrics recording tasks
+				syncTasks.impressionSync.Start()
+				syncTasks.latenciesSync.Start()
+				syncTasks.countersSync.Start()
+				syncTasks.gaugeSync.Start()
+				break
+			}
+		case <-time.After(time.Duration(remaining) * time.Second):
 			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
 		}
 

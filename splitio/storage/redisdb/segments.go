@@ -34,7 +34,7 @@ func (r *RedisSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	keyToFetch := strings.Replace(redisSegment, "{segment}", segmentName, 1)
 	segmentKeys, err := r.client.SMembers(keyToFetch)
 	if len(segmentKeys) <= 0 {
-		r.logger.Error(fmt.Sprintf("Nonexsitant segment requested: \"%s\"", segmentName))
+		r.logger.Warning(fmt.Sprintf("Nonexsitant segment requested: \"%s\"", segmentName))
 		return nil
 	}
 	if err != nil {
@@ -55,6 +55,7 @@ func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, cha
 	err := r.client.WrapTransaction(func(p *prefixedTx) error {
 		err := p.Del(segmentKey)
 		if err != nil {
+			r.logger.Error(err)
 			return err
 		}
 		if !segment.IsEmpty() {
@@ -89,8 +90,6 @@ func (r *RedisSegmentStorage) Till(segmentName string) int64 {
 	segmentKey := strings.Replace(redisSegmentTill, "{segment}", segmentName, 1)
 	tillStr, err := r.client.Get(segmentKey)
 	if err != nil {
-		r.logger.Error("Error retrieving till. Returning -1")
-		r.logger.Error(err.Error())
 		return -1
 	}
 

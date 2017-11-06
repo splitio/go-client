@@ -7,7 +7,7 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitFetcher) error {
+func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitFetcher) (bool, error) {
 	till := splitStorage.Till()
 	if till == 0 {
 		till = -1
@@ -15,11 +15,14 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 
 	splits, err := splitFetcher.Fetch(till)
 	if err != nil {
-		return err
+		return false, err
 	}
-
 	splitStorage.PutMany(splits.Splits, splits.Till)
-	return nil
+
+	if splits.Since == splits.Till {
+		return true, nil
+	}
+	return false, nil
 }
 
 // NewFetchSplitsTask creates a new splits fetching and storing task
@@ -30,26 +33,23 @@ func NewFetchSplitsTask(
 	logger logging.LoggerInterface,
 	readyChannel chan string,
 ) *asynctask.AsyncTask {
-	ready := false
-	lastTill := splitStorage.Till()
-	update := func(logger logging.LoggerInterface) error {
-		err := updateSplits(splitStorage, splitFetcher)
-		if err != nil {
-			return err
-		}
-
-		if !ready {
-			newTill := splitStorage.Till()
-			if lastTill != -1 && lastTill == newTill {
-				ready = true
-				readyChannel <- "READY"
-			} else {
-				lastTill = newTill
+	init := func(logger logging.LoggerInterface) error {
+		ready := false
+		var err error
+		for !ready {
+			ready, err = updateSplits(splitStorage, splitFetcher)
+			if err != nil {
+				return err
 			}
 		}
+		readyChannel <- "SPLITS_READY"
+		return nil
+	}
 
+	update := func(logger logging.LoggerInterface) error {
+		_, err := updateSplits(splitStorage, splitFetcher)
 		return err
 	}
 
-	return asynctask.NewAsyncTask("UpdateSplits", update, period, nil, logger)
+	return asynctask.NewAsyncTask("UpdateSplits", update, period, init, nil, logger)
 }

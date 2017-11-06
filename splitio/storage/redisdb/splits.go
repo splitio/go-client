@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"strconv"
 	"strings"
@@ -112,8 +113,8 @@ func (r *RedisSplitStorage) SplitNames() []string {
 }
 
 // SegmentNames returns a slice of strings with all the segment names
-func (r *RedisSplitStorage) SegmentNames() []string {
-	segmentNames := make([]string, 0)
+func (r *RedisSplitStorage) SegmentNames() *set.ThreadUnsafeSet {
+	segmentNames := set.NewSet()
 	keyPattern := strings.Replace(redisSplit, "{split}", "*", 1)
 	keys, err := r.client.Keys(keyPattern)
 	if err != nil {
@@ -133,7 +134,7 @@ func (r *RedisSplitStorage) SegmentNames() []string {
 		for _, condition := range split.Conditions {
 			for _, matcher := range condition.MatcherGroup.Matchers {
 				if matcher.UserDefinedSegment != nil {
-					segmentNames = append(segmentNames, matcher.UserDefinedSegment.SegmentName)
+					segmentNames.Add(matcher.UserDefinedSegment.SegmentName)
 				}
 			}
 		}

@@ -41,5 +41,5 @@ func NewRecordImpressionsTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, nil, logger)
 }

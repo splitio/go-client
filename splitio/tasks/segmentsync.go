@@ -70,9 +70,7 @@ func (w *SegmentWorker) DoWork(msg interface{}) error {
 }
 
 // OnError callback does nothing
-func (w *SegmentWorker) OnError(e error) {
-	fmt.Println(e.Error())
-}
+func (w *SegmentWorker) OnError(e error) {}
 
 // Cleanup callback does nothing
 func (w *SegmentWorker) Cleanup() error { return nil }

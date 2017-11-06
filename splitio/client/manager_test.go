@@ -2,13 +2,13 @@ package client
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"testing"
 )
 
 func TestSplitManager(t *testing.T) {
-	splitStorage := storage.NewMMSplitStorage()
+	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{
 		dtos.SplitDTO{
 			ChangeNumber:    123,

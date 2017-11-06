@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 	"net/http"
@@ -40,6 +40,7 @@ func TestSegmentSyncTask(t *testing.T) {
 			Added:   toReturn,
 			Name:    name,
 			Removed: []string{},
+			Since:   123,
 			Till:    123,
 		}
 
@@ -65,7 +66,7 @@ func TestSegmentSyncTask(t *testing.T) {
 		logger,
 	)
 
-	splitStorage := storage.NewMMSplitStorage()
+	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{
 		dtos.SplitDTO{
 			Name: "split1",
@@ -107,16 +108,18 @@ func TestSegmentSyncTask(t *testing.T) {
 		},
 	}, 123)
 
-	segmentStorage := storage.NewMMSegmentStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 
+	readyChannel := make(chan string)
 	segmentTask := NewFetchSegmentsTask(
 		splitStorage,
 		segmentStorage,
 		segmentFetcher,
-		1000,
+		1,
 		5,
 		100,
 		logger,
+		readyChannel,
 	)
 
 	segmentTask.Start()
@@ -125,7 +128,16 @@ func TestSegmentSyncTask(t *testing.T) {
 		t.Error("Split fetching task should be running")
 	}
 
-	time.Sleep(time.Second * 2)
+	select {
+	case msg := <-readyChannel:
+		if msg != "SEGMENTS_READY" {
+			t.Error("Incorrect msg receieved")
+			return
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("SEGMENTS_READY signal not received")
+		return
+	}
 
 	if !s1RequestReceieved || !s2RequestReceieved {
 		t.Error("Request not received")
@@ -133,7 +145,7 @@ func TestSegmentSyncTask(t *testing.T) {
 
 	segmentTask.Stop()
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 5)
 
 	// By now, the segment fetching task should have retrieved and stored segments s1 and s2
 	s1 := segmentStorage.Get("s1")

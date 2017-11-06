@@ -1,4 +1,4 @@
-package storage
+package mutexmap
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"

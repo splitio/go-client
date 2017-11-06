@@ -9,6 +9,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-client/splitio/util/configuration"
@@ -61,10 +62,10 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	var metricsStorage storage.MetricsStorage
 	switch cfg.OperationMode {
 	case "inmemory-standalone":
-		splitStorage = storage.NewMMSplitStorage()
-		segmentStorage = storage.NewMMSegmentStorage()
-		impressionStorage = storage.NewMMImpressionStorage()
-		metricsStorage = storage.NewMMMetricsStorage()
+		splitStorage = mutexmap.NewMMSplitStorage()
+		segmentStorage = mutexmap.NewMMSegmentStorage()
+		impressionStorage = mutexmap.NewMMImpressionStorage()
+		metricsStorage = mutexmap.NewMMMetricsStorage()
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port

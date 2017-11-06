@@ -77,11 +77,10 @@ func TestRedisSplitStorage(t *testing.T) {
 	}, 123)
 
 	segmentNames := splitStorage.SegmentNames()
-	segmentSet := set.NewSet(segmentNames[0], segmentNames[1], segmentNames[2])
 	hcSegments := set.NewSet("segment1", "segment2", "segment3")
-	if !segmentSet.IsEqual(hcSegments) {
+	if !segmentNames.IsEqual(hcSegments) {
 		t.Error("Incorrect segments retrieved")
-		t.Error(segmentSet)
+		t.Error(segmentNames)
 		t.Error(hcSegments)
 	}
 

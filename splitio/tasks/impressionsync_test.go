@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 	"io/ioutil"
@@ -60,12 +60,12 @@ func TestImpressionSyncTask(t *testing.T) {
 		logger,
 	)
 
-	impressionStorage := storage.NewMMImpressionStorage()
+	impressionStorage := mutexmap.NewMMImpressionStorage()
 
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
 		impressionRecorder,
-		1000,
+		1,
 		"go-0.1",
 		"192.168.0.123",
 		"machine1",

@@ -18,7 +18,6 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 		return false, err
 	}
 	splitStorage.PutMany(splits.Splits, splits.Till)
-
 	if splits.Since == splits.Till {
 		return true, nil
 	}

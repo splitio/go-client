@@ -2,8 +2,10 @@ package matchers
 
 import (
 	"errors"
+	"fmt"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 const (
@@ -56,6 +58,7 @@ type Matcher struct {
 	*injection.Context
 	negate        bool
 	attributeName *string
+	logger        logging.LoggerInterface
 }
 
 // Negate returns whether this mather is negated or not
@@ -75,7 +78,7 @@ func (m *Matcher) matchingKey(key string, attributes map[string]interface{}) (in
 
 	attrValue, found := attributes[*m.attributeName]
 	if !found {
-		return nil, errors.New("Attribute required but not present in provided attribute map")
+		return nil, fmt.Errorf("Attribute \"%s\" required but not present in provided attribute map", *m.attributeName)
 	}
 
 	return attrValue, nil
@@ -87,7 +90,7 @@ func (m *Matcher) base() *Matcher {
 }
 
 // BuildMatcher constructs the appropriate matcher based on the MatcherType attribute of the dto
-func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context) (MatcherInterface, error) {
+func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.LoggerInterface) (MatcherInterface, error) {
 	var matcher MatcherInterface
 
 	var attributeName *string
@@ -271,6 +274,8 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context) (MatcherInterfac
 	if ctx != nil {
 		ctx.Inject(matcher.base())
 	}
+
+	matcher.base().logger = logger
 
 	return matcher, nil
 }

@@ -39,12 +39,14 @@ type HTTPClient struct {
 	headers    map[string]string
 	logger     logging.LoggerInterface
 	apikey     string
+	version    string
 }
 
 // NewHTTPClient instance of HttpClient
 func NewHTTPClient(
 	cfg *configuration.SplitSdkConfig,
 	endpoint string,
+	version string,
 	logger logging.LoggerInterface,
 ) *HTTPClient {
 	var timeout int
@@ -59,6 +61,7 @@ func NewHTTPClient(
 		httpClient: client,
 		logger:     logger,
 		apikey:     cfg.Apikey,
+		version:    version,
 	}
 }
 
@@ -71,10 +74,8 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 
 	authorization := c.apikey
 	c.logger.Debug("Authorization [ApiKey]: ", logging.ObfuscateAPIKey(authorization))
-
 	req.Header.Add("Authorization", "Bearer "+authorization)
-	req.Header.Add("SplitSDKVersion", "go-0.0.1")
-	req.Header.Add("User-Agent", "SplitIO-GO-AGENT/0.1")
+	req.Header.Add("SplitSDKVersion", c.version)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
@@ -123,10 +124,9 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	c.logger.Debug("Authorization [ApiKey]: ", logging.ObfuscateAPIKey(authorization))
 
 	req.Header.Add("Authorization", "Bearer "+authorization)
-	//SplitSDKVersion added by poster tasks
-	req.Header.Add("User-Agent", "SplitIO-GO-SDK/1.0")
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("SplitSDKVersion", fmt.Sprint("go-", c.version))
 
 	if headers != nil {
 		for headerName, headerValue := range headers {

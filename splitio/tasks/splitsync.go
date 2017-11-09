@@ -17,7 +17,26 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 	if err != nil {
 		return false, err
 	}
-	splitStorage.PutMany(splits.Splits, splits.Till)
+
+	// Go idiom for filtering (https://github.com/golang/go/wiki/SliceTricks)
+	inactiveSplits := splits.Splits[:0]
+	activeSplits := splits.Splits[:0]
+	for _, split := range splits.Splits {
+		if split.Status == "ACTIVE" {
+			activeSplits = append(activeSplits, split)
+		} else {
+			inactiveSplits = append(inactiveSplits, split)
+		}
+	}
+
+	// Add/Update active splits
+	splitStorage.PutMany(activeSplits, splits.Till)
+
+	// Remove inactive splits
+	for _, split := range inactiveSplits {
+		splitStorage.Remove(split.Name)
+	}
+
 	if splits.Since == splits.Till {
 		return true, nil
 	}

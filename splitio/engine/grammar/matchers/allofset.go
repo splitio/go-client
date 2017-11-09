@@ -1,7 +1,9 @@
 package matchers
 
 import (
+	"fmt"
 	"github.com/splitio/go-toolkit/datastructures/set"
+	"reflect"
 )
 
 // ContainsAllOfSetMatcher matches if the set supplied to the getTreatment is a superset of the one in the split
@@ -14,11 +16,15 @@ type ContainsAllOfSetMatcher struct {
 func (m *ContainsAllOfSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.base().logger.Error("Error parsing matching key")
+		m.base().logger.Error(err)
 		return false
 	}
 
 	conv, ok := matchingKey.([]string)
 	if !ok {
+		m.base().logger.Error("Attribute passed is not a slice of strings")
+		m.base().logger.Error(fmt.Sprintf("Key is of type %s\n", reflect.TypeOf(matchingKey).String()))
 		return false
 	}
 
@@ -27,7 +33,8 @@ func (m *ContainsAllOfSetMatcher) Match(key string, attributes map[string]interf
 		matchingSet.Add(x)
 	}
 
-	return matchingSet.IsSuperset(m.comparisonSet)
+	res := m.comparisonSet.IsSuperset(matchingSet)
+	return res
 
 }
 

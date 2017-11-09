@@ -74,8 +74,26 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		prefix := cfg.Redis.Prefix
 		splitStorage = redisdb.NewRedisSplitStorage(host, port, db, password, prefix, logger)
 		segmentStorage = redisdb.NewRedisSegmentStorage(host, port, db, password, prefix, logger)
-		impressionStorage = redisdb.NewRedisImpressionStorage(host, port, db, password, prefix, "", "", logger)
-		metricsStorage = redisdb.NewRedisMetricsStorage(host, port, db, password, prefix, "", "", logger)
+		impressionStorage = redisdb.NewRedisImpressionStorage(
+			host,
+			port,
+			db,
+			password,
+			prefix,
+			cfg.InstanceName,
+			splitio.Version,
+			logger,
+		)
+		metricsStorage = redisdb.NewRedisMetricsStorage(
+			host,
+			port,
+			db,
+			password,
+			prefix,
+			cfg.InstanceName,
+			splitio.Version,
+			logger,
+		)
 	default:
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
@@ -171,10 +189,11 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
 
+	engine := engine.NewEngine(logger)
 	client := &SplitClient{
 		apikey:      cfg.Apikey,
 		logger:      logger,
-		evaluator:   evaluator.NewEvaluator(splitStorage, segmentStorage, engine.Engine{Logger: logger}),
+		evaluator:   evaluator.NewEvaluator(splitStorage, segmentStorage, engine, logger),
 		impressions: impressionStorage,
 		metrics:     metricsStorage,
 		sync:        syncTasks,

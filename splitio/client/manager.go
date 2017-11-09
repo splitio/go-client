@@ -12,11 +12,11 @@ type SplitManager struct {
 
 // SplitView is a partial representation of a currently stored split
 type SplitView struct {
-	Name         string
-	TrafficType  string
-	Killed       bool
-	Treatments   []string
-	ChangeNumber int64
+	Name         string   `json:"name"`
+	TrafficType  string   `json:"trafficType"`
+	Killed       bool     `json:"killed"`
+	Treatments   []string `json:"treatments"`
+	ChangeNumber int64    `json:"changeNumber"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {

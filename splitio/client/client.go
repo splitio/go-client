@@ -8,6 +8,7 @@ import (
 	"github.com/splitio/go-client/splitio/util/metrics"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
+	"runtime/debug"
 	"time"
 )
 
@@ -32,18 +33,19 @@ type sdkSync struct {
 }
 
 func parseKeys(key interface{}) (string, *string, error) {
+	var bucketingKey *string
 	matchingKey, ok := key.(string)
-	bucketingKey := matchingKey
+	bucketingKey = nil
 	if !ok {
-		ckey, ok := key.(Key)
+		ckey, ok := key.(*Key)
 		if !ok {
 			return "", nil, errors.New("Supplied key is neither a string or a Key struct")
 		}
 		matchingKey = ckey.MatchingKey
-		bucketingKey = ckey.BucketingKey
+		bucketingKey = &ckey.BucketingKey
 	}
 
-	return matchingKey, &bucketingKey, nil
+	return matchingKey, bucketingKey, nil
 }
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
@@ -52,27 +54,36 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 	// Set up a guard deferred function to recover if the SDK starts panicking
 	defer func() string {
 		if r := recover(); r != nil {
-			// At this point we'll only trust that the logger isn't panicking trust that the logger isn't panicking
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
 			c.logger.Error("SDK is panicking with the following error")
 			c.logger.Error(r)
+			c.logger.Debug(string(debug.Stack()))
 			c.logger.Error("Returning CONTROL")
 		}
-		return "CONTROL"
+		return "control"
 	}()
 
 	matchingKey, bucketingKey, err := parseKeys(key)
 	if err != nil {
 		c.logger.Error("Error parsing key")
 		c.logger.Error(err.Error())
-		return "CONTROL"
+		return "control"
 	}
 
-	evaluationResult := c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
+	var evaluationResult *evaluator.Result
+	var impressionBucketingKey = ""
+	if bucketingKey != nil {
+		evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
+		impressionBucketingKey = *bucketingKey
+	} else {
+		evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
+	}
 
 	// Store impression
 	if c.impressions != nil {
 		c.impressions.Put(feature, &dtos.ImpressionDTO{
-			BucketingKey: *bucketingKey,
+			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
 			Label:        evaluationResult.Label,

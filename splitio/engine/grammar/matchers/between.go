@@ -1,7 +1,9 @@
 package matchers
 
 import (
+	"fmt"
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers/datatypes"
+	"reflect"
 )
 
 // BetweenMatcher will match if two numbers or two datetimes are equal
@@ -17,6 +19,8 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 
 	matchingRaw, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.base().logger.Error("Could not retrieve matching key")
+		m.base().logger.Error(err)
 		return false
 	}
 
@@ -30,6 +34,8 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		}
 	}
 	if !okMatching {
+		m.base().logger.Error("Could not parse attribute to an int")
+		m.base().logger.Error(fmt.Printf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()))
 		return false
 	}
 
@@ -40,13 +46,13 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		comparisonLower = m.LowerComparisonValue
 		comparisonUpper = m.UpperComparisonValue
 	case datatypes.Datetime:
-		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonLower = datatypes.ZeroTimeTS(m.LowerComparisonValue)
-		comparisonUpper = datatypes.ZeroTimeTS(m.UpperComparisonValue)
+		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
+		comparisonLower = datatypes.ZeroSecondsTS(m.LowerComparisonValue)
+		comparisonUpper = datatypes.ZeroSecondsTS(m.UpperComparisonValue)
 	default:
+		m.base().logger.Error(fmt.Sprintf("Incorrect type %s", m.ComparisonDataType))
 		return false
 	}
-
 	return matchingValue >= comparisonLower && matchingValue <= comparisonUpper
 }
 

@@ -4,25 +4,27 @@ import (
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // Condition struct with added logic that wraps around a DTO
 type Condition struct {
-	conditionData *dtos.ConditionDTO
 	matchers      []matchers.MatcherInterface
 	combiner      string
 	partitions    []Partition
+	label         string
+	conditionType string
 }
 
 // NewCondition instantiates a new Condition struct with appropriate wrappers around dtos and returns it.
-func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context) *Condition {
+func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context, logger logging.LoggerInterface) *Condition {
 	partitions := make([]Partition, 0)
 	for _, part := range cond.Partitions {
 		partitions = append(partitions, Partition{partitionData: part})
 	}
 	matcherObjs := make([]matchers.MatcherInterface, 0)
 	for _, matcher := range cond.MatcherGroup.Matchers {
-		m, err := matchers.BuildMatcher(&matcher, ctx)
+		m, err := matchers.BuildMatcher(&matcher, ctx, logger)
 		if err == nil {
 			matcherObjs = append(matcherObjs, m)
 		}
@@ -30,9 +32,10 @@ func NewCondition(cond *dtos.ConditionDTO, ctx *injection.Context) *Condition {
 
 	return &Condition{
 		combiner:      cond.MatcherGroup.Combiner,
-		conditionData: cond,
 		matchers:      matcherObjs,
 		partitions:    partitions,
+		label:         cond.Label,
+		conditionType: cond.ConditionType,
 	}
 }
 
@@ -43,7 +46,7 @@ type Partition struct {
 
 // ConditionType returns validated condition type. Whitelist by default
 func (c *Condition) ConditionType() string {
-	switch c.conditionData.ConditionType {
+	switch c.conditionType {
 	case ConditionTypeRollout:
 		return ConditionTypeRollout
 	case ConditionTypeWhitelist:
@@ -55,14 +58,14 @@ func (c *Condition) ConditionType() string {
 
 // Label returns the condition's label
 func (c *Condition) Label() string {
-	return c.conditionData.Label
+	return c.label
 }
 
 // Matches returns true if the condition matches for a specific key and/or set of attributes
-func (c *Condition) Matches(key string, attributes map[string]interface{}) bool {
+func (c *Condition) Matches(key string, bucketingKey *string, attributes map[string]interface{}) bool {
 	partial := make([]bool, len(c.matchers))
 	for i, matcher := range c.matchers {
-		partial[i] = matcher.Match(key, attributes, nil)
+		partial[i] = matcher.Match(key, attributes, bucketingKey)
 		if matcher.Negate() {
 			partial[i] = !partial[i]
 		}

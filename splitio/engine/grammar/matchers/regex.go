@@ -1,7 +1,6 @@
 package matchers
 
 import (
-	"fmt"
 	"reflect"
 	"regexp"
 )

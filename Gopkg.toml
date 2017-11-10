@@ -1,0 +1,7 @@
+[[constraint]]
+  name = "github.com/go-redis/redis"
+  version = "6.7.3"
+
+[[constraint]]
+  branch = "development"
+  name = "github.com/splitio/go-toolkit"

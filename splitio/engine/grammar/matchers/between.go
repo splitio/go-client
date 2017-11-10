@@ -35,7 +35,7 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 	if !okMatching {
 		m.logger.Error(
 			"Could not parse attribute to an int. ",
-			fmt.Printf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()),
+			fmt.Sprintf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()),
 		)
 		return false
 	}

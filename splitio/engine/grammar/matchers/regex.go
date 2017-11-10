@@ -16,17 +16,16 @@ type RegexMatcher struct {
 func (m *RegexMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
-		m.base().logger.Error("Error parsing matching key")
-		m.base().logger.Error(err)
+		m.logger.Error("Error parsing matching key: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.(string)
 	if !ok {
-		m.base().logger.Error(fmt.Sprintf(
-			"Incorrect type. Expected string and recieved %s",
+		m.logger.Error(
+			"Incorrect type. Expected string and recieved ",
 			reflect.TypeOf(matchingKey).String(),
-		))
+		)
 		return false
 	}
 

@@ -69,8 +69,7 @@ func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, cha
 	})
 
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Updating segment %s failed.", name))
-		r.logger.Error(err.Error())
+		r.logger.Error(fmt.Sprintf("Updating segment %s failed: %s", name, err.Error()))
 	}
 
 }
@@ -95,8 +94,7 @@ func (r *RedisSegmentStorage) Till(segmentName string) int64 {
 
 	asInt, err := strconv.ParseInt(tillStr, 10, 64)
 	if err != nil {
-		r.logger.Error("Error retrieving till. Returning -1")
-		r.logger.Error(err.Error())
+		r.logger.Error("Error retrieving till. Returning -1: ", err.Error())
 		return -1
 	}
 	return asInt

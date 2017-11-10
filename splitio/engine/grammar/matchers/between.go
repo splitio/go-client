@@ -19,8 +19,7 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 
 	matchingRaw, err := m.matchingKey(key, attributes)
 	if err != nil {
-		m.base().logger.Error("Could not retrieve matching key")
-		m.base().logger.Error(err)
+		m.logger.Error("Could not retrieve matching key. ", err)
 		return false
 	}
 
@@ -34,8 +33,10 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		}
 	}
 	if !okMatching {
-		m.base().logger.Error("Could not parse attribute to an int")
-		m.base().logger.Error(fmt.Printf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()))
+		m.logger.Error(
+			"Could not parse attribute to an int. ",
+			fmt.Printf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()),
+		)
 		return false
 	}
 

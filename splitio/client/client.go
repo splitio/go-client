@@ -56,18 +56,18 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
-			c.logger.Error("SDK is panicking with the following error")
-			c.logger.Error(r)
-			c.logger.Debug(string(debug.Stack()))
-			c.logger.Error("Returning CONTROL")
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n",
+				"Returning CONTROL", "\n",
+			)
 		}
 		return "control"
 	}()
 
 	matchingKey, bucketingKey, err := parseKeys(key)
 	if err != nil {
-		c.logger.Error("Error parsing key")
-		c.logger.Error(err.Error())
+		c.logger.Error("Error parsing key: ", err.Error())
 		return "control"
 	}
 

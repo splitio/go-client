@@ -37,9 +37,7 @@ func (r *RedisSplitStorage) Get(feature string) *dtos.SplitDTO {
 	val, err := r.client.Get(keyToFetch)
 
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Could not fetch feature \"%s\" from redis", feature))
-		r.logger.Error(val)
-		r.logger.Error(err)
+		r.logger.Error(fmt.Sprintf("Could not fetch feature \"%s\" from redis: %s", feature, err.Error()))
 		return nil
 	}
 
@@ -65,8 +63,7 @@ func (r *RedisSplitStorage) PutMany(splits []dtos.SplitDTO, changeNumber int64) 
 
 		err = r.client.Set(keyToStore, raw, 0)
 		if err != nil {
-			r.logger.Error(fmt.Sprintf("Could not store split \"%s\" in redis", split.Name))
-			r.logger.Error(err.Error())
+			r.logger.Error(fmt.Sprintf("Could not store split \"%s\" in redis: %s", split.Name, err.Error()))
 		}
 	}
 	err := r.client.Set(redisSplitTill, changeNumber, 0)

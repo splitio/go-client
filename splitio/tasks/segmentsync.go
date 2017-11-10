@@ -84,14 +84,15 @@ func updateSegments(
 	for _, name := range segmentList {
 		ok := admin.QueueMessage(name)
 		if !ok {
-			logger.Error(fmt.Sprintf("Segment %s could not be added because the job queue is full", name))
-			logger.Error(fmt.Sprintf(
-				"You currently have %d segments and the queue size is %d.",
-				len(segmentList),
-				admin.QueueSize(),
-			))
-			logger.Error(fmt.Sprintf("Please consider updating the segment queue size accordingly in the configuration options"))
-
+			logger.Error(
+				fmt.Sprintf("Segment %s could not be added because the job queue is full.\n", name),
+				fmt.Sprintf(
+					"You currently have %d segments and the queue size is %d.\n",
+					len(segmentList),
+					admin.QueueSize(),
+				),
+				"Please consider updating the segment queue size accordingly in the configuration options",
+			)
 		}
 	}
 	return nil

@@ -52,8 +52,7 @@ func (r *RedisMetricsStorage) PutGauge(key string, gauge float64) {
 	keyToStore := strings.Replace(r.gaugeTemplate, "{metric}", key, 1)
 	err := r.client.Set(keyToStore, gauge, 0)
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error storing gauge \"%s\" in redis", key))
-		r.logger.Error(err)
+		r.logger.Error(fmt.Sprintf("Error storing gauge \"%s\" in redis: %s\n", key, err))
 	}
 }
 
@@ -71,8 +70,7 @@ func (r *RedisMetricsStorage) PopGauges() []dtos.GaugeDTO {
 		for _, key := range keys {
 			gauge, err := t.Get(key)
 			if err != nil {
-				r.logger.Error(fmt.Sprintf("Could not retrieve gauges for key %s", key))
-				r.logger.Error(err)
+				r.logger.Error(fmt.Sprintf("Could not retrieve gauges for key %s: %s", key, err))
 				continue
 			}
 
@@ -110,8 +108,9 @@ func (r *RedisMetricsStorage) IncLatency(metric string, index int) {
 	keyToIncr = strings.Replace(keyToIncr, "{bucket}", strconv.FormatInt(int64(index), 10), 1)
 	err := r.client.Incr(keyToIncr)
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error incrementing latency bucket %d for metric \"%s\" in redis", index, metric))
-		r.logger.Error(err)
+		r.logger.Error(fmt.Sprintf(
+			"Error incrementing latency bucket %d for metric \"%s\" in redis: %s", index, metric, err.Error(),
+		))
 	}
 }
 
@@ -130,8 +129,7 @@ func (r *RedisMetricsStorage) PopLatencies() []dtos.LatenciesDTO {
 		for _, key := range keys {
 			latency, err := t.Get(key)
 			if err != nil {
-				r.logger.Error(fmt.Sprintf("Could not retrieve latency for key %s", key))
-				r.logger.Error(err)
+				r.logger.Error(fmt.Sprintf("Could not retrieve latency for key %s: %s", key, err.Error()))
 				continue
 			}
 
@@ -184,8 +182,7 @@ func (r *RedisMetricsStorage) IncCounter(metric string) {
 	keyToIncr := strings.Replace(r.countersTemplate, "{metric}", metric, 1)
 	err := r.client.Incr(keyToIncr)
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error incrementing counterfor metric \"%s\" in redis", metric))
-		r.logger.Error(err)
+		r.logger.Error(fmt.Sprintf("Error incrementing counterfor metric \"%s\" in redis: %s", metric, err.Error()))
 	}
 }
 
@@ -203,8 +200,7 @@ func (r *RedisMetricsStorage) PopCounters() []dtos.CounterDTO {
 		for _, key := range keys {
 			counter, err := t.Get(key)
 			if err != nil {
-				r.logger.Error(fmt.Sprintf("Could not retrieve counters for key %s", key))
-				r.logger.Error(err)
+				r.logger.Error(fmt.Sprintf("Could not retrieve counters for key %s: %s", key, err.Error()))
 				continue
 			}
 

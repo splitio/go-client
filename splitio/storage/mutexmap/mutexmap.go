@@ -1,4 +1,4 @@
-package storage
+package mutexmap
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -80,15 +80,15 @@ func (m *MMSplitStorage) SplitNames() []string {
 }
 
 // SegmentNames returns a slice with the names of all segments referenced in splits
-func (m *MMSplitStorage) SegmentNames() []string {
-	segments := make([]string, 0)
+func (m *MMSplitStorage) SegmentNames() *set.ThreadUnsafeSet {
+	segments := set.NewSet()
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	for _, split := range m.data {
 		for _, condition := range split.Conditions {
 			for _, matcher := range condition.MatcherGroup.Matchers {
 				if matcher.UserDefinedSegment != nil {
-					segments = append(segments, matcher.UserDefinedSegment.SegmentName)
+					segments.Add(matcher.UserDefinedSegment.SegmentName)
 				}
 
 			}

@@ -26,7 +26,7 @@ func submitImpressions(
 func NewRecordImpressionsTask(
 	impressionStorage storage.ImpressionStorage,
 	impressionRecorder service.ImpressionsRecorder,
-	period int64,
+	period int,
 	sdkVersion,
 	machineIP string,
 	machineName string,
@@ -41,5 +41,5 @@ func NewRecordImpressionsTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, logger)
+	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, nil, logger)
 }

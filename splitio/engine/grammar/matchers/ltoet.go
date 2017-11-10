@@ -36,8 +36,8 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 	case datatypes.Number:
 		comparisonValue = m.ComparisonValue
 	case datatypes.Datetime:
-		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonValue = datatypes.ZeroTimeTS(m.ComparisonValue)
+		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
+		comparisonValue = datatypes.ZeroSecondsTS(m.ComparisonValue)
 	default:
 		return false
 	}

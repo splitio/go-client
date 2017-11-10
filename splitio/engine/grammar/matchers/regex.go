@@ -1,6 +1,8 @@
 package matchers
 
 import (
+	"fmt"
+	"reflect"
 	"regexp"
 )
 
@@ -14,11 +16,16 @@ type RegexMatcher struct {
 func (m *RegexMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("Error parsing matching key: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.(string)
 	if !ok {
+		m.logger.Error(
+			"Incorrect type. Expected string and recieved ",
+			reflect.TypeOf(matchingKey).String(),
+		)
 		return false
 	}
 

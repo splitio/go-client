@@ -12,7 +12,7 @@ import (
 // Engine struct is responsible for cheking if any of the conditions of the split matches,
 // performing traffic allocation, calculating the bucket and returning the appropriate treatment
 type Engine struct {
-	Logger logging.LoggerInterface
+	logger logging.LoggerInterface
 }
 
 // DoEvaluation performs the main evaluation agains each condition
@@ -39,7 +39,8 @@ func (e *Engine) DoEvaluation(
 				inRollOut = true
 			}
 		}
-		if condition.Matches(key, attributes) {
+
+		if condition.Matches(key, bucketingKey, attributes) {
 			bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
 			treatment := condition.CalculateTreatment(bucket)
 			return treatment, condition.Label()
@@ -61,4 +62,9 @@ func (e *Engine) calculateBucket(algo int, bucketingKey string, seed int64) int 
 
 	return int(math.Abs(float64(hashedKey%100)) + 1)
 
+}
+
+// NewEngine instantiates and returns a new engine
+func NewEngine(logger logging.LoggerInterface) *Engine {
+	return &Engine{logger: logger}
 }

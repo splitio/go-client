@@ -3,6 +3,7 @@ package grammar
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // Split struct with added logic that wraps around a DTO
@@ -12,11 +13,10 @@ type Split struct {
 }
 
 // NewSplit instantiates a new Split object and all it's internal structures mapped to model classes
-func NewSplit(splitDTO *dtos.SplitDTO, ctx *injection.Context) *Split {
+func NewSplit(splitDTO *dtos.SplitDTO, ctx *injection.Context, logger logging.LoggerInterface) *Split {
 	conditions := make([]*Condition, 0)
 	for _, cond := range splitDTO.Conditions {
-		condition := NewCondition(&cond, ctx)
-		conditions = append(conditions, condition)
+		conditions = append(conditions, NewCondition(&cond, ctx, logger))
 	}
 
 	split := Split{

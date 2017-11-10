@@ -121,11 +121,12 @@ func (r *prefixedRedisClient) Keys(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	toRemove := fmt.Sprintf("%s.", r.prefix)
+
+	woPrefix := make([]string, len(keys))
 	for index, key := range keys {
-		keys[index] = strings.Replace(key, toRemove, "", 1)
+		woPrefix[index] = r.withoutPrefix(key)
 	}
-	return keys, nil
+	return woPrefix, nil
 
 }
 

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 	"net/http"
@@ -27,6 +27,8 @@ func TestSplitSyncTask(t *testing.T) {
 
 		splitChanges := dtos.SplitChangesDTO{
 			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2},
+			Since:  3,
+			Till:   3,
 		}
 
 		raw, err := json.Marshal(splitChanges)
@@ -51,13 +53,15 @@ func TestSplitSyncTask(t *testing.T) {
 		logger,
 	)
 
-	splitStorage := storage.NewMMSplitStorage()
+	splitStorage := mutexmap.NewMMSplitStorage()
 
+	readyChannel := make(chan string)
 	splitTask := NewFetchSplitsTask(
 		splitStorage,
 		splitFetcher,
-		1000,
+		1,
 		logger,
+		readyChannel,
 	)
 
 	splitTask.Start()
@@ -66,7 +70,16 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error("Split fetching task should be running")
 	}
 
-	time.Sleep(time.Second * 2)
+	select {
+	case msg := <-readyChannel:
+		if msg != "SPLITS_READY" {
+			t.Error("Incorrect msg receieved")
+			return
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("SPLITS_READY signal not received")
+		return
+	}
 
 	if !reqestReceived {
 		t.Error("Request not received")
@@ -74,7 +87,7 @@ func TestSplitSyncTask(t *testing.T) {
 
 	splitTask.Stop()
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 3)
 
 	s1 := splitStorage.Get("split1")
 	if s1 == nil || s1.Name != "split1" || s1.Killed != false {

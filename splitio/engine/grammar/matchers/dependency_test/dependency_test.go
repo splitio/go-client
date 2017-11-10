@@ -5,7 +5,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"
 	"reflect"
@@ -25,7 +25,7 @@ func TestDependencyMatcher(t *testing.T) {
 		},
 	}
 
-	splitStorage := storage.NewMMSplitStorage()
+	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{
 		dtos.SplitDTO{
 			Name: "feature1",
@@ -78,7 +78,7 @@ func TestDependencyMatcher(t *testing.T) {
 			DefaultTreatment: "off",
 		},
 	}, 1)
-	segmentStorage := storage.NewMMSegmentStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 
 	ctx := injection.NewContext()
 	ctx.AddDependency(

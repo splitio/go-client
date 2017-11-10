@@ -2,7 +2,7 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/injection"
 	"reflect"
@@ -20,7 +20,7 @@ func TestInSegmentMatcher(t *testing.T) {
 	segmentKeys := set.NewSet()
 	segmentKeys.Add("item1", "item2")
 
-	segmentStorage := storage.NewMMSegmentStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 	segmentStorage.Put("segmentito", segmentKeys, 123)
 
 	ctx := injection.NewContext()

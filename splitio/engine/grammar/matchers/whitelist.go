@@ -13,7 +13,8 @@ type WhitelistMatcher struct {
 // Match returns true if the key is present in the whitelist.
 func (m *WhitelistMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
-	return err == nil && m.whitelist.Has(matchingKey.(string))
+	stringMatchingKey, ok := matchingKey.(string)
+	return err == nil && ok && m.whitelist.Has(stringMatchingKey)
 }
 
 // NewWhitelistMatcher returns a new WhitelistMatcher

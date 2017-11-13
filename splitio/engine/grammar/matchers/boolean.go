@@ -3,6 +3,7 @@ package matchers
 import (
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 // BooleanMatcher returns true if the value supplied can be interpreted as a boolean and is equal to the one stored
@@ -26,7 +27,7 @@ func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bu
 		if !ok {
 			return false
 		}
-		asBool, err = strconv.ParseBool(asStr)
+		asBool, err = strconv.ParseBool(strings.ToLower(asStr))
 		if err != nil {
 			return false
 		}
@@ -36,6 +37,7 @@ func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bu
 			return false
 		}
 	default:
+		m.logger.Error("Incompatible type: ", reflect.TypeOf(matchingKey).String())
 		return false
 	}
 

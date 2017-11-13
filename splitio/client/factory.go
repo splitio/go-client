@@ -61,6 +61,8 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
 	switch cfg.OperationMode {
+	case "localhost":
+		splitStorage = mutexmap.NewMMSplitStorage()
 	case "inmemory-standalone":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
@@ -104,6 +106,8 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	// Setup synchronization structs and tasks
 	var syncTasks *sdkSync
 	switch cfg.OperationMode {
+	case "localhost":
+		splitFetcher := 
 	case "inmemory-standalone", "redis-standalone":
 		// Sync structs
 		splitFetcher := api.NewHTTPSplitFetcher(cfg, logger)

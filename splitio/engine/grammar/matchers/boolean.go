@@ -29,7 +29,7 @@ func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bu
 			m.logger.Error("NOT A STRING!")
 			return false
 		}
-		logger.Error("STRING IS ", asStr)
+		m.logger.Error("STRING IS ", asStr)
 		asBool, err = strconv.ParseBool(strings.ToLower(asStr))
 		if err != nil {
 			return false

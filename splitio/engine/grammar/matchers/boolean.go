@@ -3,6 +3,7 @@ package matchers
 import (
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 // BooleanMatcher returns true if the value supplied can be interpreted as a boolean and is equal to the one stored
@@ -22,20 +23,25 @@ func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bu
 	var ok bool
 	switch reflect.TypeOf(matchingKey).Kind() {
 	case reflect.String:
+		m.logger.Error("TRYING AS STRING")
 		asStr, ok := matchingKey.(string)
 		if !ok {
+			m.logger.Error("NOT A STRING!")
 			return false
 		}
-		asBool, err = strconv.ParseBool(asStr)
+		logger.Error("STRING IS ", asStr)
+		asBool, err = strconv.ParseBool(strings.ToLower(asStr))
 		if err != nil {
 			return false
 		}
 	case reflect.Bool:
+		m.logger.Error("TRYING AS BOOLEAN")
 		asBool, ok = matchingKey.(bool)
 		if !ok {
 			return false
 		}
 	default:
+		m.logger.Error("CANNOT USE TYPE ", reflect.TypeOf(matchingKey).String())
 		return false
 	}
 

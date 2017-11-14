@@ -34,9 +34,7 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 	lines := strings.Split(data, "\n")
 	for _, line := range lines {
 		words := strings.Fields(line)
-		fmt.Println("parsing ", words)
 		if len(words) < 2 || len(words[0]) < 1 || words[0][0] == '#' {
-			fmt.Println("se rompio")
 			// Skip the line if it has less than two words, the words are empty strings or
 			// it begins with '#' character
 			continue
@@ -79,9 +77,7 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 // Fetch parses the file and returns the appropriate structures
 func (s *FileSplitFetcher) Fetch(changeNumber int64) (*dtos.SplitChangesDTO, error) {
 	fileContents, err := ioutil.ReadFile(s.splitFile)
-	fmt.Println("leyendo")
 	if err != nil {
-		fmt.Println("no lei")
 		return nil, err
 	}
 

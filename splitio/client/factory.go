@@ -80,7 +80,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			db,
 			password,
 			prefix,
-			cfg.InstanceName,
+			cfg.IpAddress,
 			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
@@ -90,7 +90,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			db,
 			password,
 			prefix,
-			cfg.InstanceName,
+			cfg.IpAddress,
 			splitio.Version,
 			logger,
 		)

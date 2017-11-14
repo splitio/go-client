@@ -81,7 +81,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			password,
 			prefix,
 			cfg.InstanceName,
-			splitio.Version,
+			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
 		metricsStorage = redisdb.NewRedisMetricsStorage(

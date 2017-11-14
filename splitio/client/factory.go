@@ -8,6 +8,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/api"
+	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
@@ -61,9 +62,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
 	switch cfg.OperationMode {
-	case "localhost":
-		splitStorage = mutexmap.NewMMSplitStorage()
-	case "inmemory-standalone":
+	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
 		impressionStorage = mutexmap.NewMMImpressionStorage()
@@ -82,7 +81,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			db,
 			password,
 			prefix,
-			cfg.IpAddress,
+			cfg.IPAddress,
 			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
@@ -92,7 +91,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 			db,
 			password,
 			prefix,
-			cfg.IpAddress,
+			cfg.IPAddress,
 			splitio.Version,
 			logger,
 		)
@@ -101,13 +100,25 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	}
 
 	version := splitio.Version
-	ip := cfg.IpAddress
+	ip := cfg.IPAddress
 	instance := cfg.InstanceName
 	// Setup synchronization structs and tasks
 	var syncTasks *sdkSync
 	switch cfg.OperationMode {
 	case "localhost":
-		splitFetcher := 
+		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, local.SplitFileFormatClassic)
+		splitPeriod := cfg.TaskPeriods.SplitSync
+		readyChannel := make(chan string)
+		syncTasks = &sdkSync{
+			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
+		}
+		syncTasks.splitSync.Start()
+		select {
+		case <-readyChannel:
+			break // Only SPLITS_READY should be sent, no need to check
+		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
+			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
+		}
 	case "inmemory-standalone", "redis-standalone":
 		// Sync structs
 		splitFetcher := api.NewHTTPSplitFetcher(cfg, logger)

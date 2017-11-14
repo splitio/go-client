@@ -1,6 +1,7 @@
 package local
 
 import (
+	"fmt"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"io/ioutil"
 	"strings"
@@ -16,12 +17,12 @@ const (
 // FileSplitFetcher struct fetches splits from a file
 type FileSplitFetcher struct {
 	splitFile        string
-	fileFormat       string
+	fileFormat       int
 	lastChangeNumber int64
 }
 
 // NewFileSplitFetcher returns a new instance of LocalFileSplitFetcher
-func NewFileSplitFetcher(splitFile string, fileFormat string) *LocalFileSplitFetcher {
+func NewFileSplitFetcher(splitFile string, fileFormat int) *FileSplitFetcher {
 	return &FileSplitFetcher{
 		splitFile:  splitFile,
 		fileFormat: fileFormat,
@@ -33,7 +34,9 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 	lines := strings.Split(data, "\n")
 	for _, line := range lines {
 		words := strings.Fields(line)
+		fmt.Println("parsing ", words)
 		if len(words) < 2 || len(words[0]) < 1 || words[0][0] == '#' {
+			fmt.Println("se rompio")
 			// Skip the line if it has less than two words, the words are empty strings or
 			// it begins with '#' character
 			continue
@@ -66,6 +69,7 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 					},
 				},
 			},
+			Status:           "ACTIVE",
 			DefaultTreatment: treatment,
 		})
 	}
@@ -73,27 +77,37 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 }
 
 // Fetch parses the file and returns the appropriate structures
-func (s *LocalFileSplitFetcher) Fetch(changeNumber int64) (*dtos.SplitChangesDTO, error) {
+func (s *FileSplitFetcher) Fetch(changeNumber int64) (*dtos.SplitChangesDTO, error) {
 	fileContents, err := ioutil.ReadFile(s.splitFile)
+	fmt.Println("leyendo")
 	if err != nil {
+		fmt.Println("no lei")
 		return nil, err
 	}
 
 	var splits []dtos.SplitDTO
+	var till int64
 	since := s.lastChangeNumber
-	till := since + 1
+	if s.lastChangeNumber != 0 {
+		//The first time we should return since == till
+		till = since + 1
+	}
 
-	data = string(fileContents)
+	data := string(fileContents)
 	switch s.fileFormat {
 	case SplitFileFormatClassic:
 		splits = parseSplitsClassic(data)
 	case SplitFileFormatJSON:
-		// TODO
+		fallthrough
+	default:
+		return nil, fmt.Errorf("Unsupported file format")
+
 	}
 
+	s.lastChangeNumber++
 	return &dtos.SplitChangesDTO{
 		Splits: splits,
 		Since:  since,
 		Till:   till,
-	}
+	}, nil
 }

@@ -75,7 +75,7 @@ func (c *SplitSdkConfig) normalizeIpAndInstanceId() {
 	}
 
 	if c.InstanceName == "" {
-		c.InstanceName = strings.Replace(c.IpAddress, ".", "-", -1)
+		c.InstanceName = fmt.Sprintf("ip-%s", strings.Replace(c.IpAddress, ".", "-", -1))
 	}
 }
 

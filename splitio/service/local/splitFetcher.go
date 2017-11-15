@@ -94,7 +94,7 @@ func (s *FileSplitFetcher) Fetch(changeNumber int64) (*dtos.SplitChangesDTO, err
 	case SplitFileFormatClassic:
 		splits = parseSplitsClassic(data)
 	case SplitFileFormatJSON:
-		fallthrough
+		return nil, fmt.Errorf("JSON is not yet supported")
 	default:
 		return nil, fmt.Errorf("Unsupported file format")
 

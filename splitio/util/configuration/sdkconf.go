@@ -9,6 +9,8 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
 	"math"
+	"os/user"
+	"path"
 	"strings"
 )
 
@@ -28,8 +30,9 @@ type SplitSdkConfig struct {
 	Apikey          string
 	OperationMode   string
 	InstanceName    string
-	IpAddress       string
+	IPAddress       string
 	BlockUntilReady int
+	SplitFile       string
 	Logger          logging.LoggerInterface
 	LoggerConfig    *logging.LoggerOptions
 	TaskPeriods     *TaskPeriods
@@ -65,17 +68,17 @@ type AdvancedConfig struct {
 	SegmentWorkers   int
 }
 
-func (c *SplitSdkConfig) normalizeIpAndInstanceId() {
-	if c.IpAddress == "" {
+func (c *SplitSdkConfig) normalizeIPAndInstanceID() {
+	if c.IPAddress == "" {
 		var err error
-		c.IpAddress, err = nethelpers.ExternalIP()
+		c.IPAddress, err = nethelpers.ExternalIP()
 		if err != nil {
-			c.IpAddress = "unknown"
+			c.IPAddress = "unknown"
 		}
 	}
 
 	if c.InstanceName == "" {
-		c.InstanceName = fmt.Sprintf("ip-%s", strings.Replace(c.IpAddress, ".", "-", -1))
+		c.InstanceName = fmt.Sprintf("ip-%s", strings.Replace(c.IPAddress, ".", "-", -1))
 	}
 }
 
@@ -141,15 +144,9 @@ func (c *SplitSdkConfig) normalizeAdvancedConfig() {
 	}
 }
 
-// Checks for unset parameters and sets them to the default value.
+// Normalize checks for unset parameters and sets them to the default value.
 // If required parameters are missing returns an error.
 func (c *SplitSdkConfig) Normalize() error {
-
-	// Fail if no apikey is provided
-	if c.Apikey == "" {
-		return errors.New("Config parameter \"Apikey\" is mandatory")
-	}
-
 	// Default to inmemory-standalone if no operation mode is provided
 	if c.OperationMode == "" {
 		c.OperationMode = "inmemory-standalone"
@@ -157,12 +154,19 @@ func (c *SplitSdkConfig) Normalize() error {
 
 	// Fail if an invalid operation-mode is provided
 	operationModes := set.NewSet(
+		"localhost",
 		"inmemory-standalone",
 		"redis-consumer",
 		"redis-standalone",
 	)
+
 	if !operationModes.Has(c.OperationMode) {
 		return fmt.Errorf("OperationMode parameter must be one of: %v", operationModes.List())
+	}
+
+	// Fail if no apikey is provided
+	if c.Apikey == "" && c.OperationMode != "localhost" {
+		return errors.New("Config parameter \"Apikey\" is mandatory for operation modes other than localhost")
 	}
 
 	// Set Block until ready to default value if not provided
@@ -171,7 +175,19 @@ func (c *SplitSdkConfig) Normalize() error {
 	}
 
 	// Normalize IP and instance ID
-	c.normalizeIpAndInstanceId()
+	c.normalizeIPAndInstanceID()
+
+	// If localhost mode selected and no splitFile provided, try to determine user's home dir
+	// fail if this cannot be done
+	if c.OperationMode == "localhost" && c.SplitFile == "" {
+		usr, err := user.Current()
+		if err != nil {
+			return errors.New(
+				"Localhost mode selected. No split file specified and cannot determine user's home dir",
+			)
+		}
+		c.SplitFile = path.Join(usr.HomeDir, ".splits")
+	}
 
 	// Normalize Redis config if needed
 	if c.OperationMode == "redis-consumer" || c.OperationMode == "redis-standalone" {

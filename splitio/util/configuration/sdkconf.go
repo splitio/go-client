@@ -5,6 +5,7 @@ package configuration
 import (
 	"errors"
 	"fmt"
+	"github.com/splitio/go-client/splitio/util/impressionlistener"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
@@ -61,11 +62,12 @@ type RedisConfig struct {
 
 // AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
 type AdvancedConfig struct {
-	HTTPTimeout      int
-	SdkURL           string
-	EventsURL        string
-	SegmentQueueSize int
-	SegmentWorkers   int
+	ImpressionListener impressionlistener.ListenerInterface
+	HTTPTimeout        int
+	SdkURL             string
+	EventsURL          string
+	SegmentQueueSize   int
+	SegmentWorkers     int
 }
 
 func (c *SplitSdkConfig) normalizeIPAndInstanceID() {

@@ -69,6 +69,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		"go-0.1",
 		"192.168.0.123",
 		"machine1",
+		nil,
 		logger,
 	)
 
@@ -107,4 +108,52 @@ func TestImpressionSyncTask(t *testing.T) {
 	if impressionTask.IsRunning() {
 		t.Error("Task should be stopped")
 	}
+}
+
+type goodListener struct {
+	status bool
+}
+
+func (l *goodListener) Notify(impressions []dtos.ImpressionsDTO) {
+	imp := impressions[0].KeyImpressions[0]
+	if impressions[0].TestName == "feature1" && imp.Treatment == "aTreatment" {
+		l.status = true
+	}
+}
+
+type badListener struct{}
+
+func (l *badListener) Notify(impressions []dtos.ImpressionsDTO) {
+	panic("some msg")
+}
+
+type mockRecorder struct{}
+
+func (r *mockRecorder) Record(i []dtos.ImpressionsDTO, s string, m string, m2 string) error {
+	return nil
+}
+
+func TestImpressionListener(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
+	gListener := goodListener{status: false}
+	impStorage := mutexmap.NewMMImpressionStorage()
+	impStorage.Put("feature1", &dtos.ImpressionDTO{
+		BucketingKey: "aBucketingKey",
+		ChangeNumber: 1,
+		KeyName:      "aKey",
+		Label:        "aLabel",
+		Time:         1,
+		Treatment:    "aTreatment",
+	})
+
+	submitImpressions(impStorage, &mockRecorder{}, "", "", "", &gListener, logger)
+	time.Sleep(2 * time.Second)
+
+	if !gListener.status {
+		t.Error("Listener not called correctly")
+	}
+
+	bListener := badListener{}
+	submitImpressions(impStorage, &mockRecorder{}, "", "", "", &bListener, logger)
+	// Panic should be caught!
 }

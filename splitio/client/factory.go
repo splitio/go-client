@@ -151,7 +151,14 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 				readyChannel,
 			),
 			impressionSync: tasks.NewRecordImpressionsTask(
-				impressionStorage, impressionRecorder, impressionPeriod, version, ip, instance, logger,
+				impressionStorage,
+				impressionRecorder,
+				impressionPeriod,
+				version,
+				ip,
+				instance,
+				cfg.Advanced.ImpressionListener,
+				logger,
 			),
 			countersSync: tasks.NewRecordCountersTask(
 				metricsStorage, metricsRecorder, countersPeriod, version, ip, instance, logger,

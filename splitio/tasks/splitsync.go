@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"github.com/splitio/go-client/splitio/service"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
@@ -19,8 +20,8 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 	}
 
 	// Go idiom for filtering (https://github.com/golang/go/wiki/SliceTricks)
-	inactiveSplits := splits.Splits[:0]
-	activeSplits := splits.Splits[:0]
+	inactiveSplits := make([]dtos.SplitDTO, 0)
+	activeSplits := make([]dtos.SplitDTO, 0)
 	for _, split := range splits.Splits {
 		if split.Status == "ACTIVE" {
 			activeSplits = append(activeSplits, split)

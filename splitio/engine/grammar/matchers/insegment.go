@@ -1,6 +1,7 @@
 package matchers
 
 import (
+	"fmt"
 	"github.com/splitio/go-client/splitio/storage"
 )
 
@@ -14,11 +15,13 @@ type InSegmentMatcher struct {
 func (m *InSegmentMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	segmentStorage, ok := m.Context.Dependency("segmentStorage").(storage.SegmentStorage)
 	if !ok {
+		m.logger.Error("InSegmentMatcher: Unable to retrieve segment storage!")
 		return false
 	}
 
 	segment := segmentStorage.Get(m.segmentName)
 	if segment == nil {
+		m.logger.Error(fmt.Printf("InSegmentMatcher: Segment %s not found", m.segmentName))
 		return false
 	}
 

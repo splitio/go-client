@@ -14,11 +14,13 @@ type EndsWithMatcher struct {
 func (m *EndsWithMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("EndsWithMatcher: ", err)
 		return false
 	}
 
 	asString, ok := matchingKey.(string)
 	if !ok {
+		m.logger.Error("EndsWithMatcher: Error type-asserting string")
 		return false
 	}
 

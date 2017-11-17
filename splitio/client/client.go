@@ -2,14 +2,16 @@ package client
 
 import (
 	"errors"
+	"runtime/debug"
+	"time"
+
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
+
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
-	"runtime/debug"
-	"time"
 )
 
 // SplitClient is the entry-point of the split SDK.

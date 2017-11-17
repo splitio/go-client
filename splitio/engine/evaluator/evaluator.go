@@ -1,12 +1,14 @@
 package evaluator
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
 	"github.com/splitio/go-client/splitio/storage"
+
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -47,6 +49,7 @@ func NewEvaluator(
 func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	splitDto := e.splitStorage.Get(feature)
 	if splitDto == nil {
+		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
 		return &Result{Treatment: "control", Label: impressionlabels.SplitNotFound}
 	}
 
@@ -58,6 +61,11 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 	split := grammar.NewSplit(splitDto, ctx, e.logger)
 
 	if split.Killed() {
+		e.logger.Warning(fmt.Sprintf(
+			"Feature %s has been killed, returning default treatment: %s",
+			feature,
+			split.DefaultTreatment(),
+		))
 		return &Result{
 			Treatment:         split.DefaultTreatment(),
 			Label:             impressionlabels.Killed,
@@ -70,6 +78,10 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 	after := time.Now()
 
 	if treatment == nil {
+		e.logger.Warning(fmt.Sprintf(
+			"No condition matched, returning default treatment: %s",
+			split.DefaultTreatment(),
+		))
 		defaultTreatment := split.DefaultTreatment()
 		treatment = &defaultTreatment
 		label = impressionlabels.NoConditionMatched

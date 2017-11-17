@@ -3,6 +3,7 @@ package matchers
 import (
 	"bufio"
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"os"
 	"reflect"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 )
 
 func TestRegexMatcher(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 
 	fileHandle, err := os.Open("../../../../testdata/regex.txt")
@@ -40,7 +42,7 @@ func TestRegexMatcher(t *testing.T) {
 			},
 		}
 
-		matcher, err := BuildMatcher(dto, nil)
+		matcher, err := BuildMatcher(dto, nil, logger)
 		if err != nil {
 			t.Error("There should be no errors when building the matcher")
 			t.Error(err)

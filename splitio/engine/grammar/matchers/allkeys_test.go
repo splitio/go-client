@@ -2,16 +2,18 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestAllKeysMatcher(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto := &dtos.MatcherDTO{
 		MatcherType: "ALL_KEYS",
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 	}

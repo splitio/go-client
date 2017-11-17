@@ -13,6 +13,7 @@ import (
 )
 
 func TestDependencyMatcher(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	dto := &dtos.MatcherDTO{
 		MatcherType: "IN_SPLIT_TREATMENT",
@@ -86,11 +87,12 @@ func TestDependencyMatcher(t *testing.T) {
 		evaluator.NewEvaluator(
 			splitStorage,
 			segmentStorage,
-			engine.Engine{Logger: logging.NewLogger(&logging.LoggerOptions{})},
+			engine.NewEngine(logger),
+			logger,
 		),
 	)
 
-	matcher, err := matchers.BuildMatcher(dto, ctx)
+	matcher, err := matchers.BuildMatcher(dto, ctx, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -115,7 +117,7 @@ func TestDependencyMatcher(t *testing.T) {
 			Attribute: &attrName,
 		},
 	}
-	matcher, err = matchers.BuildMatcher(dto, ctx)
+	matcher, err = matchers.BuildMatcher(dto, ctx, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)

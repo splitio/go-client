@@ -17,6 +17,7 @@ type DependencyMatcher struct {
 func (m *DependencyMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	evaluator, ok := m.Context.Dependency("evaluator").(dependencyEvaluator)
 	if !ok {
+		m.logger.Error("DependencyMatcher: Error retrieving matching key")
 		return false
 	}
 

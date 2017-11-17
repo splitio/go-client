@@ -15,11 +15,13 @@ type PartOfSetMatcher struct {
 func (m *PartOfSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("PartOfSetMatcher: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.([]string)
 	if !ok {
+		m.logger.Error("Unable to type-assert key to []string")
 		return false
 	}
 

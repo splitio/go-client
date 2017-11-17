@@ -16,6 +16,7 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 
 	matchingRaw, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("LessThanOrEqualToMatcher: ", err)
 		return false
 	}
 
@@ -28,6 +29,7 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 		}
 	}
 	if !ok {
+		m.logger.Error("LessThanOrEqualToMatcher: Unable to type-assert key to int")
 		return false
 	}
 
@@ -39,6 +41,7 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
 		comparisonValue = datatypes.ZeroSecondsTS(m.ComparisonValue)
 	default:
+		m.logger.Error("LessThanOrEqualToMatcher: Incorrect data type")
 		return false
 	}
 

@@ -78,7 +78,10 @@ func (m *Matcher) matchingKey(key string, attributes map[string]interface{}) (in
 
 	attrValue, found := attributes[*m.attributeName]
 	if !found {
-		return nil, fmt.Errorf("Attribute \"%s\" required but not present in provided attribute map", *m.attributeName)
+		return nil, fmt.Errorf(
+			"Attribute \"%s\" required but not present in provided attribute map",
+			*m.attributeName,
+		)
 	}
 
 	return attrValue, nil
@@ -100,12 +103,17 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 
 	switch dto.MatcherType {
 	case MatcherTypeAllKeys:
+		logger.Debug(fmt.Sprintf("Building AllKeysMatcher with negate=%t", dto.Negate))
 		matcher = NewAllKeysMatcher(dto.Negate)
 
 	case MatcherTypeEqualTo:
 		if dto.UnaryNumeric == nil {
 			return nil, errors.New("UnaryNumeric is required for EQUAL_TO matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building EqualToMatcher with negate=%t, value=%d, type=%s, attributeName=%v",
+			dto.Negate, dto.UnaryNumeric.Value, dto.UnaryNumeric.DataType, attributeName,
+		))
 		matcher = NewEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
@@ -117,6 +125,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.UserDefinedSegment == nil {
 			return nil, errors.New("UserDefinedSegment is required for IN_SEGMENT matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building InSegmentMatcher with negate=%t, segmentName=%s, attributeName=%v",
+			dto.Negate, dto.UserDefinedSegment.SegmentName, attributeName,
+		))
 		matcher = NewInSegmentMatcher(
 			dto.Negate,
 			dto.UserDefinedSegment.SegmentName,
@@ -127,6 +139,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for WHITELIST matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building WhitelistMatcher with negate=%t, whitelist=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewWhitelistMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -137,6 +153,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.UnaryNumeric == nil {
 			return nil, errors.New("UnaryNumeric is required for GREATER_THAN_OR_EQUAL_TO matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building GreaterThanOrEqualToMatcher with negate=%t, value=%d, type=%s, attributeName=%v",
+			dto.Negate, dto.UnaryNumeric.Value, dto.UnaryNumeric.DataType, attributeName,
+		))
 		matcher = NewGreaterThanOrEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
@@ -148,6 +168,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.UnaryNumeric == nil {
 			return nil, errors.New("UnaryNumeric is required for LESS_THAN_OR_EQUAL_TO matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building LessThanOrEqualToMatcher with negate=%t, value=%d, type=%s, attributeName=%v",
+			dto.Negate, dto.UnaryNumeric.Value, dto.UnaryNumeric.DataType, attributeName,
+		))
 		matcher = NewLessThanOrEqualToMatcher(
 			dto.Negate,
 			dto.UnaryNumeric.Value,
@@ -159,6 +183,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Between == nil {
 			return nil, errors.New("Between is required for BETWEEN matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building BetweenMatcher with negate=%t, start=%d, end=%d, type=%s, attributeName=%v",
+			dto.Negate, dto.Between.Start, dto.Between.End, dto.Between.DataType, attributeName,
+		))
 		matcher = NewBetweenMatcher(
 			dto.Negate,
 			dto.Between.Start,
@@ -171,6 +199,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for EQUAL_TO_SET matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building EqualToSetMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewEqualToSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -181,6 +213,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for PART_OF_SET matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building PartOfSetMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewPartOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -191,6 +227,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for CONTAINS_ALL_OF_SET matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building AllOfSetMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewContainsAllOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -201,6 +241,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for CONTAINS_ANY_OF_SET matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building AnyOfSetMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewContainsAnyOfSetMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -211,6 +255,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for STARTS_WITH matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building StartsWithMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewStartsWithMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -221,6 +269,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for ENDS_WITH matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building EndsWithMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewEndsWithMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -231,6 +283,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Whitelist == nil {
 			return nil, errors.New("Whitelist is required for CONTAINS_STRING matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building ContainsStringMatcher with negate=%t, set=%v, attributeName=%v",
+			dto.Negate, dto.Whitelist.Whitelist, attributeName,
+		))
 		matcher = NewContainsStringMatcher(
 			dto.Negate,
 			dto.Whitelist.Whitelist,
@@ -241,6 +297,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Dependency == nil {
 			return nil, errors.New("Dependency is required for IN_SPLIT_TREATMENT matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building DependencyMatcher with negate=%t, feature=%s, treatments=%v, attributeName=%v",
+			dto.Negate, dto.Dependency.Split, dto.Dependency.Treatments, attributeName,
+		))
 		matcher = NewDependencyMatcher(
 			dto.Negate,
 			dto.Dependency.Split,
@@ -251,6 +311,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.Boolean == nil {
 			return nil, errors.New("Boolean is required for EQUAL_TO_BOOLEAN matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building BooleanMatcher with negate=%t, value=%t, attributeName=%v",
+			dto.Negate, *dto.Boolean, attributeName,
+		))
 		matcher = NewBooleanMatcher(
 			dto.Negate,
 			dto.Boolean,
@@ -261,6 +325,10 @@ func BuildMatcher(dto *dtos.MatcherDTO, ctx *injection.Context, logger logging.L
 		if dto.String == nil {
 			return nil, errors.New("String is required for MATCHES_STRING matcher type")
 		}
+		logger.Debug(fmt.Sprintf(
+			"Building RegexMatcher with negate=%t, regex=%s, attributeName=%v",
+			dto.Negate, *dto.String, attributeName,
+		))
 		matcher = NewRegexMatcher(
 			dto.Negate,
 			*dto.String,

@@ -2,11 +2,13 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestWhitelistMatcherAttr(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	dto := &dtos.MatcherDTO{
 		MatcherType: "WHITELIST",
@@ -18,7 +20,7 @@ func TestWhitelistMatcherAttr(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -39,6 +41,7 @@ func TestWhitelistMatcherAttr(t *testing.T) {
 }
 
 func TestWhitelistMatcherKey(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto := &dtos.MatcherDTO{
 		MatcherType: "WHITELIST",
 		Whitelist: &dtos.WhitelistMatcherDataDTO{
@@ -46,7 +49,7 @@ func TestWhitelistMatcherKey(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
@@ -26,7 +27,7 @@ func TestPostImpressions(t *testing.T) {
 		sdkVersion := r.Header.Get("SplitSDKVersion")
 		sdkMachine := r.Header.Get("SplitSDKMachineIP")
 
-		if sdkVersion != "test-1.0.0" {
+		if sdkVersion != fmt.Sprint("go-", splitio.Version) {
 			t.Error("SDK Version HEADER not match")
 		}
 
@@ -111,7 +112,7 @@ func TestPostMetricsLatency(t *testing.T) {
 		sdkVersion := r.Header.Get("SplitSDKVersion")
 		sdkMachine := r.Header.Get("SplitSDKMachineIP")
 
-		if sdkVersion != "test-1.0.0" {
+		if sdkVersion != fmt.Sprint("go-", splitio.Version) {
 			t.Error("SDK Version HEADER not match")
 		}
 
@@ -173,7 +174,7 @@ func TestPostMetricsCounters(t *testing.T) {
 		sdkVersion := r.Header.Get("SplitSDKVersion")
 		sdkMachine := r.Header.Get("SplitSDKMachineIP")
 
-		if sdkVersion != "test-1.0.0" {
+		if sdkVersion != fmt.Sprint("go-", splitio.Version) {
 			t.Error("SDK Version HEADER not match")
 		}
 
@@ -240,7 +241,7 @@ func TestPostMetricsGauge(t *testing.T) {
 		sdkVersion := r.Header.Get("SplitSDKVersion")
 		sdkMachine := r.Header.Get("SplitSDKMachineIP")
 
-		if sdkVersion != "test-1.0.0" {
+		if sdkVersion != fmt.Sprint("go-", splitio.Version) {
 			t.Error("SDK Version HEADER not match")
 		}
 

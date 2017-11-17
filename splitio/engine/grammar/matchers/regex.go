@@ -15,20 +15,24 @@ type RegexMatcher struct {
 func (m *RegexMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
-		m.logger.Error("Error parsing matching key: ", err)
+		m.logger.Error("RegexMatcher: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.(string)
 	if !ok {
 		m.logger.Error(
-			"Incorrect type. Expected string and recieved ",
+			"RegexMatcher: Incorrect type. Expected string and recieved ",
 			reflect.TypeOf(matchingKey).String(),
 		)
 		return false
 	}
 
-	re := regexp.MustCompile(m.regex)
+	re, err := regexp.Compile(m.regex)
+	if err != nil {
+		m.logger.Error("RegexMatcher: Failed to compile regexp. ", err)
+		return false
+	}
 	return re.MatchString(conv)
 }
 

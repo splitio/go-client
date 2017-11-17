@@ -15,6 +15,7 @@ type GreaterThanOrEqualToMatcher struct {
 func (m *GreaterThanOrEqualToMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingRaw, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("GreaterThanOrEqualToMatcher: ", err)
 		return false
 	}
 
@@ -27,6 +28,7 @@ func (m *GreaterThanOrEqualToMatcher) Match(key string, attributes map[string]in
 		}
 	}
 	if !ok {
+		m.logger.Error("GreaterThanOrEqualToMatcher: Cannot type-assert key matching key to int")
 		return false
 	}
 
@@ -38,6 +40,7 @@ func (m *GreaterThanOrEqualToMatcher) Match(key string, attributes map[string]in
 		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
 		comparisonValue = datatypes.ZeroSecondsTS(m.ComparisonValue)
 	default:
+		m.logger.Error("GreaterThanOrEqualToMatcher: Incorrect attribute type")
 		return false
 	}
 	return matchingValue >= comparisonValue

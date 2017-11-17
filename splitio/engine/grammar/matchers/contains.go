@@ -14,11 +14,13 @@ type ContainsStringMatcher struct {
 func (m *ContainsStringMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("ContainsAllOfSetMatcher: Error retrieving matching key")
 		return false
 	}
 
 	asString, ok := matchingKey.(string)
 	if !ok {
+		m.logger.Error("ContainsAllOfSetMatcher: Failed to type-assert string")
 		return false
 	}
 

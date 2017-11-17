@@ -5,11 +5,13 @@ import (
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestInSegmentMatcher(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto := &dtos.MatcherDTO{
 		MatcherType: "IN_SEGMENT",
 		UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
@@ -26,7 +28,7 @@ func TestInSegmentMatcher(t *testing.T) {
 	ctx := injection.NewContext()
 	ctx.AddDependency("segmentStorage", segmentStorage)
 
-	matcher, err := BuildMatcher(dto, ctx)
+	matcher, err := BuildMatcher(dto, ctx, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)

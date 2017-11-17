@@ -3,11 +3,13 @@ package matchers
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestMatcherConstruction(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto1 := dtos.MatcherDTO{
 		Negate:      false,
 		MatcherType: "ALL_KEYS",
@@ -17,7 +19,7 @@ func TestMatcherConstruction(t *testing.T) {
 		},
 	}
 
-	matcher1, err := BuildMatcher(&dto1, nil)
+	matcher1, err := BuildMatcher(&dto1, nil, logger)
 
 	if err != nil {
 		t.Error("Matcher construction shouldn't fail")
@@ -47,7 +49,7 @@ func TestMatcherConstruction(t *testing.T) {
 		},
 	}
 
-	matcher2, err := BuildMatcher(&dto2, nil)
+	matcher2, err := BuildMatcher(&dto2, nil, logger)
 
 	if err == nil {
 		t.Error("Matcher construction shoul have failed for invalid matcher")
@@ -67,7 +69,7 @@ func TestMatcherConstruction(t *testing.T) {
 	}
 	ctx := injection.NewContext()
 	ctx.AddDependency("key1", "sampleString")
-	matcher3, err := BuildMatcher(&dto3, ctx)
+	matcher3, err := BuildMatcher(&dto3, ctx, logger)
 
 	if err != nil {
 		t.Error("There shouldn't have been any errors constructing the matcher")

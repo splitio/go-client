@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
@@ -33,6 +34,10 @@ func (e *Engine) DoEvaluation(
 			if split.TrafficAllocation() < 100 {
 				bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
 				if bucket >= split.TrafficAllocation() {
+					e.logger.Debug(fmt.Sprintf(
+						"Traffic allocation exceeded for feature %s and key %s."+
+							" Returning default treatment", split.Name(), key,
+					))
 					defaultTreatment := split.DefaultTreatment()
 					return &defaultTreatment, impressionlabels.NotInSplit
 				}

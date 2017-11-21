@@ -19,7 +19,6 @@ func updateSplits(splitStorage storage.SplitStorage, splitFetcher service.SplitF
 		return false, err
 	}
 
-	// Go idiom for filtering (https://github.com/golang/go/wiki/SliceTricks)
 	inactiveSplits := make([]dtos.SplitDTO, 0)
 	activeSplits := make([]dtos.SplitDTO, 0)
 	for _, split := range splits.Splits {

@@ -4,6 +4,8 @@ package client
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
@@ -14,8 +16,8 @@ import (
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-client/splitio/util/configuration"
+
 	"github.com/splitio/go-toolkit/logging"
-	"time"
 )
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.

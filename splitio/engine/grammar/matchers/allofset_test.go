@@ -2,11 +2,13 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestAllOfSetMatcher(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "setdata"
 	dto := &dtos.MatcherDTO{
 		MatcherType: "CONTAINS_ALL_OF_SET",
@@ -18,7 +20,7 @@ func TestAllOfSetMatcher(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -30,18 +32,18 @@ func TestAllOfSetMatcher(t *testing.T) {
 	}
 
 	if !matcher.Match("asd", map[string]interface{}{"setdata": []string{"one", "two", "three", "four"}}, nil) {
-		t.Error("Matcher an equal set")
+		t.Error("Matcher should match an equal set")
 	}
 
-	if matcher.Match("asd", map[string]interface{}{"setdata": []string{"one", "two", "three", "four", "five"}}, nil) {
-		t.Error("Matcher should NOT match a superset")
+	if !matcher.Match("asd", map[string]interface{}{"setdata": []string{"one", "two", "three", "four", "five"}}, nil) {
+		t.Error("Matcher should match a superset")
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"setdata": []string{}}, nil) {
-		t.Error("Matcher should match an empty set")
+	if matcher.Match("asd", map[string]interface{}{"setdata": []string{}}, nil) {
+		t.Error("Matcher should not match an empty set")
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"setdata": []string{"one", "two", "three"}}, nil) {
-		t.Error("Matcher should match a subset")
+	if matcher.Match("asd", map[string]interface{}{"setdata": []string{"one", "two", "three"}}, nil) {
+		t.Error("Matcher should not match a subset")
 	}
 }

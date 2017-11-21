@@ -16,10 +16,9 @@ type BetweenMatcher struct {
 
 // Match will match if the matchingValue is between lowerComparisonValue and upperComparisonValue
 func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
-
 	matchingRaw, err := m.matchingKey(key, attributes)
 	if err != nil {
-		m.logger.Error("Could not retrieve matching key. ", err)
+		m.logger.Error("BetweenMatcher: Could not retrieve matching key. ", err)
 		return false
 	}
 
@@ -34,7 +33,7 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 	}
 	if !okMatching {
 		m.logger.Error(
-			"Could not parse attribute to an int. ",
+			"BetweenMatcher: Could not parse attribute to an int. ",
 			fmt.Sprintf("Attribute is of type %s\n", reflect.TypeOf(matchingRaw).String()),
 		)
 		return false
@@ -51,7 +50,7 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		comparisonLower = datatypes.ZeroSecondsTS(m.LowerComparisonValue)
 		comparisonUpper = datatypes.ZeroSecondsTS(m.UpperComparisonValue)
 	default:
-		m.base().logger.Error(fmt.Sprintf("Incorrect type %s", m.ComparisonDataType))
+		m.base().logger.Error(fmt.Sprintf("BetweenMatcher: Incorrect type %s", m.ComparisonDataType))
 		return false
 	}
 	return matchingValue >= comparisonLower && matchingValue <= comparisonUpper

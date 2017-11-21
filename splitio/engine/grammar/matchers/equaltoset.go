@@ -14,11 +14,13 @@ type EqualToSetMatcher struct {
 func (m *EqualToSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("EqualToSetMatcher: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.([]string)
 	if !ok {
+		m.logger.Error("EqualToSetMatcher: Cannot type assert to []string")
 		return false
 	}
 

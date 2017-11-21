@@ -2,10 +2,12 @@ package grammar
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"testing"
 )
 
 func TestSplitCreation(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto := dtos.SplitDTO{
 		Algo:                  0,
 		ChangeNumber:          123,
@@ -19,7 +21,7 @@ func TestSplitCreation(t *testing.T) {
 		TrafficAllocationSeed: 333,
 		TrafficTypeName:       "tt1",
 	}
-	split := NewSplit(&dto, nil)
+	split := NewSplit(&dto, nil, logger)
 
 	if split.Algo() != SplitAlgoLegacy {
 		t.Error("Algo() should return legacy")

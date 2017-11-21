@@ -15,8 +15,8 @@ import (
 
 func TestSplitSyncTask(t *testing.T) {
 
-	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false}
-	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true}
+	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE"}
+	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
 
 	reqestReceived := false
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +59,7 @@ func TestSplitSyncTask(t *testing.T) {
 	splitTask := NewFetchSplitsTask(
 		splitStorage,
 		splitFetcher,
-		1,
+		3,
 		logger,
 		readyChannel,
 	)
@@ -76,6 +76,7 @@ func TestSplitSyncTask(t *testing.T) {
 			t.Error("Incorrect msg receieved")
 			return
 		}
+		break
 	case <-time.After(3 * time.Second):
 		t.Error("SPLITS_READY signal not received")
 		return
@@ -87,15 +88,16 @@ func TestSplitSyncTask(t *testing.T) {
 
 	splitTask.Stop()
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 10)
 
 	s1 := splitStorage.Get("split1")
-	if s1 == nil || s1.Name != "split1" || s1.Killed != false {
+	if s1 == nil || s1.Name != "split1" || s1.Killed {
 		t.Error("split1 stored/retrieved incorrectly")
+		t.Error(s1)
 	}
 
 	s2 := splitStorage.Get("split2")
-	if s2 == nil || s2.Name != "split2" || s2.Killed != true {
+	if s2 == nil || s2.Name != "split2" || !s2.Killed {
 		t.Error("split2 stored/retrieved incorrectly")
 		t.Error(s2)
 	}

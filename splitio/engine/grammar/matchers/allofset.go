@@ -16,14 +16,14 @@ type ContainsAllOfSetMatcher struct {
 func (m *ContainsAllOfSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
-		m.logger.Error("Error parsing matching key: ", err)
+		m.logger.Error("AllOfSetMatcher: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.([]string)
 	if !ok {
 		m.logger.Error(
-			"Attribute passed is not a slice of strings. ",
+			"AllOfSetMatcher: Attribute passed is not a slice of strings. ",
 			fmt.Sprintf("Key is of type %s\n", reflect.TypeOf(matchingKey).String()),
 		)
 		return false

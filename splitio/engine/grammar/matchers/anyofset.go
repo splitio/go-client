@@ -14,11 +14,13 @@ type ContainsAnyOfSetMatcher struct {
 func (m *ContainsAnyOfSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("AnyOfSetMatcher: ", err)
 		return false
 	}
 
 	conv, ok := matchingKey.([]string)
 	if !ok {
+		m.logger.Error("AnyOfSetMatcher: Failed to parse the key as a []string")
 		return false
 	}
 

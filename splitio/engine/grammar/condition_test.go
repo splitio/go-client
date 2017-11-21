@@ -2,10 +2,12 @@ package grammar
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"testing"
 )
 
 func TestConditionWrapperObject(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	condition1 := dtos.ConditionDTO{
 		ConditionType: "WHITELIST",
 		Label:         "Label1",
@@ -42,7 +44,7 @@ func TestConditionWrapperObject(t *testing.T) {
 		},
 	}
 
-	wrapped := NewCondition(&condition1, nil)
+	wrapped := NewCondition(&condition1, nil, logger)
 
 	if wrapped.Label() != "Label1" {
 		t.Error("Label not set properly")
@@ -72,6 +74,7 @@ func TestConditionWrapperObject(t *testing.T) {
 }
 
 func TestAnotherWrapper(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	condition1 := dtos.ConditionDTO{
 		ConditionType: "ROLLOUT",
 		Label:         "Label2",
@@ -108,7 +111,7 @@ func TestAnotherWrapper(t *testing.T) {
 		},
 	}
 
-	wrapped := NewCondition(&condition1, nil)
+	wrapped := NewCondition(&condition1, nil, logger)
 
 	if wrapped.Label() != "Label2" {
 		t.Error("Label not set properly")

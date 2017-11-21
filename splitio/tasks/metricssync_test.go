@@ -134,7 +134,7 @@ func TestMetricsSyncTask(t *testing.T) {
 	gaugesTask.Stop()
 	latenciesTask.Stop()
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 10)
 
 	if countersTask.IsRunning() || gaugesTask.IsRunning() || latenciesTask.IsRunning() {
 		t.Error("Task should be stopped")

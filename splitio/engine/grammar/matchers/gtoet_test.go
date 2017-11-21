@@ -2,11 +2,13 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestGreaterThanOrEqualToMatcherInt(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	dto := &dtos.MatcherDTO{
 		MatcherType: "GREATER_THAN_OR_EQUAL_TO",
@@ -19,7 +21,7 @@ func TestGreaterThanOrEqualToMatcherInt(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -44,6 +46,7 @@ func TestGreaterThanOrEqualToMatcherInt(t *testing.T) {
 }
 
 func TestGreaterThanOrEqualToMatcherDatetime(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	dto := &dtos.MatcherDTO{
 		MatcherType: "GREATER_THAN_OR_EQUAL_TO",
@@ -56,7 +59,7 @@ func TestGreaterThanOrEqualToMatcherDatetime(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)

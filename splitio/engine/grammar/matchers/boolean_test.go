@@ -2,11 +2,13 @@ package matchers
 
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
 )
 
 func TestBooleanMatcherTrue(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	boolValue := true
 	dto := &dtos.MatcherDTO{
@@ -17,7 +19,7 @@ func TestBooleanMatcherTrue(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -36,12 +38,13 @@ func TestBooleanMatcherTrue(t *testing.T) {
 		t.Errorf("\"true\" tringhould match")
 	}
 
-	if matcher.Match("asd", map[string]interface{}{"value": "tRUe"}, nil) {
-		t.Errorf("true bool should not match")
+	if !matcher.Match("asd", map[string]interface{}{"value": "tRUe"}, nil) {
+		t.Errorf("true string with mixed caps should match")
 	}
 }
 
 func TestBooleanMatcherFalse(t *testing.T) {
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 	attrName := "value"
 	boolValue := false
 	dto := &dtos.MatcherDTO{
@@ -52,7 +55,7 @@ func TestBooleanMatcherFalse(t *testing.T) {
 		},
 	}
 
-	matcher, err := BuildMatcher(dto, nil)
+	matcher, err := BuildMatcher(dto, nil, logger)
 	if err != nil {
 		t.Error("There should be no errors when building the matcher")
 		t.Error(err)
@@ -71,7 +74,7 @@ func TestBooleanMatcherFalse(t *testing.T) {
 		t.Errorf("\"false\" tringhould match")
 	}
 
-	if matcher.Match("asd", map[string]interface{}{"value": "fALse"}, nil) {
-		t.Errorf("fALse bool should not match")
+	if !matcher.Match("asd", map[string]interface{}{"value": "fALse"}, nil) {
+		t.Errorf("fALse bool should match")
 	}
 }

@@ -16,6 +16,7 @@ type BooleanMatcher struct {
 func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("BooleanMatcher: Couldn't parse matching key to a boolean")
 		return false
 	}
 
@@ -25,19 +26,22 @@ func (m *BooleanMatcher) Match(key string, attributes map[string]interface{}, bu
 	case reflect.String:
 		asStr, ok := matchingKey.(string)
 		if !ok {
+			m.logger.Error("BooleanMatcher: Couldn't type-assert string")
 			return false
 		}
 		asBool, err = strconv.ParseBool(strings.ToLower(asStr))
 		if err != nil {
+			m.logger.Error("BooleanMatcher: Couldn't parse boolean from string")
 			return false
 		}
 	case reflect.Bool:
 		asBool, ok = matchingKey.(bool)
 		if !ok {
+			m.logger.Error("BooleanMatcher: Couldn't type assert boolean")
 			return false
 		}
 	default:
-		m.logger.Error("Incompatible type: ", reflect.TypeOf(matchingKey).String())
+		m.logger.Error("BooleanMatcher: Incompatible type: ", reflect.TypeOf(matchingKey).String())
 		return false
 	}
 

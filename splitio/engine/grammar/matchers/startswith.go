@@ -14,11 +14,13 @@ type StartsWithMatcher struct {
 func (m *StartsWithMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {
+		m.logger.Error("StartsWithMatcher: ", err)
 		return false
 	}
 
 	asString, ok := matchingKey.(string)
 	if !ok {
+		m.logger.Error("StartsWithMatcher: Failed to type-assert key to string")
 		return false
 	}
 

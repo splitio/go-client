@@ -149,6 +149,13 @@ func (c *SplitSdkConfig) normalizeAdvancedConfig() {
 // Normalize checks for unset parameters and sets them to the default value.
 // If required parameters are missing returns an error.
 func (c *SplitSdkConfig) Normalize() error {
+
+	// To keep the interface consistent with other sdks we accept "localhost" as an apikey,
+	// which sets the operation mode to localhost
+	if c.Apikey == "localhost" {
+		c.OperationMode = "localhost"
+	}
+
 	// Default to inmemory-standalone if no operation mode is provided
 	if c.OperationMode == "" {
 		c.OperationMode = "inmemory-standalone"

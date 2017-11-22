@@ -183,9 +183,9 @@ func TestImpressionStorage(t *testing.T) {
 
 	if impressionStorage.client.client.Exists(
 		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
+		"testPrefix.SPLITIO/go-test/instance123/impressions.feature2",
 	).Val() != 2 {
-		t.Error("Keys or stored in an incorrect format")
+		t.Error("Keys missing or stored in an incorrect format")
 	}
 
 	impressions := impressionStorage.PopAll()
@@ -216,7 +216,7 @@ func TestImpressionStorage(t *testing.T) {
 
 	if impressionStorage.client.client.Exists(
 		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
+		"testPrefix.SPLITIO/go-test/instance123/impressions.feature2",
 	).Val() != 0 {
 		t.Error("Keys should have been deleted")
 	}

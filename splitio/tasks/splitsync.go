@@ -57,6 +57,7 @@ func NewFetchSplitsTask(
 		for !ready {
 			ready, err = updateSplits(splitStorage, splitFetcher)
 			if err != nil {
+				readyChannel <- "SPLITS_ERROR"
 				return err
 			}
 		}

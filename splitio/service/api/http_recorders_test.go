@@ -17,10 +17,7 @@ import (
 
 func TestPostImpressions(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		ErrorWriter:  ioutil.Discard,
-		CommonWriter: ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -102,10 +99,7 @@ func TestPostImpressions(t *testing.T) {
 
 func TestPostMetricsLatency(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		ErrorWriter:  ioutil.Discard,
-		CommonWriter: ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -164,10 +158,7 @@ func TestPostMetricsLatency(t *testing.T) {
 
 func TestPostMetricsCounters(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		ErrorWriter:  ioutil.Discard,
-		CommonWriter: ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -231,10 +222,7 @@ func TestPostMetricsCounters(t *testing.T) {
 
 func TestPostMetricsGauge(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		ErrorWriter:  ioutil.Discard,
-		CommonWriter: ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

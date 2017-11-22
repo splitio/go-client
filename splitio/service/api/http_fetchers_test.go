@@ -18,10 +18,7 @@ var segmentMock, _ = ioutil.ReadFile("../../../testdata/segment_mock.json")
 
 func TestSpitChangesFetch(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		CommonWriter: ioutil.Discard,
-		ErrorWriter:  ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
@@ -51,10 +48,7 @@ func TestSpitChangesFetch(t *testing.T) {
 
 func TestSpitChangesFetchHTTPError(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		CommonWriter: ioutil.Discard,
-		ErrorWriter:  ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError),
@@ -80,10 +74,7 @@ func TestSpitChangesFetchHTTPError(t *testing.T) {
 
 func TestSegmentChangesFetch(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		CommonWriter: ioutil.Discard,
-		ErrorWriter:  ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, fmt.Sprintf(string(segmentMock)))
@@ -112,10 +103,7 @@ func TestSegmentChangesFetch(t *testing.T) {
 
 func TestSegmentChangesFetchHTTPError(t *testing.T) {
 
-	logger := logging.NewLogger(&logging.LoggerOptions{
-		CommonWriter: ioutil.Discard,
-		ErrorWriter:  ioutil.Discard,
-	})
+	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError),

@@ -185,6 +185,8 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 				// Once splits are ready, start segment fetching task
 				syncTasks.segmentSync.Start()
 				break
+			case "SPLITS_ERROR":
+				return nil, fmt.Errorf("Split syncrhonization failed. Please check your apikey")
 			}
 		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
 			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
@@ -212,6 +214,8 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	default:
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
+
+	logger.Info("Sdk initialization complete!")
 
 	engine := engine.NewEngine(logger)
 	client := &SplitClient{

@@ -95,7 +95,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		Treatment:    "off",
 	})
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 10)
 
 	if !reqestReceived {
 		t.Error("Request not received")

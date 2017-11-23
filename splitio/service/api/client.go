@@ -79,6 +79,7 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
+	c.logger.Debug(fmt.Printf("Headers: %v", req.Header))
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
@@ -102,7 +103,7 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 		return nil, err
 	}
 
-	c.logger.Debug("[RESPONSE_BODY]", string(body), "[END_RESPONSE_BODY]")
+	c.logger.Verbose("[RESPONSE_BODY]", string(body), "[END_RESPONSE_BODY]")
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return body, nil
@@ -133,6 +134,10 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 			req.Header.Add(headerName, headerValue)
 		}
 	}
+
+	c.logger.Debug(fmt.Printf("Headers: %v", req.Header))
+	c.logger.Verbose("[REQUEST_BODY]", string(body), "[END_REQUEST_BODY]")
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
@@ -146,7 +151,7 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 		return err
 	}
 
-	c.logger.Debug("[RESPONSE_BODY]", string(respBody), "[END_RESPONSE_BODY]")
+	c.logger.Verbose("[RESPONSE_BODY]", string(respBody), "[END_RESPONSE_BODY]")
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return nil

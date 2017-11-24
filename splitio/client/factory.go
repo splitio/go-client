@@ -22,8 +22,18 @@ import (
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	Client  *SplitClient
-	Manager *SplitManager
+	client  *SplitClient
+	manager *SplitManager
+}
+
+// Client returns the split client instantiated by the factory
+func (f *SplitFactory) Client() *SplitClient {
+	return f.client
+}
+
+// Manager returns the split manager instantiated by the factory
+func (f *SplitFactory) Manager() *SplitManager {
+	return f.manager
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -230,7 +240,7 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 	manager := &SplitManager{splitStorage: splitStorage}
 
 	return &SplitFactory{
-		Client:  client,
-		Manager: manager,
+		client:  client,
+		manager: manager,
 	}, nil
 }

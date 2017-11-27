@@ -21,7 +21,7 @@ type SplitClient struct {
 	cfg          *configuration.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
-	evaluator    *evaluator.Evaluator
+	evaluator    evaluator.Interface
 	sync         *sdkSync
 	impressions  storage.ImpressionStorage
 	metrics      storage.MetricsStorage

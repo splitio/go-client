@@ -62,9 +62,13 @@ func (i *HTTPImpressionRecorder) Record(
 }
 
 // NewHTTPImpressionRecorder instantiates an HTTPImpressionRecorder
-func NewHTTPImpressionRecorder(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPImpressionRecorder {
+func NewHTTPImpressionRecorder(
+	apikey string,
+	cfg *configuration.SplitSdkConfig,
+	logger logging.LoggerInterface,
+) *HTTPImpressionRecorder {
 	_, eventsURL := getUrls(cfg.Advanced)
-	client := NewHTTPClient(cfg, eventsURL, splitio.Version, logger)
+	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
 			client: client,
@@ -145,9 +149,13 @@ func (m *HTTPMetricsRecorder) RecordGauge(
 }
 
 // NewHTTPMetricsRecorder instantiates an HTTPMetricsRecorder
-func NewHTTPMetricsRecorder(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPMetricsRecorder {
+func NewHTTPMetricsRecorder(
+	apikey string,
+	cfg *configuration.SplitSdkConfig,
+	logger logging.LoggerInterface,
+) *HTTPMetricsRecorder {
 	_, eventsURL := getUrls(cfg.Advanced)
-	client := NewHTTPClient(cfg, eventsURL, splitio.Version, logger)
+	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPMetricsRecorder{
 		httpRecorderBase: httpRecorderBase{
 			client: client,

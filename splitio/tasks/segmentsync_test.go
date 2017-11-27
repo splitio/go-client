@@ -56,8 +56,8 @@ func TestSegmentSyncTask(t *testing.T) {
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	segmentFetcher := api.NewHTTPSegmentFetcher(
+		"",
 		&configuration.SplitSdkConfig{
-			Apikey: "123",
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
@@ -68,16 +68,16 @@ func TestSegmentSyncTask(t *testing.T) {
 
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{
-		dtos.SplitDTO{
+		{
 			Name: "split1",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					ConditionType: "WHITELIST",
 					Label:         "Cond1",
 					MatcherGroup: dtos.MatcherGroupDTO{
 						Combiner: "AND",
 						Matchers: []dtos.MatcherDTO{
-							dtos.MatcherDTO{
+							{
 								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
 									SegmentName: "s1",
 								},
@@ -87,16 +87,16 @@ func TestSegmentSyncTask(t *testing.T) {
 				},
 			},
 		},
-		dtos.SplitDTO{
+		{
 			Name: "split2",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					ConditionType: "WHITELIST",
 					Label:         "Cond1",
 					MatcherGroup: dtos.MatcherGroupDTO{
 						Combiner: "AND",
 						Matchers: []dtos.MatcherDTO{
-							dtos.MatcherDTO{
+							{
 								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
 									SegmentName: "s2",
 								},

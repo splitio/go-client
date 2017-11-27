@@ -43,8 +43,8 @@ func TestSplitSyncTask(t *testing.T) {
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	splitFetcher := api.NewHTTPSplitFetcher(
+		"",
 		&configuration.SplitSdkConfig{
-			Apikey: "123",
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,

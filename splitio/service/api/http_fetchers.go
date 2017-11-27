@@ -37,11 +37,15 @@ type HTTPSplitFetcher struct {
 }
 
 // NewHTTPSplitFetcher instantiates and return an HTTPSplitFetcher
-func NewHTTPSplitFetcher(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPSplitFetcher {
+func NewHTTPSplitFetcher(
+	apikey string,
+	cfg *configuration.SplitSdkConfig,
+	logger logging.LoggerInterface,
+) *HTTPSplitFetcher {
 	sdkURL, _ := getUrls(cfg.Advanced)
 	return &HTTPSplitFetcher{
 		httpFetcherBase: httpFetcherBase{
-			client: NewHTTPClient(cfg, sdkURL, splitio.Version, logger),
+			client: NewHTTPClient(apikey, cfg, sdkURL, splitio.Version, logger),
 			logger: logger,
 		},
 	}
@@ -83,11 +87,15 @@ type HTTPSegmentFetcher struct {
 }
 
 // NewHTTPSegmentFetcher instantiates and returns a new HTTPSegmentFetcher.
-func NewHTTPSegmentFetcher(cfg *configuration.SplitSdkConfig, logger logging.LoggerInterface) *HTTPSegmentFetcher {
+func NewHTTPSegmentFetcher(
+	apikey string,
+	cfg *configuration.SplitSdkConfig,
+	logger logging.LoggerInterface,
+) *HTTPSegmentFetcher {
 	sdkURL, _ := getUrls(cfg.Advanced)
 	return &HTTPSegmentFetcher{
 		httpFetcherBase: httpFetcherBase{
-			client: NewHTTPClient(cfg, sdkURL, splitio.Version, logger),
+			client: NewHTTPClient(apikey, cfg, sdkURL, splitio.Version, logger),
 			logger: logger,
 		},
 	}

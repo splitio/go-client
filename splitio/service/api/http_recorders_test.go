@@ -83,6 +83,7 @@ func TestPostImpressions(t *testing.T) {
 	impressions = append(impressions, impressionsTest)
 
 	impressionRecorder := NewHTTPImpressionRecorder(
+		"",
 		&configuration.SplitSdkConfig{
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
@@ -142,6 +143,7 @@ func TestPostMetricsLatency(t *testing.T) {
 	latencies = append(latencies, dtos.LatenciesDTO{MetricName: "some_metric_name", Latencies: latencyValues})
 
 	metricsRecorder := NewHTTPMetricsRecorder(
+		"",
 		&configuration.SplitSdkConfig{
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
@@ -205,6 +207,7 @@ func TestPostMetricsCounters(t *testing.T) {
 	)
 
 	metricsRecorder := NewHTTPMetricsRecorder(
+		"",
 		&configuration.SplitSdkConfig{
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
@@ -263,6 +266,7 @@ func TestPostMetricsGauge(t *testing.T) {
 	gauge = dtos.GaugeDTO{MetricName: "gauge_1", Gauge: 111.1}
 
 	metricsRecorder := NewHTTPMetricsRecorder(
+		"",
 		&configuration.SplitSdkConfig{
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,

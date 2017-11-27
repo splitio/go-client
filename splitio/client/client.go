@@ -8,6 +8,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/metrics"
 
 	"github.com/splitio/go-toolkit/asynctask"
@@ -17,9 +18,10 @@ import (
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
 	apikey       string
+	cfg          *configuration.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
-	evaluator    *evaluator.Evaluator
+	evaluator    evaluator.Interface
 	sync         *sdkSync
 	impressions  storage.ImpressionStorage
 	metrics      storage.MetricsStorage
@@ -84,11 +86,15 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 
 	// Store impression
 	if c.impressions != nil {
+		var label string
+		if c.cfg.LabelsEnabled {
+			label = evaluationResult.Label
+		}
 		c.impressions.Put(feature, &dtos.ImpressionDTO{
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
-			Label:        evaluationResult.Label,
+			Label:        label,
 			Treatment:    evaluationResult.Treatment,
 			Time:         time.Now().Unix() * 1000, // Convert Unix timestamp to java's ms timestamps
 		})

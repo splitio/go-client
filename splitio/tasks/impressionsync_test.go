@@ -50,8 +50,8 @@ func TestImpressionSyncTask(t *testing.T) {
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	impressionRecorder := api.NewHTTPImpressionRecorder(
+		"",
 		&configuration.SplitSdkConfig{
-			Apikey: "123",
 			Advanced: &configuration.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,

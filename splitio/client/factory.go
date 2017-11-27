@@ -58,11 +58,14 @@ func setupLogger(cfg *configuration.SplitSdkConfig) logging.LoggerInterface {
 
 // NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
+func NewSplitFactory(apikey string, cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
+	if cfg == nil {
+		cfg = configuration.Default()
+	}
+
 	logger := setupLogger(cfg)
 
-	err := cfg.Normalize()
-
+	err := configuration.Validate(apikey, cfg)
 	if err != nil {
 		logger.Error("Error occurred when processing configuration")
 		return nil, err
@@ -133,10 +136,10 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 		}
 	case "inmemory-standalone", "redis-standalone":
 		// Sync structs
-		splitFetcher := api.NewHTTPSplitFetcher(cfg, logger)
-		segmentFetcher := api.NewHTTPSegmentFetcher(cfg, logger)
-		impressionRecorder := api.NewHTTPImpressionRecorder(cfg, logger)
-		metricsRecorder := api.NewHTTPMetricsRecorder(cfg, logger)
+		splitFetcher := api.NewHTTPSplitFetcher(apikey, cfg, logger)
+		segmentFetcher := api.NewHTTPSegmentFetcher(apikey, cfg, logger)
+		impressionRecorder := api.NewHTTPImpressionRecorder(apikey, cfg, logger)
+		metricsRecorder := api.NewHTTPMetricsRecorder(apikey, cfg, logger)
 
 		// Task periods
 		splitPeriod := cfg.TaskPeriods.SplitSync
@@ -229,12 +232,13 @@ func NewSplitFactory(cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
 
 	engine := engine.NewEngine(logger)
 	client := &SplitClient{
-		apikey:      cfg.Apikey,
+		apikey:      apikey,
 		logger:      logger,
 		evaluator:   evaluator.NewEvaluator(splitStorage, segmentStorage, engine, logger),
 		impressions: impressionStorage,
 		metrics:     metricsStorage,
 		sync:        syncTasks,
+		cfg:         cfg,
 	}
 
 	manager := &SplitManager{splitStorage: splitStorage}

@@ -44,6 +44,7 @@ type HTTPClient struct {
 
 // NewHTTPClient instance of HttpClient
 func NewHTTPClient(
+	apikey string,
 	cfg *configuration.SplitSdkConfig,
 	endpoint string,
 	version string,
@@ -60,7 +61,7 @@ func NewHTTPClient(
 		url:        endpoint,
 		httpClient: client,
 		logger:     logger,
-		apikey:     cfg.Apikey,
+		apikey:     apikey,
 		version:    version,
 	}
 }

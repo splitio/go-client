@@ -108,3 +108,12 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 
 	return evaluationResult.Treatment
 }
+
+// Treatments evaluates multiple featers for a single user and set of attributes at once
+func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
+	treatments := make(map[string]string)
+	for _, feature := range features {
+		treatments[feature] = c.Treatment(key, feature, attributes)
+	}
+	return treatments
+}

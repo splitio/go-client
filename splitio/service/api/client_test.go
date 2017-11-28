@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio"
-	"github.com/splitio/go-client/splitio/util/configuration"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -20,7 +20,7 @@ func TestGet(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	httpClient := NewHTTPClient("", &configuration.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
+	httpClient := NewHTTPClient("", &conf.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
 	txt, errg := httpClient.Get("/")
 	if errg != nil {
 		t.Error(errg)
@@ -42,7 +42,7 @@ func TestGetGZIP(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	httpClient := NewHTTPClient("", &configuration.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
+	httpClient := NewHTTPClient("", &conf.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
 	txt, errg := httpClient.Get("/")
 	if errg != nil {
 		t.Error(errg)
@@ -60,7 +60,7 @@ func TestPost(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	httpClient := NewHTTPClient("", &configuration.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
+	httpClient := NewHTTPClient("", &conf.SplitSdkConfig{}, ts.URL, splitio.Version, logger)
 	errp := httpClient.Post("/", []byte("some text"), nil)
 	if errp != nil {
 		t.Error(errp)

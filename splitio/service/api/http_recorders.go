@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -64,10 +64,10 @@ func (i *HTTPImpressionRecorder) Record(
 // NewHTTPImpressionRecorder instantiates an HTTPImpressionRecorder
 func NewHTTPImpressionRecorder(
 	apikey string,
-	cfg *configuration.SplitSdkConfig,
+	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPImpressionRecorder {
-	_, eventsURL := getUrls(cfg.Advanced)
+	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
@@ -151,10 +151,10 @@ func (m *HTTPMetricsRecorder) RecordGauge(
 // NewHTTPMetricsRecorder instantiates an HTTPMetricsRecorder
 func NewHTTPMetricsRecorder(
 	apikey string,
-	cfg *configuration.SplitSdkConfig,
+	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPMetricsRecorder {
-	_, eventsURL := getUrls(cfg.Advanced)
+	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPMetricsRecorder{
 		httpRecorderBase: httpRecorderBase{

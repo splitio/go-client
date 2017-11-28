@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/util/configuration"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -27,8 +27,8 @@ func TestSpitChangesFetch(t *testing.T) {
 
 	splitFetcher := NewHTTPSplitFetcher(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -59,8 +59,8 @@ func TestSpitChangesFetchHTTPError(t *testing.T) {
 
 	splitFetcher := NewHTTPSplitFetcher(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -85,8 +85,8 @@ func TestSegmentChangesFetch(t *testing.T) {
 
 	segmentFetcher := NewHTTPSegmentFetcher(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -116,8 +116,8 @@ func TestSegmentChangesFetchHTTPError(t *testing.T) {
 
 	segmentFetcher := NewHTTPSegmentFetcher(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

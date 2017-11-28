@@ -1,6 +1,5 @@
-// Package configuration ...
-// Contains configuration structures used to setup the SDK
-package configuration
+// Package conf contains configuration structures used to setup the SDK
+package conf
 
 import (
 	"errors"
@@ -34,10 +33,10 @@ type SplitSdkConfig struct {
 	SplitFile       string
 	LabelsEnabled   bool
 	Logger          logging.LoggerInterface
-	LoggerConfig    *logging.LoggerOptions
-	TaskPeriods     *TaskPeriods
-	Advanced        *AdvancedConfig
-	Redis           *RedisConfig
+	LoggerConfig    logging.LoggerOptions
+	TaskPeriods     TaskPeriods
+	Advanced        AdvancedConfig
+	Redis           RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -92,16 +91,16 @@ func Default() *SplitSdkConfig {
 		IPAddress:       ipAddress,
 		InstanceName:    fmt.Sprintf("ip-%s", strings.Replace(ipAddress, ".", "-", -1)),
 		Logger:          nil,
-		LoggerConfig:    &logging.LoggerOptions{},
+		LoggerConfig:    logging.LoggerOptions{},
 		SplitFile:       splitFile,
-		Redis: &RedisConfig{
+		Redis: RedisConfig{
 			Database: 0,
 			Host:     "localhost",
 			Password: "",
 			Port:     6379,
 			Prefix:   "",
 		},
-		TaskPeriods: &TaskPeriods{
+		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,
 			GaugeSync:      defaultTaskPeriod,
 			LatencySync:    defaultTaskPeriod,
@@ -109,7 +108,7 @@ func Default() *SplitSdkConfig {
 			SegmentSync:    defaultTaskPeriod,
 			SplitSync:      defaultTaskPeriod,
 		},
-		Advanced: &AdvancedConfig{
+		Advanced: AdvancedConfig{
 			EventsURL:          "",
 			SdkURL:             "",
 			HTTPTimeout:        0,

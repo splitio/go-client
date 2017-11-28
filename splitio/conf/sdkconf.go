@@ -1,6 +1,5 @@
-// Package configuration ...
-// Contains configuration structures used to setup the SDK
-package configuration
+// Package conf contains configuration structures used to setup the SDK
+package conf
 
 import (
 	"errors"

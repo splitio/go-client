@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/splitio"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/api"
@@ -15,7 +16,6 @@ import (
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
-	"github.com/splitio/go-client/splitio/util/configuration"
 
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -37,7 +37,7 @@ func (f *SplitFactory) Manager() *SplitManager {
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
-func setupLogger(cfg *configuration.SplitSdkConfig) logging.LoggerInterface {
+func setupLogger(cfg *conf.SplitSdkConfig) logging.LoggerInterface {
 	var logger logging.LoggerInterface
 	if cfg.Logger != nil {
 		// If a custom logger is supplied, use it.
@@ -58,14 +58,14 @@ func setupLogger(cfg *configuration.SplitSdkConfig) logging.LoggerInterface {
 
 // NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewSplitFactory(apikey string, cfg *configuration.SplitSdkConfig) (*SplitFactory, error) {
+func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, error) {
 	if cfg == nil {
-		cfg = configuration.Default()
+		cfg = conf.Default()
 	}
 
 	logger := setupLogger(cfg)
 
-	err := configuration.Validate(apikey, cfg)
+	err := conf.Validate(apikey, cfg)
 	if err != nil {
 		logger.Error("Error occurred when processing configuration")
 		return nil, err

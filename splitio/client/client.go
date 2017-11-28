@@ -5,10 +5,10 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/metrics"
 
 	"github.com/splitio/go-toolkit/asynctask"
@@ -18,7 +18,7 @@ import (
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
 	apikey       string
-	cfg          *configuration.SplitSdkConfig
+	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
 	evaluator    evaluator.Interface

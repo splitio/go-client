@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -84,8 +84,8 @@ func TestPostImpressions(t *testing.T) {
 
 	impressionRecorder := NewHTTPImpressionRecorder(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: &conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -144,8 +144,8 @@ func TestPostMetricsLatency(t *testing.T) {
 
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: &conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -208,8 +208,8 @@ func TestPostMetricsCounters(t *testing.T) {
 
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: &conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -267,8 +267,8 @@ func TestPostMetricsGauge(t *testing.T) {
 
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: &conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

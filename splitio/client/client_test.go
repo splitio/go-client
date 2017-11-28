@@ -1,9 +1,9 @@
 package client
 
 import (
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 	"testing"
 )
@@ -35,7 +35,7 @@ func (e *mockEvaluator) Evaluate(
 }
 
 func TestClientGetTreatment(t *testing.T) {
-	cfg := configuration.Default()
+	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
@@ -65,7 +65,7 @@ func TestClientGetTreatment(t *testing.T) {
 }
 
 func TestTreatments(t *testing.T) {
-	cfg := configuration.Default()
+	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 

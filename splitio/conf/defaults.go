@@ -1,4 +1,4 @@
-package configuration
+package conf
 
 const (
 	defaultHTTPTimeout      = 30

@@ -2,10 +2,10 @@ package tasks
 
 import (
 	"encoding/json"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-toolkit/logging"
 	"io/ioutil"
 	"net/http"
@@ -51,8 +51,8 @@ func TestImpressionSyncTask(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	impressionRecorder := api.NewHTTPImpressionRecorder(
 		"",
-		&configuration.SplitSdkConfig{
-			Advanced: &configuration.AdvancedConfig{
+		&conf.SplitSdkConfig{
+			Advanced: &conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

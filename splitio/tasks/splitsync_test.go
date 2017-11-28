@@ -45,7 +45,7 @@ func TestSplitSyncTask(t *testing.T) {
 	splitFetcher := api.NewHTTPSplitFetcher(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

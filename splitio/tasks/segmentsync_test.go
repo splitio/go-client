@@ -58,7 +58,7 @@ func TestSegmentSyncTask(t *testing.T) {
 	segmentFetcher := api.NewHTTPSegmentFetcher(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

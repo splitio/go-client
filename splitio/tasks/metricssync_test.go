@@ -75,7 +75,7 @@ func TestMetricsSyncTask(t *testing.T) {
 	metricsRecorder := api.NewHTTPMetricsRecorder(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

@@ -51,7 +51,7 @@ func NewHTTPClient(
 	logger logging.LoggerInterface,
 ) *HTTPClient {
 	var timeout int
-	if cfg.Advanced != nil && cfg.Advanced.HTTPTimeout != 0 {
+	if cfg.Advanced.HTTPTimeout != 0 {
 		timeout = cfg.Advanced.HTTPTimeout
 	} else {
 		timeout = defaultHTTPTimeout

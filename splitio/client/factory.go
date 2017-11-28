@@ -43,15 +43,7 @@ func setupLogger(cfg *conf.SplitSdkConfig) logging.LoggerInterface {
 		// If a custom logger is supplied, use it.
 		logger = cfg.Logger
 	} else {
-		var loggerCfg *logging.LoggerOptions
-		if cfg.LoggerConfig != nil {
-			// If no custom logger is supplied but common & error writers are, use them
-			loggerCfg = cfg.LoggerConfig
-		} else {
-			// No custom logger nor writers provided. Use logging package defaults
-			loggerCfg = &logging.LoggerOptions{}
-		}
-		logger = logging.NewLogger(loggerCfg)
+		logger = logging.NewLogger(&cfg.LoggerConfig)
 	}
 	return logger
 }

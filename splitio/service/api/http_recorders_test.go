@@ -85,7 +85,7 @@ func TestPostImpressions(t *testing.T) {
 	impressionRecorder := NewHTTPImpressionRecorder(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -145,7 +145,7 @@ func TestPostMetricsLatency(t *testing.T) {
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -209,7 +209,7 @@ func TestPostMetricsCounters(t *testing.T) {
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},
@@ -268,7 +268,7 @@ func TestPostMetricsGauge(t *testing.T) {
 	metricsRecorder := NewHTTPMetricsRecorder(
 		"",
 		&conf.SplitSdkConfig{
-			Advanced: &conf.AdvancedConfig{
+			Advanced: conf.AdvancedConfig{
 				EventsURL: ts.URL,
 				SdkURL:    ts.URL,
 			},

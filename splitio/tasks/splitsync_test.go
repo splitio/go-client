@@ -17,7 +17,7 @@ func TestSplitSyncTask(t *testing.T) {
 
 	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE"}
 	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
-
+	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
 	reqestReceived := false
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/splits" && r.Method != "GET" {
@@ -26,7 +26,7 @@ func TestSplitSyncTask(t *testing.T) {
 		reqestReceived = true
 
 		splitChanges := dtos.SplitChangesDTO{
-			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2},
+			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
 			Since:  3,
 			Till:   3,
 		}
@@ -54,6 +54,7 @@ func TestSplitSyncTask(t *testing.T) {
 	)
 
 	splitStorage := mutexmap.NewMMSplitStorage()
+	splitStorage.PutMany([]dtos.SplitDTO{{Name: "split3", Killed: true, Status: "ACTIVE"}}, 123)
 
 	readyChannel := make(chan string)
 	splitTask := NewFetchSplitsTask(
@@ -100,6 +101,11 @@ func TestSplitSyncTask(t *testing.T) {
 	if s2 == nil || s2.Name != "split2" || !s2.Killed {
 		t.Error("split2 stored/retrieved incorrectly")
 		t.Error(s2)
+	}
+
+	s3 := splitStorage.Get("split3")
+	if s3 != nil {
+		t.Error("split3 should have been removed")
 	}
 
 	if splitTask.IsRunning() {

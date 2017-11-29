@@ -23,8 +23,8 @@ type SplitClient struct {
 	loggerConfig logging.LoggerOptions
 	evaluator    evaluator.Interface
 	sync         *sdkSync
-	impressions  storage.ImpressionStorage
-	metrics      storage.MetricsStorage
+	impressions  storage.ImpressionStorageProducer
+	metrics      storage.MetricsStorageProducer
 }
 
 type sdkSync struct {

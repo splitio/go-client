@@ -7,7 +7,7 @@ import (
 
 // SplitManager provides information of the currently stored splits
 type SplitManager struct {
-	splitStorage storage.SplitStorage
+	splitStorage storage.SplitStorageConsumer
 }
 
 // SplitView is a partial representation of a currently stored split

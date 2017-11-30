@@ -13,7 +13,7 @@ type InSegmentMatcher struct {
 
 // Match returns true if the key is in the matcher's segment
 func (m *InSegmentMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
-	segmentStorage, ok := m.Context.Dependency("segmentStorage").(storage.SegmentStorage)
+	segmentStorage, ok := m.Context.Dependency("segmentStorage").(storage.SegmentStorageConsumer)
 	if !ok {
 		m.logger.Error("InSegmentMatcher: Unable to retrieve segment storage!")
 		return false

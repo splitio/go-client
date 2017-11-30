@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/logging"
 	"io/ioutil"
@@ -51,7 +52,8 @@ func TestClientGetTreatment(t *testing.T) {
 
 	client.Treatment("key", "feature", nil)
 
-	impression := client.impressions.PopAll()[0].KeyImpressions[0]
+	impressions := client.impressions.(storage.ImpressionStorage)
+	impression := impressions.PopAll()[0].KeyImpressions[0]
 	if impression.Label != "aLabel" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
@@ -59,7 +61,7 @@ func TestClientGetTreatment(t *testing.T) {
 	client.cfg.LabelsEnabled = false
 	client.Treatment("key", "feature2", nil)
 
-	impression = client.impressions.PopAll()[0].KeyImpressions[0]
+	impression = impressions.PopAll()[0].KeyImpressions[0]
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}

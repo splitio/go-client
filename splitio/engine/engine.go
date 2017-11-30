@@ -16,7 +16,7 @@ type Engine struct {
 	logger logging.LoggerInterface
 }
 
-// DoEvaluation performs the main evaluation agains each condition
+// DoEvaluation performs the main evaluation against each condition
 func (e *Engine) DoEvaluation(
 	split *grammar.Split,
 	key string,

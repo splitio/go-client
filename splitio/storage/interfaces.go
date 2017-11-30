@@ -9,12 +9,12 @@ import (
 type SplitStorageProducer interface {
 	PutMany(splits []dtos.SplitDTO, changeNumber int64)
 	Remove(splitname string)
+	Till() int64
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
 type SplitStorageConsumer interface {
 	Get(splitName string) *dtos.SplitDTO
-	Till() int64
 	SplitNames() []string
 	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO
@@ -23,13 +23,13 @@ type SplitStorageConsumer interface {
 // SegmentStorageProducer interface should be implemented by all structs that offer writing segments
 type SegmentStorageProducer interface {
 	Put(name string, segment *set.ThreadUnsafeSet, changeNumber int64)
+	Till(segmentName string) int64
 	Remove(segmentName string)
 }
 
 // SegmentStorageConsumer interface should be implemented by all structs that ofer reading segments
 type SegmentStorageConsumer interface {
 	Get(segmentName string) *set.ThreadUnsafeSet
-	Till(segmentName string) int64
 }
 
 // ImpressionStorageProducer interface should be impemented by structs that accept incoming impressions

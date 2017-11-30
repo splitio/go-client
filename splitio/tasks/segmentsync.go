@@ -12,7 +12,11 @@ import (
 	"sync"
 )
 
-func updateSegment(segmentFetcher service.SegmentFetcher, segmentStorage storage.SegmentStorage, name string) (bool, error) {
+func updateSegment(
+	segmentFetcher service.SegmentFetcher,
+	segmentStorage storage.SegmentStorage,
+	name string,
+) (bool, error) {
 	till := segmentStorage.Till(name)
 	segmentChanges, err := segmentFetcher.Fetch(name, till)
 	if err != nil {
@@ -76,7 +80,7 @@ func (w *SegmentWorker) OnError(e error) {}
 func (w *SegmentWorker) Cleanup() error { return nil }
 
 func updateSegments(
-	splitStorage storage.SplitStorage,
+	splitStorage storage.SplitStorageConsumer,
 	admin *workerpool.WorkerAdmin,
 	logger logging.LoggerInterface,
 ) error {
@@ -100,7 +104,7 @@ func updateSegments(
 
 // NewFetchSegmentsTask creates a new segment fetching and storing task
 func NewFetchSegmentsTask(
-	splitStorage storage.SplitStorage,
+	splitStorage storage.SplitStorageConsumer,
 	segmentStorage storage.SegmentStorage,
 	segmentFetcher service.SegmentFetcher,
 	period int,

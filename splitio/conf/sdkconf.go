@@ -26,17 +26,18 @@ import (
 // - Redis: (Required for "redis-consumer" & "redis-standalone" operation modes. Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 type SplitSdkConfig struct {
-	OperationMode   string
-	InstanceName    string
-	IPAddress       string
-	BlockUntilReady int
-	SplitFile       string
-	LabelsEnabled   bool
-	Logger          logging.LoggerInterface
-	LoggerConfig    logging.LoggerOptions
-	TaskPeriods     TaskPeriods
-	Advanced        AdvancedConfig
-	Redis           RedisConfig
+	OperationMode     string
+	InstanceName      string
+	IPAddress         string
+	BlockUntilReady   int
+	SplitFile         string
+	LabelsEnabled     bool
+	SplitSyncProxyURL string
+	Logger            logging.LoggerInterface
+	LoggerConfig      logging.LoggerOptions
+	TaskPeriods       TaskPeriods
+	Advanced          AdvancedConfig
+	Redis             RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -119,8 +120,8 @@ func Default() *SplitSdkConfig {
 	}
 }
 
-// Validate checks that the parameters passed by the user are correct and returns an error if something is wrong
-func Validate(apikey string, cfg *SplitSdkConfig) error {
+// Normalize checks that the parameters passed by the user are correct and returns an error if something is wrong
+func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != "localhost" {
 		return errors.New("Config parameter \"Apikey\" is mandatory for operation modes other than localhost")
@@ -142,6 +143,11 @@ func Validate(apikey string, cfg *SplitSdkConfig) error {
 
 	if !operationModes.Has(cfg.OperationMode) {
 		return fmt.Errorf("OperationMode parameter must be one of: %v", operationModes.List())
+	}
+
+	if cfg.SplitSyncProxyURL != "" {
+		cfg.Advanced.SdkURL = cfg.SplitSyncProxyURL
+		cfg.Advanced.EventsURL = cfg.SplitSyncProxyURL
 	}
 
 	return nil

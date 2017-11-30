@@ -57,7 +57,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	logger := setupLogger(cfg)
 
-	err := conf.Validate(apikey, cfg)
+	err := conf.Normalize(apikey, cfg)
 	if err != nil {
 		logger.Error("Error occurred when processing configuration")
 		return nil, err

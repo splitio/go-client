@@ -1,4 +1,5 @@
-# Split GO SDK
+# Split GO SDK 
+[![Go Report Card](https://goreportcard.com/badge/github.com/splitio/go-client)](https://goreportcard.com/report/github.com/splitio/go-client)
 
 This SDK is designed to work with [Split](https://www.split.io), the platform for controlled rollouts, serving features to your users via the Split feature flag to manage your complete customer experience.
 

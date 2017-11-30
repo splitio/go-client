@@ -23,7 +23,7 @@ func listenerWrapper(
 }
 
 func submitImpressions(
-	impressionStorage storage.ImpressionStorage,
+	impressionStorage storage.ImpressionStorageConsumer,
 	impressionRecorder service.ImpressionsRecorder,
 	sdkVersion string,
 	machineIP string,
@@ -44,7 +44,7 @@ func submitImpressions(
 
 // NewRecordImpressionsTask creates a new splits fetching and storing task
 func NewRecordImpressionsTask(
-	impressionStorage storage.ImpressionStorage,
+	impressionStorage storage.ImpressionStorageConsumer,
 	impressionRecorder service.ImpressionsRecorder,
 	period int,
 	sdkVersion,

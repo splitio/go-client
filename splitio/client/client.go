@@ -5,10 +5,10 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/configuration"
 	"github.com/splitio/go-client/splitio/util/metrics"
 
 	"github.com/splitio/go-toolkit/asynctask"
@@ -18,13 +18,13 @@ import (
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
 	apikey       string
-	cfg          *configuration.SplitSdkConfig
+	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
 	evaluator    evaluator.Interface
 	sync         *sdkSync
-	impressions  storage.ImpressionStorage
-	metrics      storage.MetricsStorage
+	impressions  storage.ImpressionStorageProducer
+	metrics      storage.MetricsStorageProducer
 }
 
 type sdkSync struct {
@@ -107,4 +107,13 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 	c.metrics.IncLatency("sdk.getTreatment", bucket)
 
 	return evaluationResult.Treatment
+}
+
+// Treatments evaluates multiple featers for a single user and set of attributes at once
+func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
+	treatments := make(map[string]string)
+	for _, feature := range features {
+		treatments[feature] = c.Treatment(key, feature, attributes)
+	}
+	return treatments
 }

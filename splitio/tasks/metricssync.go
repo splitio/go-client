@@ -9,7 +9,7 @@ import (
 )
 
 func submitCounters(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	sdkVersion string,
 	machineIP string,
@@ -24,7 +24,7 @@ func submitCounters(
 }
 
 func submitGauges(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	sdkVersion string,
 	machineIP string,
@@ -44,7 +44,7 @@ func submitGauges(
 }
 
 func submitLatencies(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	sdkVersion string,
 	machineIP string,
@@ -60,7 +60,7 @@ func submitLatencies(
 
 // NewRecordCountersTask creates a new splits fetching and storing task
 func NewRecordCountersTask(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
 	sdkVersion,
@@ -82,7 +82,7 @@ func NewRecordCountersTask(
 
 // NewRecordGaugesTask creates a new splits fetching and storing task
 func NewRecordGaugesTask(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
 	sdkVersion,
@@ -104,7 +104,7 @@ func NewRecordGaugesTask(
 
 // NewRecordLatenciesTask creates a new splits fetching and storing task
 func NewRecordLatenciesTask(
-	metricsStorage storage.MetricsStorage,
+	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
 	sdkVersion,

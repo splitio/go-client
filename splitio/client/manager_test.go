@@ -10,32 +10,32 @@ import (
 func TestSplitManager(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{
-		dtos.SplitDTO{
+		{
 			ChangeNumber:    123,
 			Name:            "split1",
 			Killed:          false,
 			TrafficTypeName: "tt1",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					Partitions: []dtos.PartitionDTO{
-						dtos.PartitionDTO{Treatment: "s1p1"},
-						dtos.PartitionDTO{Treatment: "s1p2"},
-						dtos.PartitionDTO{Treatment: "s1p3"},
+						{Treatment: "s1p1"},
+						{Treatment: "s1p2"},
+						{Treatment: "s1p3"},
 					},
 				},
 			},
 		},
-		dtos.SplitDTO{
+		{
 			ChangeNumber:    123,
 			Name:            "split2",
 			Killed:          true,
 			TrafficTypeName: "tt2",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					Partitions: []dtos.PartitionDTO{
-						dtos.PartitionDTO{Treatment: "s2p1"},
-						dtos.PartitionDTO{Treatment: "s2p2"},
-						dtos.PartitionDTO{Treatment: "s2p3"},
+						{Treatment: "s2p1"},
+						{Treatment: "s2p2"},
+						{Treatment: "s2p3"},
 					},
 				},
 			},

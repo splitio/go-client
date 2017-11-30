@@ -24,16 +24,16 @@ type Result struct {
 
 // Evaluator struct is the main evaluator
 type Evaluator struct {
-	splitStorage   storage.SplitStorage
-	segmentStorage storage.SegmentStorage
+	splitStorage   storage.SplitStorageConsumer
+	segmentStorage storage.SegmentStorageConsumer
 	eng            *engine.Engine
 	logger         logging.LoggerInterface
 }
 
 // NewEvaluator instantiates an Evaluator struct and returns a reference to it
 func NewEvaluator(
-	splitStorage storage.SplitStorage,
-	segmentStorage storage.SegmentStorage,
+	splitStorage storage.SplitStorageConsumer,
+	segmentStorage storage.SegmentStorageConsumer,
 	eng *engine.Engine,
 	logger logging.LoggerInterface,
 ) *Evaluator {

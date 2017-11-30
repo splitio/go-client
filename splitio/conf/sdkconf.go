@@ -17,26 +17,30 @@ import (
 // struct used to setup a Split.io SDK client.
 //
 // Parameters:
-// - Apikey: (Required) API-KEY used to authenticate user requests
 // - OperationMode (Required) Must be one of ["inmemory-standalone", "redis-consumer", "redis-standalone"]
 // - InstanceName (Optional) Name to be used when submitting metrics & impressions to split servers
+// - IPAddress (Optional) Address to be used when submitting metrics & impressions to split servers
+// - BlockUntilReady (Optional) How much to wait until the sdk is ready
+// - SplitFile (Optional) File with splits to use when running in localhost mode
+// - LabelsEnabled (Optional) Can be used to disable labels if the user does not want to send that info to split servers.
 // - Logger: (Optional) Custom logger complying with logging.LoggerInterface
 // - LoggerConfig: (Optional) Options to setup the sdk's own logger
 // - TaskPeriods: (Optional) How often should each task run
 // - Redis: (Required for "redis-consumer" & "redis-standalone" operation modes. Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 type SplitSdkConfig struct {
-	OperationMode   string
-	InstanceName    string
-	IPAddress       string
-	BlockUntilReady int
-	SplitFile       string
-	LabelsEnabled   bool
-	Logger          logging.LoggerInterface
-	LoggerConfig    logging.LoggerOptions
-	TaskPeriods     TaskPeriods
-	Advanced        AdvancedConfig
-	Redis           RedisConfig
+	OperationMode     string
+	InstanceName      string
+	IPAddress         string
+	BlockUntilReady   int
+	SplitFile         string
+	LabelsEnabled     bool
+	SplitSyncProxyURL string
+	Logger            logging.LoggerInterface
+	LoggerConfig      logging.LoggerOptions
+	TaskPeriods       TaskPeriods
+	Advanced          AdvancedConfig
+	Redis             RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -59,13 +63,17 @@ type RedisConfig struct {
 }
 
 // AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
+// - ImpressionListener - struct that will be notified each time an impression bulk is ready
+// - HTTPTimeout - Timeout for HTTP requests when doing synchronization
+// - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
+// - SegmentWorkers - How many workers will be used when performing segments sync.
 type AdvancedConfig struct {
 	ImpressionListener impressionlistener.ListenerInterface
 	HTTPTimeout        int
-	SdkURL             string
-	EventsURL          string
 	SegmentQueueSize   int
 	SegmentWorkers     int
+	SdkURL             string
+	EventsURL          string
 }
 
 // Default returns a config struct with all the default values
@@ -119,8 +127,9 @@ func Default() *SplitSdkConfig {
 	}
 }
 
-// Validate checks that the parameters passed by the user are correct and returns an error if something is wrong
-func Validate(apikey string, cfg *SplitSdkConfig) error {
+// Normalize checks that the parameters passed by the user are correct and updates parameters if necessary.
+// returns an error if something is wrong
+func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != "localhost" {
 		return errors.New("Config parameter \"Apikey\" is mandatory for operation modes other than localhost")
@@ -142,6 +151,11 @@ func Validate(apikey string, cfg *SplitSdkConfig) error {
 
 	if !operationModes.Has(cfg.OperationMode) {
 		return fmt.Errorf("OperationMode parameter must be one of: %v", operationModes.List())
+	}
+
+	if cfg.SplitSyncProxyURL != "" {
+		cfg.Advanced.SdkURL = cfg.SplitSyncProxyURL
+		cfg.Advanced.EventsURL = cfg.SplitSyncProxyURL
 	}
 
 	return nil

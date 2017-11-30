@@ -14,7 +14,7 @@ func TestConditionWrapperObject(t *testing.T) {
 		MatcherGroup: dtos.MatcherGroupDTO{
 			Combiner: "AND",
 			Matchers: []dtos.MatcherDTO{
-				dtos.MatcherDTO{
+				{
 					Negate:      false,
 					MatcherType: "ALL_KEYS",
 					KeySelector: &dtos.KeySelectorDTO{
@@ -22,7 +22,7 @@ func TestConditionWrapperObject(t *testing.T) {
 						TrafficType: "something",
 					},
 				},
-				dtos.MatcherDTO{
+				{
 					Negate:      true,
 					MatcherType: "ALL_KEYS",
 					KeySelector: &dtos.KeySelectorDTO{
@@ -33,11 +33,11 @@ func TestConditionWrapperObject(t *testing.T) {
 			},
 		},
 		Partitions: []dtos.PartitionDTO{
-			dtos.PartitionDTO{
+			{
 				Size:      75,
 				Treatment: "on",
 			},
-			dtos.PartitionDTO{
+			{
 				Size:      25,
 				Treatment: "off",
 			},
@@ -81,7 +81,7 @@ func TestAnotherWrapper(t *testing.T) {
 		MatcherGroup: dtos.MatcherGroupDTO{
 			Combiner: "AND",
 			Matchers: []dtos.MatcherDTO{
-				dtos.MatcherDTO{
+				{
 					Negate:      false,
 					MatcherType: "ALL_KEYS",
 					KeySelector: &dtos.KeySelectorDTO{
@@ -89,7 +89,7 @@ func TestAnotherWrapper(t *testing.T) {
 						TrafficType: "something",
 					},
 				},
-				dtos.MatcherDTO{
+				{
 					Negate:      true,
 					MatcherType: "ALL_KEYS",
 					KeySelector: &dtos.KeySelectorDTO{
@@ -100,11 +100,11 @@ func TestAnotherWrapper(t *testing.T) {
 			},
 		},
 		Partitions: []dtos.PartitionDTO{
-			dtos.PartitionDTO{
+			{
 				Size:      75,
 				Treatment: "on",
 			},
-			dtos.PartitionDTO{
+			{
 				Size:      25,
 				Treatment: "off",
 			},

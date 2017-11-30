@@ -44,23 +44,23 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 		splits = append(splits, dtos.SplitDTO{
 			Name: splitName,
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					Label: "LOCAL",
 					MatcherGroup: dtos.MatcherGroupDTO{
 						Combiner: "AND",
 						Matchers: []dtos.MatcherDTO{
-							dtos.MatcherDTO{
+							{
 								MatcherType: "ALL_KEYS",
 								Negate:      false,
 							},
 						},
 					},
 					Partitions: []dtos.PartitionDTO{
-						dtos.PartitionDTO{
+						{
 							Size:      100,
 							Treatment: treatment,
 						},
-						dtos.PartitionDTO{
+						{
 							Size:      0,
 							Treatment: "_",
 						},

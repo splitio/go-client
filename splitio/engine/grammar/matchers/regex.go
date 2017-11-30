@@ -22,7 +22,7 @@ func (m *RegexMatcher) Match(key string, attributes map[string]interface{}, buck
 	conv, ok := matchingKey.(string)
 	if !ok {
 		m.logger.Error(
-			"RegexMatcher: Incorrect type. Expected string and recieved ",
+			"RegexMatcher: Incorrect type. Expected string and received ",
 			reflect.TypeOf(matchingKey).String(),
 		)
 		return false

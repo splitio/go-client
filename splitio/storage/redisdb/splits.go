@@ -128,6 +128,10 @@ func (r *RedisSplitStorage) SegmentNames() *set.ThreadUnsafeSet {
 
 		var split dtos.SplitDTO
 		err = json.Unmarshal([]byte(raw), &split)
+		if err != nil {
+			r.logger.Error(fmt.Sprintf("Error parsing json for split %s", key))
+			continue
+		}
 		for _, condition := range split.Conditions {
 			for _, matcher := range condition.MatcherGroup.Matchers {
 				if matcher.UserDefinedSegment != nil {
@@ -158,6 +162,10 @@ func (r *RedisSplitStorage) GetAll() []dtos.SplitDTO {
 
 		var split dtos.SplitDTO
 		err = json.Unmarshal([]byte(raw), &split)
+		if err != nil {
+			r.logger.Error(fmt.Sprintf("Error parsing json for split %s", key))
+			continue
+		}
 		splits = append(splits, split)
 	}
 	return splits

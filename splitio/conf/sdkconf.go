@@ -120,7 +120,8 @@ func Default() *SplitSdkConfig {
 	}
 }
 
-// Normalize checks that the parameters passed by the user are correct and returns an error if something is wrong
+// Normalize checks that the parameters passed by the user are correct and updates parameters if necessary.
+// returns an error if something is wrong
 func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != "localhost" {

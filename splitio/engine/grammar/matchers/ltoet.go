@@ -39,7 +39,7 @@ func (m *LessThanOrEqualToMatcher) Match(key string, attributes map[string]inter
 		comparisonValue = m.ComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
-		comparisonValue = datatypes.ZeroSecondsTS(m.ComparisonValue)
+		comparisonValue = datatypes.ZeroSecondsTS(datatypes.TsFromJava(m.ComparisonValue))
 	default:
 		m.logger.Error("LessThanOrEqualToMatcher: Incorrect data type")
 		return false

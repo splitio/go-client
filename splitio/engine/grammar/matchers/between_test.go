@@ -80,23 +80,23 @@ func TestBetweenMatcherDatetime(t *testing.T) {
 		t.Errorf("Incorrect matcher constructed. Should be *matchers.BetweenMatcher and was %s", matcherType)
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"value": 960293532000}, nil) {
+	if !matcher.Match("asd", map[string]interface{}{"value": 960293532}, nil) {
 		t.Error("Lower limit should match")
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"value": 1275782400000}, nil) {
+	if !matcher.Match("asd", map[string]interface{}{"value": 1275782400}, nil) {
 		t.Error("Upper limit should match")
 	}
 
-	if !matcher.Match("asd", map[string]interface{}{"value": 980293532000}, nil) {
+	if !matcher.Match("asd", map[string]interface{}{"value": 980293532}, nil) {
 		t.Error("Should match between lower and upper")
 	}
 
-	if matcher.Match("asd", map[string]interface{}{"value": 900293532000}, nil) {
+	if matcher.Match("asd", map[string]interface{}{"value": 900293532}, nil) {
 		t.Error("Lower than lower limit should NOT match")
 	}
 
-	if matcher.Match("asd", map[string]interface{}{"value": 1375782400000}, nil) {
+	if matcher.Match("asd", map[string]interface{}{"value": 1375782400}, nil) {
 		t.Error("Upper than upper limit should NOT match")
 	}
 }

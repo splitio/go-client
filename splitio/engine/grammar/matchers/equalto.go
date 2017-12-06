@@ -44,7 +44,7 @@ func (m *EqualToMatcher) Match(key string, attributes map[string]interface{}, bu
 		comparisonValue = m.ComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroTimeTS(matchingValue)
-		comparisonValue = datatypes.ZeroTimeTS(m.ComparisonValue)
+		comparisonValue = datatypes.ZeroTimeTS(datatypes.TsFromJava(m.ComparisonValue))
 	default:
 		m.logger.Error(fmt.Sprintf("EqualToMatcher: Invalid comparison type %s\n", m.ComparisonDataType))
 		return false

@@ -11,7 +11,7 @@ const (
 	Datetime = "DATETIME"
 )
 
-// TsFromJava converts a java timestamp (ms) to a unix timestamp (s)
+// TsFromJava converts a java timestamp to standard unix format
 func TsFromJava(ts int64) int64 {
 	return ts / 1000
 }

@@ -64,5 +64,10 @@ func NewRecordImpressionsTask(
 			logger,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, nil, logger)
+
+	onStop := func(logger logging.LoggerInterface) {
+		impressionStorage.PopAll()
+	}
+
+	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, onStop, logger)
 }

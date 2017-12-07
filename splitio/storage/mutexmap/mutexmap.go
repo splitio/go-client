@@ -112,6 +112,13 @@ func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
 	return splitList
 }
 
+// Clear replaces the split storage with an empty one.
+func (m *MMSplitStorage) Clear() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.data = make(map[string]dtos.SplitDTO)
+}
+
 // ** SEGMENT STORAGE **
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
@@ -165,6 +172,13 @@ func (m *MMSegmentStorage) Till(segmentName string) int64 {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	return m.till[segmentName]
+}
+
+// Clear replaces the segment storage with an empty one.
+func (m *MMSegmentStorage) Clear() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.data = make(map[string]*set.ThreadUnsafeSet)
 }
 
 // ** IMPRESSIONS STORAGE **

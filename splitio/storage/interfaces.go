@@ -10,6 +10,7 @@ type SplitStorageProducer interface {
 	PutMany(splits []dtos.SplitDTO, changeNumber int64)
 	Remove(splitname string)
 	Till() int64
+	Clear()
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
@@ -25,6 +26,7 @@ type SegmentStorageProducer interface {
 	Put(name string, segment *set.ThreadUnsafeSet, changeNumber int64)
 	Till(segmentName string) int64
 	Remove(segmentName string)
+	Clear()
 }
 
 // SegmentStorageConsumer interface should be implemented by all structs that ofer reading segments

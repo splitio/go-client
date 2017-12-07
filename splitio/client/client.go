@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -17,7 +18,11 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey       string
+	apikey    string
+	destroyed struct {
+		status bool
+		mutex  sync.RWMutex
+	}
 	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
@@ -69,6 +74,10 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		return "control"
 	}()
 
+	if c.IsDestroyed() {
+		return "control"
+	}
+
 	matchingKey, bucketingKey, err := parseKeys(key)
 	if err != nil {
 		c.logger.Error("Error parsing key: ", err.Error())
@@ -116,4 +125,44 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		treatments[feature] = c.Treatment(key, feature, attributes)
 	}
 	return treatments
+}
+
+// IsDestroyed returns true if tbe client has been destroyed
+func (c *SplitClient) IsDestroyed() bool {
+	c.destroyed.mutex.RLock()
+	defer c.destroyed.mutex.RUnlock()
+	return c.destroyed.status
+}
+
+// Destroy stops all async tasks and clears all storages
+func (c *SplitClient) Destroy(timeout int) {
+	c.destroyed.mutex.Lock()
+	defer c.destroyed.mutex.Unlock()
+	c.destroyed.status = true
+
+	// Stop splits & segment synchronization tasks
+	if c.sync.splitSync != nil {
+		c.sync.splitSync.Stop()
+	}
+	if c.sync.segmentSync != nil {
+		c.sync.segmentSync.Stop()
+	}
+
+	// Flush impressions & metrics
+	if c.sync.impressionSync != nil { // Should be the case unless we're running in localhost mode
+		c.sync.impressionSync.WakeUp()
+		c.sync.impressionSync.Stop()
+	}
+	if c.sync.gaugeSync != nil { // Should be the case unless we're running in localhost mode
+		c.sync.gaugeSync.WakeUp()
+		c.sync.gaugeSync.Stop()
+	}
+	if c.sync.countersSync != nil { // Should be the case unless we're running in localhost mode
+		c.sync.countersSync.WakeUp()
+		c.sync.countersSync.Stop()
+	}
+	if c.sync.latenciesSync != nil { // Should be the case unless we're running in localhost mode
+		c.sync.latenciesSync.WakeUp()
+		c.sync.latenciesSync.Stop()
+	}
 }

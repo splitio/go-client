@@ -99,3 +99,8 @@ func (r *RedisSegmentStorage) Till(segmentName string) int64 {
 	}
 	return asInt
 }
+
+// Clear removes all splits from storage
+func (r *RedisSegmentStorage) Clear() {
+	// TODO
+}

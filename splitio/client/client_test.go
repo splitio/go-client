@@ -128,3 +128,7 @@ func TestLocalhostMode(t *testing.T) {
 	file.Close()
 	os.Remove(file.Name())
 }
+
+func TestClientDestroy(t *testing.T) {
+	t.Error("TODO!")
+}

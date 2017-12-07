@@ -170,3 +170,8 @@ func (r *RedisSplitStorage) GetAll() []dtos.SplitDTO {
 	}
 	return splits
 }
+
+// Clear removes all splits from storage
+func (r *RedisSplitStorage) Clear() {
+	// TODO
+}

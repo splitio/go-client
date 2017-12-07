@@ -16,6 +16,11 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
+const (
+	// Control is the treatment returned when something goes wrong
+	Control = "control"
+)
+
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
 	apikey    string
@@ -135,10 +140,14 @@ func (c *SplitClient) IsDestroyed() bool {
 }
 
 // Destroy stops all async tasks and clears all storages
-func (c *SplitClient) Destroy(timeout int) {
+func (c *SplitClient) Destroy() {
 	c.destroyed.mutex.Lock()
 	defer c.destroyed.mutex.Unlock()
 	c.destroyed.status = true
+
+	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
+		return
+	}
 
 	// Stop splits & segment synchronization tasks
 	if c.sync.splitSync != nil {
@@ -149,19 +158,19 @@ func (c *SplitClient) Destroy(timeout int) {
 	}
 
 	// Flush impressions & metrics
-	if c.sync.impressionSync != nil { // Should be the case unless we're running in localhost mode
+	if c.sync.impressionSync != nil {
 		c.sync.impressionSync.WakeUp()
 		c.sync.impressionSync.Stop()
 	}
-	if c.sync.gaugeSync != nil { // Should be the case unless we're running in localhost mode
+	if c.sync.gaugeSync != nil {
 		c.sync.gaugeSync.WakeUp()
 		c.sync.gaugeSync.Stop()
 	}
-	if c.sync.countersSync != nil { // Should be the case unless we're running in localhost mode
+	if c.sync.countersSync != nil {
 		c.sync.countersSync.WakeUp()
 		c.sync.countersSync.Stop()
 	}
-	if c.sync.latenciesSync != nil { // Should be the case unless we're running in localhost mode
+	if c.sync.latenciesSync != nil {
 		c.sync.latenciesSync.WakeUp()
 		c.sync.latenciesSync.Stop()
 	}

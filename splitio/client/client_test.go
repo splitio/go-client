@@ -5,10 +5,13 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
+
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
 type mockEvaluator struct{}
@@ -130,5 +133,112 @@ func TestLocalhostMode(t *testing.T) {
 }
 
 func TestClientDestroy(t *testing.T) {
-	t.Error("TODO!")
+	logger := logging.NewLogger(nil)
+
+	resSplits := 0
+	stoppedSplit := false
+	resSegments := 0
+	stoppedSegments := false
+	resImpressions := 0
+	stoppedImpressions := false
+	resGauge := 0
+	stoppedGauge := false
+	resCounters := 0
+	stoppedCounters := false
+	resLatencies := 0
+	stoppedLatencies := false
+
+	splitSync := func(l logging.LoggerInterface) error { resSplits++; return nil }
+	splitStop := func(l logging.LoggerInterface) { stoppedSplit = true }
+	segmentSync := func(l logging.LoggerInterface) error { resSegments++; return nil }
+	segmentStop := func(l logging.LoggerInterface) { stoppedSegments = true }
+	impressionSync := func(l logging.LoggerInterface) error { resImpressions++; return nil }
+	impressionStop := func(l logging.LoggerInterface) { stoppedImpressions = true }
+	gaugeSync := func(l logging.LoggerInterface) error { resGauge++; return nil }
+	gaugeStop := func(l logging.LoggerInterface) { stoppedGauge = true }
+	counterSync := func(l logging.LoggerInterface) error { resCounters++; return nil }
+	counterStop := func(l logging.LoggerInterface) { stoppedCounters = true }
+	latencySync := func(l logging.LoggerInterface) error { resLatencies++; return nil }
+	latencyStop := func(l logging.LoggerInterface) { stoppedLatencies = true }
+
+	splitTask := asynctask.NewAsyncTask("splits", splitSync, 100, nil, splitStop, logger)
+	segmentsTask := asynctask.NewAsyncTask("segments", segmentSync, 100, nil, segmentStop, logger)
+	impressionsTask := asynctask.NewAsyncTask("impressions", impressionSync, 100, nil, impressionStop, logger)
+	gaugesTask := asynctask.NewAsyncTask("gauges", gaugeSync, 100, nil, gaugeStop, logger)
+	countersTask := asynctask.NewAsyncTask("counters", counterSync, 100, nil, counterStop, logger)
+	latenciesTask := asynctask.NewAsyncTask("latencies", latencySync, 100, nil, latencyStop, logger)
+
+	splitTask.Start()
+	segmentsTask.Start()
+	impressionsTask.Start()
+	gaugesTask.Start()
+	countersTask.Start()
+	latenciesTask.Start()
+
+	client := SplitClient{
+		cfg: &conf.SplitSdkConfig{},
+		sync: &sdkSync{
+			countersSync:   countersTask,
+			gaugeSync:      gaugesTask,
+			impressionSync: impressionsTask,
+			latenciesSync:  latenciesTask,
+			segmentSync:    segmentsTask,
+			splitSync:      splitTask,
+		},
+	}
+
+	time.Sleep(1 * time.Second)
+	client.Destroy()
+	time.Sleep(1 * time.Second)
+
+	if splitTask.IsRunning() {
+		t.Error("split task should be stopped")
+	}
+
+	if segmentsTask.IsRunning() {
+		t.Error("segment task should be stopped")
+	}
+
+	if impressionsTask.IsRunning() {
+		t.Error("impression task should be stopped")
+	}
+
+	if gaugesTask.IsRunning() {
+		t.Error("gauges task should be stopped")
+	}
+
+	if countersTask.IsRunning() {
+		t.Error("counters task should be stopped")
+	}
+
+	if latenciesTask.IsRunning() {
+		t.Error("latencies task should be stopped")
+	}
+
+	// -----
+
+	if resSplits != 1 {
+		t.Error("Splits should have run once")
+	}
+
+	if resSegments != 1 {
+		t.Error("Segments should have run once")
+	}
+
+	if resImpressions != 2 {
+		t.Error("Impressions should have run twice")
+	}
+
+	if resGauge != 2 {
+		t.Error("Gauge should have run twice")
+	}
+
+	if resCounters != 2 {
+		t.Error("Conters should have run twice")
+	}
+
+	if resLatencies != 2 {
+		t.Error("Latencies should have run twice")
+	}
+
 }

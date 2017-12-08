@@ -140,3 +140,110 @@ func TestMetricsSyncTask(t *testing.T) {
 		t.Error("Task should be stopped")
 	}
 }
+
+type metricsRecorderMock struct {
+	gaugeIterations   int
+	counterIterations int
+	latencyIterations int
+}
+
+func (m *metricsRecorderMock) RecordLatencies(
+	latencies []dtos.LatenciesDTO,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	m.latencyIterations++
+	return nil
+}
+
+func (m *metricsRecorderMock) RecordCounters(
+	counters []dtos.CounterDTO,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	m.counterIterations++
+	return nil
+}
+
+func (m *metricsRecorderMock) RecordGauge(
+	gauge dtos.GaugeDTO,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	m.gaugeIterations++
+	return nil
+}
+
+func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
+	logger := logging.NewLogger(nil)
+	metricsStorage := mutexmap.NewMMMetricsStorage()
+	metricsStorage.IncCounter("c1")
+	metricsStorage.IncLatency("l1", 2)
+	metricsStorage.PutGauge("g1", 1)
+	metricsStorage.IncCounter("c1")
+	metricsStorage.IncLatency("l1", 2)
+	metricsRecorder := &metricsRecorderMock{}
+
+	gaugeTask := NewRecordGaugesTask(
+		metricsStorage,
+		metricsRecorder,
+		100,
+		"aa",
+		"123.123.123.123",
+		"123-123-123-123",
+		logger,
+	)
+
+	counterTask := NewRecordCountersTask(
+		metricsStorage,
+		metricsRecorder,
+		100,
+		"aa",
+		"123.123.123.123",
+		"123-123-123-123",
+		logger,
+	)
+
+	latencyTask := NewRecordLatenciesTask(
+		metricsStorage,
+		metricsRecorder,
+		100,
+		"aa",
+		"123.123.123.123",
+		"123-123-123-123",
+		logger,
+	)
+
+	gaugeTask.Start()
+	latencyTask.Start()
+	counterTask.Start()
+	time.Sleep(time.Second * 3)
+
+	// Add more data so that there's something to flush when tasks are stopped
+	metricsStorage.IncCounter("c1")
+	metricsStorage.IncLatency("l1", 2)
+	metricsStorage.PutGauge("g1", 1)
+	metricsStorage.IncCounter("c1")
+	metricsStorage.IncLatency("l1", 2)
+
+	gaugeTask.Stop()
+	latencyTask.Stop()
+	counterTask.Stop()
+
+	time.Sleep(time.Second * 5)
+
+	if metricsRecorder.gaugeIterations != 2 {
+		t.Error("Gauge Task should have ran four time")
+	}
+
+	if metricsRecorder.counterIterations != 2 {
+		t.Error("Counter Task should have ran twice")
+	}
+
+	if metricsRecorder.latencyIterations != 2 {
+		t.Error("Latency Task should have ran twice")
+	}
+}

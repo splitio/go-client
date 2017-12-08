@@ -225,20 +225,35 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Segments should have run once")
 	}
 
-	if resImpressions != 2 {
-		t.Error("Impressions should have run twice")
+	if resImpressions != 1 {
+		t.Error("Impressions should have run once")
 	}
 
-	if resGauge != 2 {
-		t.Error("Gauge should have run twice")
+	if resGauge != 1 {
+		t.Error("Gauge should have run once")
 	}
 
-	if resCounters != 2 {
-		t.Error("Conters should have run twice")
+	if resCounters != 1 {
+		t.Error("Conters should have run once")
 	}
 
-	if resLatencies != 2 {
-		t.Error("Latencies should have run twice")
+	if resLatencies != 1 {
+		t.Error("Latencies should have run once")
+	}
+
+	if !client.IsDestroyed() {
+		t.Error("Client should be destroyed")
+	}
+
+	if client.Treatment("key", "feature", nil) != "control" {
+		t.Error("Single .Treatment() call should return control")
+	}
+
+	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
+	for _, treatment := range treatments {
+		if treatment != "control" {
+			t.Error("all treatments resulting from .Treatments() should be control")
+		}
 	}
 
 }

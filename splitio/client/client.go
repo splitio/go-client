@@ -149,7 +149,7 @@ func (c *SplitClient) Destroy() {
 		return
 	}
 
-	// Stop splits & segment synchronization tasks
+	// Stop all tasks
 	if c.sync.splitSync != nil {
 		c.sync.splitSync.Stop()
 	}
@@ -157,21 +157,16 @@ func (c *SplitClient) Destroy() {
 		c.sync.segmentSync.Stop()
 	}
 
-	// Flush impressions & metrics
 	if c.sync.impressionSync != nil {
-		c.sync.impressionSync.WakeUp()
 		c.sync.impressionSync.Stop()
 	}
 	if c.sync.gaugeSync != nil {
-		c.sync.gaugeSync.WakeUp()
 		c.sync.gaugeSync.Stop()
 	}
 	if c.sync.countersSync != nil {
-		c.sync.countersSync.WakeUp()
 		c.sync.countersSync.Stop()
 	}
 	if c.sync.latenciesSync != nil {
-		c.sync.latenciesSync.WakeUp()
 		c.sync.latenciesSync.Stop()
 	}
 }

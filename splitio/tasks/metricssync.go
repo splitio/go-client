@@ -79,7 +79,7 @@ func NewRecordCountersTask(
 	}
 
 	onStop := func(l logging.LoggerInterface) {
-		metricsStorage.PopCounters()
+		record(logger)
 	}
 	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, onStop, logger)
 }
@@ -105,7 +105,7 @@ func NewRecordGaugesTask(
 	}
 
 	onStop := func(l logging.LoggerInterface) {
-		metricsStorage.PopGauges()
+		record(logger)
 	}
 
 	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, onStop, logger)
@@ -132,7 +132,7 @@ func NewRecordLatenciesTask(
 	}
 
 	onStop := func(l logging.LoggerInterface) {
-		metricsStorage.PopLatencies()
+		record(logger)
 	}
 
 	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, onStop, logger)

@@ -157,3 +157,51 @@ func TestImpressionListener(t *testing.T) {
 	submitImpressions(impStorage, &mockRecorder{}, "", "", "", &bListener, logger)
 	// Panic should be caught!
 }
+
+type impressionRecorderMock struct {
+	iterations int
+}
+
+func (i *impressionRecorderMock) Record(
+	impressions []dtos.ImpressionsDTO,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	i.iterations++
+	return nil
+}
+
+func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
+	logger := logging.NewLogger(nil)
+	impressionStorage := mutexmap.NewMMImpressionStorage()
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
+	impressionRecorder := &impressionRecorderMock{}
+	impressionTask := NewRecordImpressionsTask(
+		impressionStorage,
+		impressionRecorder,
+		100,
+		"aa",
+		"123.123.123.123",
+		"123-123-123-123",
+		nil,
+		logger,
+	)
+
+	impressionTask.Start()
+	time.Sleep(time.Second * 2)
+
+	// Add more impressions so that they can be flushed when Stop() is called
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
+	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
+	impressionTask.Stop()
+	time.Sleep(time.Second * 2)
+	if impressionRecorder.iterations != 2 {
+		t.Error("Impression Task should have ran twice")
+	}
+}

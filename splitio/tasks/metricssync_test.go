@@ -222,6 +222,12 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 	counterTask.Start()
 	time.Sleep(time.Second * 3)
 
+	if metricsRecorder.counterIterations != 1 ||
+		metricsRecorder.gaugeIterations != 1 ||
+		metricsRecorder.latencyIterations != 1 {
+		t.Error("All metrics should already have been flushed once")
+	}
+
 	// Add more data so that there's something to flush when tasks are stopped
 	metricsStorage.IncCounter("c1")
 	metricsStorage.IncLatency("l1", 2)

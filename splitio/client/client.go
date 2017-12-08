@@ -105,7 +105,7 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 			KeyName:      matchingKey,
 			Label:        label,
 			Treatment:    evaluationResult.Treatment,
-			Time:         time.Now().Unix() * 1000, // Convert Unix timestamp to java's ms timestamps
+			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		})
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")

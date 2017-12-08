@@ -194,6 +194,10 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	impressionTask.Start()
 	time.Sleep(time.Second * 2)
 
+	if impressionRecorder.iterations != 1 {
+		t.Error("Impressions should already have been flushed once")
+	}
+
 	// Add more impressions so that they can be flushed when Stop() is called
 	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
 	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})

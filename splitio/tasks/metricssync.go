@@ -77,7 +77,11 @@ func NewRecordCountersTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, nil, logger)
+
+	onStop := func(l logging.LoggerInterface) {
+		record(logger)
+	}
+	return asynctask.NewAsyncTask("SubmitCounters", record, period, nil, onStop, logger)
 }
 
 // NewRecordGaugesTask creates a new splits fetching and storing task
@@ -99,7 +103,12 @@ func NewRecordGaugesTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, nil, logger)
+
+	onStop := func(l logging.LoggerInterface) {
+		record(logger)
+	}
+
+	return asynctask.NewAsyncTask("SubmitGauges", record, period, nil, onStop, logger)
 }
 
 // NewRecordLatenciesTask creates a new splits fetching and storing task
@@ -121,5 +130,10 @@ func NewRecordLatenciesTask(
 			machineName,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, nil, logger)
+
+	onStop := func(l logging.LoggerInterface) {
+		record(logger)
+	}
+
+	return asynctask.NewAsyncTask("SubmitLatencies", record, period, nil, onStop, logger)
 }

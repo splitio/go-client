@@ -170,3 +170,19 @@ func (r *RedisSplitStorage) GetAll() []dtos.SplitDTO {
 	}
 	return splits
 }
+
+// Clear removes all splits from storage
+func (r *RedisSplitStorage) Clear() {
+	r.client.WrapTransaction(func(t *prefixedTx) error {
+		keys, err := t.Keys(strings.Replace(redisSplit, "{split}", "*", 1))
+		if err != nil {
+			return err
+		}
+
+		if len(keys) > 0 {
+			err = t.Del(keys...)
+		}
+
+		return err
+	})
+}

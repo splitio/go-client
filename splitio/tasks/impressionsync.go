@@ -64,5 +64,11 @@ func NewRecordImpressionsTask(
 			logger,
 		)
 	}
-	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, nil, logger)
+
+	onStop := func(logger logging.LoggerInterface) {
+		// All this function does is flush impressions which will clear the storage
+		record(logger)
+	}
+
+	return asynctask.NewAsyncTask("SubmitImpressions", record, period, nil, onStop, logger)
 }

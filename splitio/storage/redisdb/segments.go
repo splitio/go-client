@@ -99,3 +99,19 @@ func (r *RedisSegmentStorage) Till(segmentName string) int64 {
 	}
 	return asInt
 }
+
+// Clear removes all splits from storage
+func (r *RedisSegmentStorage) Clear() {
+	r.client.WrapTransaction(func(t *prefixedTx) error {
+		keys, err := t.Keys(strings.Replace(redisSegment, "{segment}", "*", 1))
+		if err != nil {
+			return err
+		}
+
+		if len(keys) > 0 {
+			err = t.Del(keys...)
+		}
+
+		return err
+	})
+}

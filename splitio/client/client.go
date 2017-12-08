@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -17,7 +18,11 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey       string
+	apikey    string
+	destroyed struct {
+		status bool
+		mutex  sync.RWMutex
+	}
 	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
@@ -66,13 +71,17 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 				"Returning CONTROL", "\n",
 			)
 		}
-		return "control"
+		return evaluator.Control
 	}()
+
+	if c.IsDestroyed() {
+		return evaluator.Control
+	}
 
 	matchingKey, bucketingKey, err := parseKeys(key)
 	if err != nil {
 		c.logger.Error("Error parsing key: ", err.Error())
-		return "control"
+		return evaluator.Control
 	}
 
 	var evaluationResult *evaluator.Result
@@ -96,7 +105,7 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 			KeyName:      matchingKey,
 			Label:        label,
 			Treatment:    evaluationResult.Treatment,
-			Time:         time.Now().Unix() * 1000, // Convert Unix timestamp to java's ms timestamps
+			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		})
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
@@ -116,4 +125,43 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		treatments[feature] = c.Treatment(key, feature, attributes)
 	}
 	return treatments
+}
+
+// IsDestroyed returns true if tbe client has been destroyed
+func (c *SplitClient) IsDestroyed() bool {
+	c.destroyed.mutex.RLock()
+	defer c.destroyed.mutex.RUnlock()
+	return c.destroyed.status
+}
+
+// Destroy stops all async tasks and clears all storages
+func (c *SplitClient) Destroy() {
+	c.destroyed.mutex.Lock()
+	defer c.destroyed.mutex.Unlock()
+	c.destroyed.status = true
+
+	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
+		return
+	}
+
+	// Stop all tasks
+	if c.sync.splitSync != nil {
+		c.sync.splitSync.Stop()
+	}
+	if c.sync.segmentSync != nil {
+		c.sync.segmentSync.Stop()
+	}
+
+	if c.sync.impressionSync != nil {
+		c.sync.impressionSync.Stop()
+	}
+	if c.sync.gaugeSync != nil {
+		c.sync.gaugeSync.Stop()
+	}
+	if c.sync.countersSync != nil {
+		c.sync.countersSync.Stop()
+	}
+	if c.sync.latenciesSync != nil {
+		c.sync.latenciesSync.Stop()
+	}
 }

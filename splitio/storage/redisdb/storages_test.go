@@ -13,10 +13,10 @@ func TestRedisSplitStorage(t *testing.T) {
 	splitStorage := NewRedisSplitStorage("localhost", 6379, 1, "", "testPrefix", logger)
 
 	splitStorage.PutMany([]dtos.SplitDTO{
-		dtos.SplitDTO{Name: "split1", ChangeNumber: 1},
-		dtos.SplitDTO{Name: "split2", ChangeNumber: 2},
-		dtos.SplitDTO{Name: "split3", ChangeNumber: 3},
-		dtos.SplitDTO{Name: "split4", ChangeNumber: 4},
+		{Name: "split1", ChangeNumber: 1},
+		{Name: "split2", ChangeNumber: 2},
+		{Name: "split3", ChangeNumber: 3},
+		{Name: "split4", ChangeNumber: 4},
 	}, 123)
 
 	s1 := splitStorage.Get("split1")
@@ -37,13 +37,13 @@ func TestRedisSplitStorage(t *testing.T) {
 	}
 
 	splitStorage.PutMany([]dtos.SplitDTO{
-		dtos.SplitDTO{
+		{
 			Name: "split5",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					MatcherGroup: dtos.MatcherGroupDTO{
 						Matchers: []dtos.MatcherDTO{
-							dtos.MatcherDTO{
+							{
 								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
 									SegmentName: "segment1",
 								},
@@ -53,18 +53,18 @@ func TestRedisSplitStorage(t *testing.T) {
 				},
 			},
 		},
-		dtos.SplitDTO{
+		{
 			Name: "split6",
 			Conditions: []dtos.ConditionDTO{
-				dtos.ConditionDTO{
+				{
 					MatcherGroup: dtos.MatcherGroupDTO{
 						Matchers: []dtos.MatcherDTO{
-							dtos.MatcherDTO{
+							{
 								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
 									SegmentName: "segment2",
 								},
 							},
-							dtos.MatcherDTO{
+							{
 								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
 									SegmentName: "segment3",
 								},
@@ -102,6 +102,66 @@ func TestRedisSplitStorage(t *testing.T) {
 		t.Error("All splits should have been deleted")
 		t.Error(allSplits)
 	}
+
+	// To test the .Clear() method we will add two splits and some random keys
+	// we will check that the splits are deleted but the other keys remain intact
+	splitStorage.PutMany([]dtos.SplitDTO{
+		{
+			Name: "split5",
+			Conditions: []dtos.ConditionDTO{
+				{
+					MatcherGroup: dtos.MatcherGroupDTO{
+						Matchers: []dtos.MatcherDTO{
+							{
+								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+									SegmentName: "segment1",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "split6",
+			Conditions: []dtos.ConditionDTO{
+				{
+					MatcherGroup: dtos.MatcherGroupDTO{
+						Matchers: []dtos.MatcherDTO{
+							{
+								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+									SegmentName: "segment2",
+								},
+							},
+							{
+								UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+									SegmentName: "segment3",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, 123)
+	splitStorage.client.client.Set("key1", "value1", 0)
+	splitStorage.client.client.Set("key2", "value2", 0)
+	splitStorage.Clear()
+
+	allSplits = splitStorage.GetAll()
+	if len(allSplits) > 0 {
+		t.Error("All splits should have been deleted")
+		t.Error(allSplits)
+	}
+
+	key1, _ := splitStorage.client.client.Get("key1").Result()
+	key2, _ := splitStorage.client.client.Get("key2").Result()
+
+	if key1 != "value1" || key2 != "value2" {
+		t.Error("Keys that are not splits should not have been altered")
+	}
+
+	splitStorage.client.client.Del("key1", "key2")
 }
 
 func TestSegmentStorage(t *testing.T) {
@@ -142,6 +202,26 @@ func TestSegmentStorage(t *testing.T) {
 		t.Error(segmentStorage.Get("segment1"))
 		t.Error(segmentStorage.Till("segment1"))
 	}
+
+	// To test the .Clear() method we add a couple of segments and random keys
+	// we check that the segments are the deleted but the other keys remain intact
+	segmentStorage.Put("segment1", set.NewSet("item1", "item2"), 222)
+	segmentStorage.Put("segment2", set.NewSet("item3", "item4"), 222)
+	segmentStorage.client.client.Set("key1", "value1", 0)
+	segmentStorage.client.client.Set("key2", "value2", 0)
+	segmentStorage.Clear()
+	if segmentStorage.Get("segment1") != nil || segmentStorage.Get("segment2") != nil {
+		t.Error("All segments should have been cleared")
+	}
+
+	key1, _ := segmentStorage.client.client.Get("key1").Result()
+	key2, _ := segmentStorage.client.client.Get("key2").Result()
+
+	if key1 != "value1" || key2 != "value2" {
+		t.Error("random keys should have not been altered")
+	}
+
+	segmentStorage.client.client.Del("key1", "key2")
 }
 
 func TestImpressionStorage(t *testing.T) {

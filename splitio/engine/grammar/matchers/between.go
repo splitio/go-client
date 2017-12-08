@@ -47,8 +47,8 @@ func (m *BetweenMatcher) Match(key string, attributes map[string]interface{}, bu
 		comparisonUpper = m.UpperComparisonValue
 	case datatypes.Datetime:
 		matchingValue = datatypes.ZeroSecondsTS(matchingValue)
-		comparisonLower = datatypes.ZeroSecondsTS(m.LowerComparisonValue)
-		comparisonUpper = datatypes.ZeroSecondsTS(m.UpperComparisonValue)
+		comparisonLower = datatypes.ZeroSecondsTS(datatypes.TsFromJava(m.LowerComparisonValue))
+		comparisonUpper = datatypes.ZeroSecondsTS(datatypes.TsFromJava(m.UpperComparisonValue))
 	default:
 		m.base().logger.Error(fmt.Sprintf("BetweenMatcher: Incorrect type %s", m.ComparisonDataType))
 		return false

@@ -71,17 +71,17 @@ func TestLessThanOrEqualToMatcherDatetime(t *testing.T) {
 	}
 
 	attributes := make(map[string]interface{})
-	attributes["value"] = int64(960293532000)
+	attributes["value"] = int64(960293532)
 	if !matcher.Match("asd", attributes, nil) {
 		t.Error("Equal should match")
 	}
 
-	attributes["value"] = int64(1275782400000)
+	attributes["value"] = int64(1275782400)
 	if matcher.Match("asd", attributes, nil) {
 		t.Error("Greater should not match")
 	}
 
-	attributes["value"] = int64(293532000000)
+	attributes["value"] = int64(293532000)
 	if !matcher.Match("asd", attributes, nil) {
 		t.Error("Lower should match")
 	}

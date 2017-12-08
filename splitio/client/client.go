@@ -16,11 +16,6 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-const (
-	// Control is the treatment returned when something goes wrong
-	Control = "control"
-)
-
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
 	apikey    string
@@ -76,17 +71,17 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 				"Returning CONTROL", "\n",
 			)
 		}
-		return "control"
+		return evaluator.Control
 	}()
 
 	if c.IsDestroyed() {
-		return "control"
+		return evaluator.Control
 	}
 
 	matchingKey, bucketingKey, err := parseKeys(key)
 	if err != nil {
 		c.logger.Error("Error parsing key: ", err.Error())
-		return "control"
+		return evaluator.Control
 	}
 
 	var evaluationResult *evaluator.Result

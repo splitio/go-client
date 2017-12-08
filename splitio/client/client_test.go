@@ -35,7 +35,7 @@ func (e *mockEvaluator) Evaluate(
 			EvaluationTimeNs:  0,
 			Label:             "exception",
 			SplitChangeNumber: 123,
-			Treatment:         "control",
+			Treatment:         evaluator.Control,
 		}
 	}
 }
@@ -92,7 +92,7 @@ func TestTreatments(t *testing.T) {
 	}
 
 	notFeatureRes, ok := res["notFeature"]
-	if !ok || notFeatureRes != "control" {
+	if !ok || notFeatureRes != evaluator.Control {
 		t.Error("Incorrect result for \"notFeature\"")
 	}
 
@@ -245,13 +245,13 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Client should be destroyed")
 	}
 
-	if client.Treatment("key", "feature", nil) != "control" {
+	if client.Treatment("key", "feature", nil) != evaluator.Control {
 		t.Error("Single .Treatment() call should return control")
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
 	for _, treatment := range treatments {
-		if treatment != "control" {
+		if treatment != evaluator.Control {
 			t.Error("all treatments resulting from .Treatments() should be control")
 		}
 	}

@@ -13,6 +13,11 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
+const (
+	// Control is the treatment returned when something goes wrong
+	Control = "control"
+)
+
 // Result represents the result of an evaluation, including the resulting treatment, the label for the impression,
 // the latency and error if any
 type Result struct {
@@ -50,7 +55,7 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 	splitDto := e.splitStorage.Get(feature)
 	if splitDto == nil {
 		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
-		return &Result{Treatment: "control", Label: impressionlabels.SplitNotFound}
+		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound}
 	}
 
 	// TODO: Move this to NewEvaluator ?

@@ -45,8 +45,13 @@ func (t *prefixedTx) SAdd(key string, members ...interface{}) error {
 }
 
 // wrap redis "del" operation with a prefix inside a transaction
-func (t *prefixedTx) Del(key string) error {
-	return t.tx.Del(t.withPrefix(key)).Err()
+func (t *prefixedTx) Del(keys ...string) error {
+	prefixed := make([]string, 0)
+	for _, key := range keys {
+		prefixed = append(prefixed, t.withPrefix(key))
+	}
+
+	return t.tx.Del(prefixed...).Err()
 }
 
 // Wraps redis "smembers" operation with a prefix inside a transaction

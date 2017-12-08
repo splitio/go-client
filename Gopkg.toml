@@ -3,5 +3,5 @@
   version = "6.7.3"
 
 [[constraint]]
-  branch = "master"
+  branch = "development"
   name = "github.com/splitio/go-toolkit"

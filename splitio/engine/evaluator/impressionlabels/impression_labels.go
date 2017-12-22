@@ -1,13 +1,13 @@
 package impressionlabels
 
 // SplitNotFound label will be returned when the split requested is not present in storage
-const SplitNotFound = "rules not found"
+const SplitNotFound = "definition not found"
 
 // Killed label will be returned when the split requested has been killed
 const Killed = "killed"
 
 // NoConditionMatched label will be returned when no condition of the split has matched
-const NoConditionMatched = "no rule matched"
+const NoConditionMatched = "default rule"
 
 // MatcherNotFound label will be returned when matchertype is unknown
 const MatcherNotFound = "matcher not found"

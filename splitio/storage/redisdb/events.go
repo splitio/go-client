@@ -45,6 +45,8 @@ func (r *RedisEventsStorage) Push(event dtos.EventDTO) error {
 		return err
 	}
 
+	r.logger.Debug("Pushing events to:", r.redisKey, string(eventJSON))
+
 	_, errPush := r.client.RPush(r.redisKey, eventJSON)
 	if errPush != nil {
 		r.logger.Error("Something were wrong pushing event to redis", errPush)

@@ -30,6 +30,7 @@ type SplitClient struct {
 	sync         *sdkSync
 	impressions  storage.ImpressionStorageProducer
 	metrics      storage.MetricsStorageProducer
+	events       storage.EventStorageProducer
 }
 
 type sdkSync struct {
@@ -164,4 +165,27 @@ func (c *SplitClient) Destroy() {
 	if c.sync.latenciesSync != nil {
 		c.sync.latenciesSync.Stop()
 	}
+}
+
+// Track an event and its custom value
+func (c *SplitClient) Track(key string, trafficType string, eventType string, value *float64) error {
+
+	if key == "" || trafficType == "" || eventType == "" {
+		c.logger.Error("Key, trafficType and eventType parameters cannot be empty")
+		return errors.New("Key, trafficType and eventType parameters cannot be empty")
+	}
+
+	err := c.events.Push(dtos.EventDTO{
+		Key:             key,
+		TrafficTypeName: trafficType,
+		EventTypeID:     eventType,
+		Value:           value,
+		Timestamp:       time.Now().UnixNano() / 1000000,
+	})
+
+	if err != nil {
+		c.logger.Error("Error tracking event", err.Error())
+		return err
+	}
+	return nil
 }

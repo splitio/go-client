@@ -68,6 +68,8 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var segmentStorage storage.SegmentStorage
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
+	var eventsStorage storage.EventsStorage
+
 	switch cfg.OperationMode {
 	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
@@ -100,6 +102,16 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			prefix,
 			cfg.IPAddress,
 			splitio.Version,
+			logger,
+		)
+		eventsStorage = redisdb.NewRedisEventsStorage(
+			host,
+			port,
+			db,
+			password,
+			prefix,
+			cfg.IPAddress,
+			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
 	default:
@@ -231,6 +243,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		metrics:     metricsStorage,
 		sync:        syncTasks,
 		cfg:         cfg,
+		events:      eventsStorage,
 	}
 
 	manager := &SplitManager{splitStorage: splitStorage}

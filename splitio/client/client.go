@@ -168,7 +168,19 @@ func (c *SplitClient) Destroy() {
 }
 
 // Track an event and its custom value
-func (c *SplitClient) Track(key string, trafficType string, eventType string, value *float64) error {
+func (c *SplitClient) Track(key string, trafficType string, eventType string, value *float64) (ret error) {
+	ret = nil
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n",
+			)
+			ret = errors.New("Track is panicking. Please check logs")
+		}
+	}()
 
 	if key == "" || trafficType == "" || eventType == "" {
 		c.logger.Error("Key, trafficType and eventType parameters cannot be empty")
@@ -187,5 +199,6 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		c.logger.Error("Error tracking event", err.Error())
 		return err
 	}
+
 	return nil
 }

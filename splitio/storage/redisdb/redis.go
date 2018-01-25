@@ -2,9 +2,10 @@ package redisdb
 
 import (
 	"fmt"
-	"github.com/go-redis/redis"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis"
 )
 
 // prefixable is a struct intended to be embedded in anything that can have a prefix added.
@@ -176,4 +177,9 @@ func (r *prefixedRedisClient) WrapTransaction(f func(t *prefixedTx) error) error
 	return r.client.Watch(func(tx *redis.Tx) error {
 		return f(newPrefixedTx(tx, r.prefix))
 	})
+}
+
+// RPush insert all the specified values at the tail of the list stored at key
+func (r *prefixedRedisClient) RPush(key string, values ...interface{}) (int64, error) {
+	return r.client.RPush(r.withPrefix(key)).Result()
 }

@@ -58,6 +58,16 @@ type MetricsStorageConsumer interface {
 	PopCounters() []dtos.CounterDTO
 }
 
+// EventStorageProducer interface should be implemented by structs that accept incoming events
+type EventStorageProducer interface {
+	Push(event dtos.EventDTO) error
+}
+
+// EventStorageConsumer interface should be implemented by structs that offer popping impressions
+type EventStorageConsumer interface {
+	PopN(n int64) ([]dtos.QueueStoredEventDTO, error)
+}
+
 // --- Wide Interfaces
 
 // SplitStorage wraps consumer & producer interfaces
@@ -82,4 +92,10 @@ type ImpressionStorage interface {
 type MetricsStorage interface {
 	MetricsStorageConsumer
 	MetricsStorageProducer
+}
+
+// EventsStorage wraps consumer and producer interfaces
+type EventsStorage interface {
+	EventStorageConsumer
+	EventStorageProducer
 }

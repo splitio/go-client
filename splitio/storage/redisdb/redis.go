@@ -181,5 +181,5 @@ func (r *prefixedRedisClient) WrapTransaction(f func(t *prefixedTx) error) error
 
 // RPush insert all the specified values at the tail of the list stored at key
 func (r *prefixedRedisClient) RPush(key string, values ...interface{}) (int64, error) {
-	return r.client.RPush(r.withPrefix(key)).Result()
+	return r.client.RPush(r.withPrefix(key), values...).Result()
 }

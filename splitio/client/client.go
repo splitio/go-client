@@ -40,6 +40,7 @@ type sdkSync struct {
 	gaugeSync      *asynctask.AsyncTask
 	countersSync   *asynctask.AsyncTask
 	latenciesSync  *asynctask.AsyncTask
+	eventsSync     *asynctask.AsyncTask
 }
 
 func parseKeys(key interface{}) (string, *string, error) {

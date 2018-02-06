@@ -2,10 +2,14 @@ package redisdb
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/split-synchronizer/log"
 )
+
+var elMutex = &sync.Mutex{}
 
 // RedisEventsStorage redis implementation of EventsStorage interface
 type RedisEventsStorage struct {
@@ -41,7 +45,7 @@ func (r *RedisEventsStorage) Push(event dtos.EventDTO) error {
 
 	eventJSON, err := json.Marshal(queueMessage)
 	if err != nil {
-		r.logger.Error("Somethig were wrong marshaling provided event to JSON", err.Error())
+		r.logger.Error("Something were wrong marshaling provided event to JSON", err.Error())
 		return err
 	}
 
@@ -57,6 +61,56 @@ func (r *RedisEventsStorage) Push(event dtos.EventDTO) error {
 }
 
 // PopN return N elements from 0 to N
-func (r *RedisEventsStorage) PopN(n int64) ([]dtos.QueueStoredEventDTO, error) {
-	return nil, nil
+func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
+	toReturn := make([]dtos.EventDTO, 0)
+
+	elMutex.Lock()
+	lrange := r.client.LRange(r.redisKey, 0, n-1)
+	if lrange.Err() != nil {
+		log.Error.Println("Fetching events", lrange.Err().Error())
+		elMutex.Unlock()
+		return nil, lrange.Err()
+	}
+	totalFetchedEvents := int64(len(lrange.Val()))
+
+	idxFrom := n
+	if totalFetchedEvents < n {
+		idxFrom = totalFetchedEvents
+	}
+
+	res := r.client.LTrim(r.redisKey, idxFrom, -1)
+	if res.Err() != nil {
+		log.Error.Println("Trim events", res.Err().Error())
+		elMutex.Unlock()
+		return nil, res.Err()
+	}
+	elMutex.Unlock()
+
+	//JSON unmarshal
+	listOfEvents := lrange.Val()
+	for _, se := range listOfEvents {
+		storedEventDTO := dtos.QueueStoredEventDTO{}
+		err := json.Unmarshal([]byte(se), &storedEventDTO)
+		if err != nil {
+			log.Error.Println("Error decoding event JSON", err.Error())
+			continue
+		}
+		if storedEventDTO.Metadata.MachineIP == r.metadataMessage.MachineIP &&
+			storedEventDTO.Metadata.MachineName == r.metadataMessage.MachineName &&
+			storedEventDTO.Metadata.SDKVersion == r.metadataMessage.SDKVersion {
+			toReturn = append(toReturn, storedEventDTO.Event)
+		}
+	}
+
+	return toReturn, nil
+}
+
+// Count returns the number of items in the redis list
+func (r *RedisEventsStorage) Count() int64 {
+	return r.client.LLen(r.redisKey).Val()
+}
+
+// Empty returns true if redis list is zero lenght
+func (r *RedisEventsStorage) Empty() bool {
+	return r.client.LLen(r.redisKey).Val() == 0
 }

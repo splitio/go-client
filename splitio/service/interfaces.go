@@ -23,3 +23,8 @@ type MetricsRecorder interface {
 	RecordCounters(counters []dtos.CounterDTO, sdkVersion string, machineIP string, machineName string) error
 	RecordGauge(gauge dtos.GaugeDTO, sdkVersion string, machineIP string, machineName string) error
 }
+
+// EventsRecorder interface to post events
+type EventsRecorder interface {
+	Record(events []dtos.EventDTO, sdkVersion string, machineIP string, machineName string) error
+}

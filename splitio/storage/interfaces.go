@@ -65,7 +65,9 @@ type EventStorageProducer interface {
 
 // EventStorageConsumer interface should be implemented by structs that offer popping impressions
 type EventStorageConsumer interface {
-	PopN(n int64) ([]dtos.QueueStoredEventDTO, error)
+	PopN(n int64) ([]dtos.EventDTO, error)
+	Empty() bool
+	Count() int64
 }
 
 // --- Wide Interfaces

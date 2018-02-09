@@ -14,11 +14,14 @@ import (
 	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
 
 	"github.com/splitio/go-toolkit/logging"
 )
+
+var inMemoryFullQueueChan = make(chan bool, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
@@ -68,12 +71,15 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var segmentStorage storage.SegmentStorage
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
+	var eventsStorage storage.EventsStorage
+
 	switch cfg.OperationMode {
 	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
 		impressionStorage = mutexmap.NewMMImpressionStorage()
 		metricsStorage = mutexmap.NewMMMetricsStorage()
+		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChan)
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port
@@ -100,6 +106,16 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			prefix,
 			cfg.IPAddress,
 			splitio.Version,
+			logger,
+		)
+		eventsStorage = redisdb.NewRedisEventsStorage(
+			host,
+			port,
+			db,
+			password,
+			prefix,
+			cfg.IPAddress,
+			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
 	default:
@@ -132,11 +148,13 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		segmentFetcher := api.NewHTTPSegmentFetcher(apikey, cfg, logger)
 		impressionRecorder := api.NewHTTPImpressionRecorder(apikey, cfg, logger)
 		metricsRecorder := api.NewHTTPMetricsRecorder(apikey, cfg, logger)
+		eventsRecorder := api.NewHTTPEventsRecorder(apikey, cfg, logger)
 
 		// Task periods
 		splitPeriod := cfg.TaskPeriods.SplitSync
 		segmentPeriod := cfg.TaskPeriods.SegmentSync
 		impressionPeriod := cfg.TaskPeriods.ImpressionSync
+		eventsPeriod := cfg.TaskPeriods.EventsSync
 		countersPeriod := cfg.TaskPeriods.CounterSync
 		gaugePeriod := cfg.TaskPeriods.GaugeSync
 		latencyPeriod := cfg.TaskPeriods.LatencySync
@@ -176,6 +194,16 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			latenciesSync: tasks.NewRecordLatenciesTask(
 				metricsStorage, metricsRecorder, latencyPeriod, version, ip, instance, logger,
 			),
+			eventsSync: tasks.NewRecordEventsTask(
+				eventsStorage,
+				eventsRecorder,
+				cfg.Advanced.EventsBulkSize,
+				eventsPeriod,
+				version,
+				ip,
+				instance,
+				logger,
+			),
 		}
 
 		// Start split fetching task
@@ -208,10 +236,27 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				syncTasks.latenciesSync.Start()
 				syncTasks.countersSync.Start()
 				syncTasks.gaugeSync.Start()
+				syncTasks.eventsSync.Start()
 				break
 			}
 		case <-time.After(time.Duration(remaining) * time.Second):
 			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
+		}
+
+		// Flushing storage queue signal only for inmemory-standalone
+		if cfg.OperationMode == "inmemory-standalone" {
+			go func() {
+				for true {
+					isFull := <-inMemoryFullQueueChan
+					if isFull {
+						logger.Debug("FLUSHING storage queue")
+						errWakeUp := syncTasks.eventsSync.WakeUp()
+						if errWakeUp != nil {
+							logger.Error("Error flushing storage queue", errWakeUp)
+						}
+					}
+				}
+			}()
 		}
 
 	case "redis-consumer":
@@ -231,6 +276,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		metrics:     metricsStorage,
 		sync:        syncTasks,
 		cfg:         cfg,
+		events:      eventsStorage,
 	}
 
 	manager := &SplitManager{splitStorage: splitStorage}

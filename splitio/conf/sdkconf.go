@@ -4,13 +4,14 @@ package conf
 import (
 	"errors"
 	"fmt"
+	"os/user"
+	"path"
+	"strings"
+
 	"github.com/splitio/go-client/splitio/util/impressionlistener"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
-	"os/user"
-	"path"
-	"strings"
 )
 
 // SplitSdkConfig struct ...
@@ -51,6 +52,7 @@ type TaskPeriods struct {
 	GaugeSync      int
 	CounterSync    int
 	LatencySync    int
+	EventsSync     int
 }
 
 // RedisConfig struct is used to cofigure the redis parameters
@@ -74,6 +76,8 @@ type AdvancedConfig struct {
 	SegmentWorkers     int
 	SdkURL             string
 	EventsURL          string
+	EventsBulkSize     int64
+	EventsQueueSize    int
 }
 
 // Default returns a config struct with all the default values
@@ -115,6 +119,7 @@ func Default() *SplitSdkConfig {
 			ImpressionSync: defaultTaskPeriod,
 			SegmentSync:    defaultTaskPeriod,
 			SplitSync:      defaultTaskPeriod,
+			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{
 			EventsURL:          "",
@@ -123,6 +128,8 @@ func Default() *SplitSdkConfig {
 			ImpressionListener: nil,
 			SegmentQueueSize:   500,
 			SegmentWorkers:     10,
+			EventsBulkSize:     1000,
+			EventsQueueSize:    500,
 		},
 	}
 }

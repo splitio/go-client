@@ -163,3 +163,46 @@ func NewHTTPMetricsRecorder(
 		},
 	}
 }
+
+// HTTPEventsRecorder is a struct responsible for submitting events bulks to the backend
+type HTTPEventsRecorder struct {
+	httpRecorderBase
+}
+
+// Record sends an array (or slice) of dtos.EventDTO to the backend
+func (i *HTTPEventsRecorder) Record(
+	events []dtos.EventDTO,
+	sdkVersion string,
+	machineIP string,
+	machineName string,
+) error {
+	data, err := json.Marshal(events)
+	if err != nil {
+		i.logger.Error("Error marshaling JSON", err.Error())
+		return err
+	}
+
+	err = i.recordRaw("/events/bulk", data, sdkVersion, machineIP, machineName)
+	if err != nil {
+		i.logger.Error("Error posting events", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// NewHTTPEventsRecorder instantiates an HTTPEventsRecorder
+func NewHTTPEventsRecorder(
+	apikey string,
+	cfg *conf.SplitSdkConfig,
+	logger logging.LoggerInterface,
+) *HTTPEventsRecorder {
+	_, eventsURL := getUrls(&cfg.Advanced)
+	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
+	return &HTTPEventsRecorder{
+		httpRecorderBase: httpRecorderBase{
+			client: client,
+			logger: logger,
+		},
+	}
+}

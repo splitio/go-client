@@ -29,3 +29,5 @@ _testmain.go
 .DS_Store
 
 Gopkg.lock
+
+.vscode/*

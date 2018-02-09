@@ -10,6 +10,7 @@ const (
 	redisLatency     = "SPLITIO/{sdkVersion}/{instanceId}/latency.{metric}.bucket.{bucket}" // latency bucket
 	redisCount       = "SPLITIO/{sdkVersion}/{instanceId}/count.{metric}"                   // counter
 	redisGauge       = "SPLITIO/{sdkVersion}/{instanceId}/gauge.{metric}"                   // gauge
+	redisEvents      = "SPLITIO.events"                                                     // events LIST key
 )
 
 const (

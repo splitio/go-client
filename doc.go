@@ -1,1 +1,1 @@
-package splitio
+package splitclient

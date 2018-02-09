@@ -7,22 +7,18 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 )
 
-func hFloat64(f float64) *float64 {
-	return &f
-}
-
 func TestMSEventsStorage(t *testing.T) {
 
-	e0 := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: hFloat64(0.0)}
-	e1 := dtos.EventDTO{EventTypeID: "ET1", Key: "K1", Timestamp: 1, TrafficTypeName: "TTN1", Value: hFloat64(0.1)}
-	e2 := dtos.EventDTO{EventTypeID: "ET2", Key: "K2", Timestamp: 2, TrafficTypeName: "TTN2", Value: hFloat64(0.2)}
-	e3 := dtos.EventDTO{EventTypeID: "ET3", Key: "K3", Timestamp: 3, TrafficTypeName: "TTN3", Value: hFloat64(0.3)}
-	e4 := dtos.EventDTO{EventTypeID: "ET4", Key: "K4", Timestamp: 4, TrafficTypeName: "TTN4", Value: hFloat64(0.4)}
-	e5 := dtos.EventDTO{EventTypeID: "ET5", Key: "K5", Timestamp: 5, TrafficTypeName: "TTN5", Value: hFloat64(0.5)}
-	e6 := dtos.EventDTO{EventTypeID: "ET6", Key: "K6", Timestamp: 6, TrafficTypeName: "TTN6", Value: hFloat64(0.6)}
-	e7 := dtos.EventDTO{EventTypeID: "ET7", Key: "K7", Timestamp: 7, TrafficTypeName: "TTN7", Value: hFloat64(0.7)}
-	e8 := dtos.EventDTO{EventTypeID: "ET8", Key: "K8", Timestamp: 8, TrafficTypeName: "TTN8", Value: hFloat64(0.8)}
-	e9 := dtos.EventDTO{EventTypeID: "ET9", Key: "K9", Timestamp: 9, TrafficTypeName: "TTN9", Value: hFloat64(0.9)}
+	e0 := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: 0.0}
+	e1 := dtos.EventDTO{EventTypeID: "ET1", Key: "K1", Timestamp: 1, TrafficTypeName: "TTN1", Value: 0.1}
+	e2 := dtos.EventDTO{EventTypeID: "ET2", Key: "K2", Timestamp: 2, TrafficTypeName: "TTN2", Value: 0.2}
+	e3 := dtos.EventDTO{EventTypeID: "ET3", Key: "K3", Timestamp: 3, TrafficTypeName: "TTN3", Value: 0.3}
+	e4 := dtos.EventDTO{EventTypeID: "ET4", Key: "K4", Timestamp: 4, TrafficTypeName: "TTN4", Value: 0.4}
+	e5 := dtos.EventDTO{EventTypeID: "ET5", Key: "K5", Timestamp: 5, TrafficTypeName: "TTN5", Value: 0.5}
+	e6 := dtos.EventDTO{EventTypeID: "ET6", Key: "K6", Timestamp: 6, TrafficTypeName: "TTN6", Value: 0.6}
+	e7 := dtos.EventDTO{EventTypeID: "ET7", Key: "K7", Timestamp: 7, TrafficTypeName: "TTN7", Value: 0.7}
+	e8 := dtos.EventDTO{EventTypeID: "ET8", Key: "K8", Timestamp: 8, TrafficTypeName: "TTN8", Value: 0.8}
+	e9 := dtos.EventDTO{EventTypeID: "ET9", Key: "K9", Timestamp: 9, TrafficTypeName: "TTN9", Value: 0.9}
 
 	isFull := make(chan bool, 1)
 	queueSize := 20
@@ -72,7 +68,7 @@ func TestMSEventsStorage(t *testing.T) {
 		if events[i].Timestamp != int64(i) {
 			t.Error("Timestamp error")
 		}
-		if *events[i].Value != float64(i)/float64(10) {
+		if events[i].Value != float64(i)/float64(10) {
 			t.Error("Value error")
 		}
 	}
@@ -81,7 +77,7 @@ func TestMSEventsStorage(t *testing.T) {
 
 func TestMSEventsStorageMaxSize(t *testing.T) {
 
-	e := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: hFloat64(0.0)}
+	e := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: 0.0}
 
 	isFull := make(chan bool, 1)
 	maxSize := 10

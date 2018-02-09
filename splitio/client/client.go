@@ -169,7 +169,12 @@ func (c *SplitClient) Destroy() {
 }
 
 // Track an event and its custom value
-func (c *SplitClient) Track(key string, trafficType string, eventType string, value *float64) (ret error) {
+func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
+
+	if _, ok := value.(float64); !ok && value != nil {
+		return errors.New("Value must be nil or float64")
+	}
+
 	ret = nil
 	defer func() {
 		if r := recover(); r != nil {

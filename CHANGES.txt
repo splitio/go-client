@@ -1,3 +1,5 @@
+1.1.1: (Apr 20, 2018)
+ - Fixing http headers output
 1.1.0: (Feb 9, 2018)
  - Split client supports .track method (events) in all falvours (inmemory-standalone, redis-standalone, redis-consumer)
 1.0.0: (Dec 22, 2017)

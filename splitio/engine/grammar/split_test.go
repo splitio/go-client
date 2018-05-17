@@ -9,7 +9,7 @@ import (
 func TestSplitCreation(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	dto := dtos.SplitDTO{
-		Algo:                  0,
+		Algo:                  1,
 		ChangeNumber:          123,
 		Conditions:            []dtos.ConditionDTO{},
 		DefaultTreatment:      "def",
@@ -54,5 +54,4 @@ func TestSplitCreation(t *testing.T) {
 	if split.TrafficAllocation() != 100 {
 		t.Error("Traffic allocation should be 100")
 	}
-
 }

@@ -7,10 +7,10 @@ const (
 	SplitStatusArchived = "ARCHIVED"
 
 	// SplitAlgoLegacy represents the legacy implementation of hash function for bucketing
-	SplitAlgoLegacy = 0
+	SplitAlgoLegacy = 1
 
 	// SplitAlgoMurmur represents the murmur implementation of the hash funcion for bucketing
-	SplitAlgoMurmur = 1
+	SplitAlgoMurmur = 2
 
 	// ConditionTypeWhitelist represents a normal condition
 	ConditionTypeWhitelist = "WHITELIST"

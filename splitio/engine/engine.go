@@ -46,7 +46,7 @@ func (e *Engine) DoEvaluation(
 		}
 
 		if condition.Matches(key, bucketingKey, attributes) {
-			bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
+			bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.Seed())
 			treatment := condition.CalculateTreatment(bucket)
 			return treatment, condition.Label()
 		}

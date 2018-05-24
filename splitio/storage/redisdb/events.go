@@ -6,14 +6,12 @@ import (
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
-	"github.com/splitio/split-synchronizer/log"
 )
-
-var elMutex = &sync.Mutex{}
 
 // RedisEventsStorage redis implementation of EventsStorage interface
 type RedisEventsStorage struct {
 	client          prefixedRedisClient
+	mutex           *sync.Mutex
 	logger          logging.LoggerInterface
 	redisKey        string
 	metadataMessage dtos.QueueStoredMachineMetadataDTO
@@ -34,6 +32,7 @@ func NewRedisEventsStorage(
 		client:          *newPrefixedRedisClient(host, port, db, password, prefix),
 		logger:          logger,
 		redisKey:        redisEvents,
+		mutex:           &sync.Mutex{},
 		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: "unknown"},
 	}
 }
@@ -64,11 +63,11 @@ func (r *RedisEventsStorage) Push(event dtos.EventDTO) error {
 func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 	toReturn := make([]dtos.EventDTO, 0)
 
-	elMutex.Lock()
+	r.mutex.Lock()
 	lrange := r.client.LRange(r.redisKey, 0, n-1)
 	if lrange.Err() != nil {
-		log.Error.Println("Fetching events", lrange.Err().Error())
-		elMutex.Unlock()
+		r.logger.Error("Fetching events", lrange.Err().Error())
+		r.mutex.Unlock()
 		return nil, lrange.Err()
 	}
 	totalFetchedEvents := int64(len(lrange.Val()))
@@ -80,11 +79,11 @@ func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 
 	res := r.client.LTrim(r.redisKey, idxFrom, -1)
 	if res.Err() != nil {
-		log.Error.Println("Trim events", res.Err().Error())
-		elMutex.Unlock()
+		r.logger.Error("Trim events", res.Err().Error())
+		r.mutex.Unlock()
 		return nil, res.Err()
 	}
-	elMutex.Unlock()
+	r.mutex.Unlock()
 
 	//JSON unmarshal
 	listOfEvents := lrange.Val()
@@ -92,7 +91,7 @@ func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 		storedEventDTO := dtos.QueueStoredEventDTO{}
 		err := json.Unmarshal([]byte(se), &storedEventDTO)
 		if err != nil {
-			log.Error.Println("Error decoding event JSON", err.Error())
+			r.logger.Error("Error decoding event JSON", err.Error())
 			continue
 		}
 		if storedEventDTO.Metadata.MachineIP == r.metadataMessage.MachineIP &&

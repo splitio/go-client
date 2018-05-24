@@ -75,12 +75,14 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 
 	authorization := c.apikey
 	c.logger.Debug("Authorization [ApiKey]: ", logging.ObfuscateAPIKey(authorization))
-	req.Header.Add("Authorization", "Bearer "+authorization)
 	req.Header.Add("SplitSDKVersion", c.version)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
-	c.logger.Debug(fmt.Printf("Headers: %v", req.Header))
+	c.logger.Debug(fmt.Sprintf("Headers: %v", req.Header))
+
+	req.Header.Add("Authorization", "Bearer "+authorization)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
@@ -125,7 +127,6 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	authorization := c.apikey
 	c.logger.Debug("Authorization [ApiKey]: ", logging.ObfuscateAPIKey(authorization))
 
-	req.Header.Add("Authorization", "Bearer "+authorization)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("SplitSDKVersion", fmt.Sprint("go-", c.version))
@@ -136,7 +137,10 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 		}
 	}
 
-	c.logger.Debug(fmt.Printf("Headers: %v", req.Header))
+	c.logger.Debug(fmt.Sprintf("Headers: %v", req.Header))
+
+	req.Header.Add("Authorization", "Bearer "+authorization)
+
 	c.logger.Verbose("[REQUEST_BODY]", string(body), "[END_REQUEST_BODY]")
 
 	resp, err := c.httpClient.Do(req)

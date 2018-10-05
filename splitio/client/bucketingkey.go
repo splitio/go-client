@@ -1,4 +1,4 @@
-package objectkey
+package client
 
 // Key struct to be used when supplying two keys. One for matching purposes and another one
 // for hashing.

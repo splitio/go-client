@@ -7,7 +7,6 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/objectkey"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/asynctask"
@@ -155,6 +154,7 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 		impressions: mutexmap.NewMMImpressionStorage(),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
 	}
 
 	feature1 := client.Treatment(nil, "feature", nil)
@@ -177,7 +177,7 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 		t.Error("Feature4 retrieved incorrectly")
 	}
 
-	var key = &objectkey.Key{
+	var key = &Key{
 		MatchingKey:  "key",
 		BucketingKey: "bucketing",
 	}

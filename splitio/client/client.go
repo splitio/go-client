@@ -10,7 +10,6 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
-	"github.com/splitio/go-client/splitio/validator"
 
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
@@ -31,6 +30,7 @@ type SplitClient struct {
 	impressions  storage.ImpressionStorageProducer
 	metrics      storage.MetricsStorageProducer
 	events       storage.EventStorageProducer
+	validator    inputValidation
 }
 
 type sdkSync struct {
@@ -64,7 +64,7 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		return evaluator.Control
 	}
 
-	matchingKey, bucketingKey, err := validator.ValidateTreatmentKey(key)
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return evaluator.Control
@@ -155,7 +155,7 @@ func (c *SplitClient) Destroy() {
 // Track an event and its custom value
 func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) bool {
 
-	key, trafficType, eventType, value, err := validator.ValidateTrackInputs(key, trafficType, eventType, value)
+	key, trafficType, eventType, value, err := ValidateTrackInputs(key, trafficType, eventType, value)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return false

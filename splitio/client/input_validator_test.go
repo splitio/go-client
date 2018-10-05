@@ -1,14 +1,16 @@
-package validator
+package client
 
 import (
 	"testing"
 
-	"github.com/splitio/go-client/splitio/objectkey"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestTreatmentValidatorWithNilKey(t *testing.T) {
 
-	_, _, err := ValidateTreatmentKey(nil)
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	_, _, err := validator.ValidateTreatmentKey(nil)
 
 	if err == nil {
 		t.Error("Should be invalid key")
@@ -23,7 +25,9 @@ func TestTreatmentValidatorWithNilKey(t *testing.T) {
 
 func TestTreatmentValidatorWithBooleanKey(t *testing.T) {
 
-	_, _, err := ValidateTreatmentKey(true)
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	_, _, err := validator.ValidateTreatmentKey(true)
 
 	if err == nil {
 		t.Error("Should be invalid key")
@@ -38,7 +42,9 @@ func TestTreatmentValidatorWithBooleanKey(t *testing.T) {
 
 func TestTreatmentValidatorWithStringKey(t *testing.T) {
 
-	matchingKey, _, err := ValidateTreatmentKey("test")
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	matchingKey, _, err := validator.ValidateTreatmentKey("test")
 
 	if err != nil {
 		t.Error("Should be valid key")
@@ -51,7 +57,9 @@ func TestTreatmentValidatorWithStringKey(t *testing.T) {
 
 func TestTreatmentValidatorWithIntKey(t *testing.T) {
 
-	matchingKey, _, err := ValidateTreatmentKey(123)
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	matchingKey, _, err := validator.ValidateTreatmentKey(123)
 
 	if err != nil {
 		t.Error("Should be valid key")
@@ -64,12 +72,14 @@ func TestTreatmentValidatorWithIntKey(t *testing.T) {
 
 func TestTreatmentValidatorWithMatchingKey(t *testing.T) {
 
-	var key = &objectkey.Key{
+	var key = &Key{
 		MatchingKey:  "test",
 		BucketingKey: "",
 	}
 
-	matchingKey, _, err := ValidateTreatmentKey(key)
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	matchingKey, _, err := validator.ValidateTreatmentKey(key)
 
 	if err != nil {
 		t.Error("Should be valid key")
@@ -82,12 +92,14 @@ func TestTreatmentValidatorWithMatchingKey(t *testing.T) {
 
 func TestTreatmentValidatorWithKeyObject(t *testing.T) {
 
-	var key = &objectkey.Key{
+	var key = &Key{
 		MatchingKey:  "test",
 		BucketingKey: "test-bucketing",
 	}
 
-	matchingKey, bucketingKey, err := ValidateTreatmentKey(key)
+	logger := logging.NewLogger(nil)
+	validator := inputValidation{logger: logger}
+	matchingKey, bucketingKey, err := validator.ValidateTreatmentKey(key)
 
 	if err != nil {
 		t.Error("Should be valid key")

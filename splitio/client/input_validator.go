@@ -1,13 +1,20 @@
-package validator
+package client
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/splitio/go-client/splitio/objectkey"
+	"github.com/splitio/go-toolkit/logging"
 )
+
+// InputValidation struct is responsible for cheking any input of treatment and
+// track methods.
+type inputValidation struct {
+	logger logging.LoggerInterface
+}
 
 func checkNotNull(value interface{}, operation string, name string) error {
 	if value == nil {
@@ -17,21 +24,21 @@ func checkNotNull(value interface{}, operation string, name string) error {
 }
 
 // ValidateTreatmentKey implements the validation for Treatment call
-func ValidateTreatmentKey(key interface{}) (string, *string, error) {
+func (i *inputValidation) ValidateTreatmentKey(key interface{}) (string, *string, error) {
 	if key == nil {
 		return "", nil, errors.New("Treatment: key cannot be nil")
 	}
 	iMatchingKey, ok := key.(int)
 	if ok {
 		convertedMatchingKey := strconv.Itoa(iMatchingKey)
-		// logger.Warning("Treatment: matchingKey " + convertedMatchingKey + " is not of type string, converting.")
+		i.logger.Warning(fmt.Sprintf("Treatment: matchingKey %s is not of type string, converting.", convertedMatchingKey))
 		return convertedMatchingKey, nil, nil
 	}
 	sMatchingKey, ok := key.(string)
 	if ok {
 		return sMatchingKey, nil, nil
 	}
-	okey, ok := key.(*objectkey.Key)
+	okey, ok := key.(*Key)
 	if ok {
 		return okey.MatchingKey, &okey.BucketingKey, nil
 	}

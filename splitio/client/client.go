@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
+	"github.com/splitio/go-client/splitio/validator"
 
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
@@ -43,22 +43,6 @@ type sdkSync struct {
 	eventsSync     *asynctask.AsyncTask
 }
 
-func parseKeys(key interface{}) (string, *string, error) {
-	var bucketingKey *string
-	matchingKey, ok := key.(string)
-	bucketingKey = nil
-	if !ok {
-		ckey, ok := key.(*Key)
-		if !ok {
-			return "", nil, errors.New("Supplied key is neither a string or a Key struct")
-		}
-		matchingKey = ckey.MatchingKey
-		bucketingKey = &ckey.BucketingKey
-	}
-
-	return matchingKey, bucketingKey, nil
-}
-
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
 func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
@@ -80,9 +64,9 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		return evaluator.Control
 	}
 
-	matchingKey, bucketingKey, err := parseKeys(key)
+	matchingKey, bucketingKey, err := validator.ValidateTreatmentKey(key)
 	if err != nil {
-		c.logger.Error("Error parsing key: ", err.Error())
+		c.logger.Error(err.Error())
 		return evaluator.Control
 	}
 
@@ -169,17 +153,15 @@ func (c *SplitClient) Destroy() {
 }
 
 // Track an event and its custom value
-func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
+func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) bool {
 
-	ret = nil
-
-	if _, ok := value.(float64); !ok && value != nil {
-		ret = errors.New("Value must be nil or float64")
-		c.logger.Error(ret.Error())
-		return ret
+	key, trafficType, eventType, value, err := validator.ValidateTrackInputs(key, trafficType, eventType, value)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return false
 	}
 
-	defer func() {
+	defer func() bool {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
@@ -187,16 +169,11 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
 			)
-			ret = errors.New("Track is panicking. Please check logs")
 		}
+		return false
 	}()
 
-	if key == "" || trafficType == "" || eventType == "" {
-		c.logger.Error("Key, trafficType and eventType parameters cannot be empty")
-		return errors.New("Key, trafficType and eventType parameters cannot be empty")
-	}
-
-	err := c.events.Push(dtos.EventDTO{
+	error := c.events.Push(dtos.EventDTO{
 		Key:             key,
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,
@@ -204,10 +181,10 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		Timestamp:       time.Now().UnixNano() / 1000000,
 	})
 
-	if err != nil {
-		c.logger.Error("Error tracking event", err.Error())
-		return err
+	if error != nil {
+		c.logger.Error("Error tracking event", error.Error())
+		return false
 	}
 
-	return nil
+	return true
 }

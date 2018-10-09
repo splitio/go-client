@@ -154,19 +154,13 @@ func TestTrackValidatorWithWrongEventType(t *testing.T) {
 
 func TestTrackValidatorWithNilValue(t *testing.T) {
 
-	key, trafficType, eventType, _, err := ValidateTrackInputs("key", "trafficType", "eventType", nil)
+	key, trafficType, eventType, value, err := ValidateTrackInputs("key", "trafficType", "eventType", nil)
 
-	if err == nil {
-		t.Error("Should be errors")
+	if err != nil {
+		t.Error("Should be valid")
 	}
 
-	if err.Error() != "Track: value must be a number" {
-		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", err.Error())
-		t.Error("Expected -> ", "TTrack: value must be a number")
-	}
-
-	if key != "key" || trafficType != "trafficType" || eventType != "eventType" {
+	if key != "key" || trafficType != "trafficType" || eventType != "eventType" || value != nil {
 		t.Error("Inputs should not change")
 	}
 }

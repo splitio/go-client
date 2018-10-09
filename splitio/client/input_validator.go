@@ -54,14 +54,11 @@ func ValidateTrackInputs(key string, trafficType string, eventType string, value
 	if r.MatchString(eventType) == false {
 		return key, trafficType, "", value, errors.New("Track: eventName must adhere to the regular expression [a-zA-Z0-9][-_\\.a-zA-Z0-9]{0,62}")
 	}
-	if value == nil {
-		return key, trafficType, eventType, 0, errors.New("Track: value must be a number")
-	}
 	_, float := value.(float64)
 	_, integer := value.(int)
 	_, integer32 := value.(int32)
 	_, integer64 := value.(int64)
-	if !float && !integer && !integer32 && !integer64 {
+	if value != nil && !float && !integer && !integer32 && !integer64 {
 		return key, trafficType, eventType, 0, errors.New("Track: value must be a number")
 	}
 	return key, trafficType, eventType, value, nil

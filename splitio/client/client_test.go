@@ -214,7 +214,7 @@ func TestClientTrackValidationInputs(t *testing.T) {
 	}
 
 	track3 := client.Track("key", "trafficType", "eventType", nil)
-	if track3 == nil {
+	if track3 != nil {
 		t.Error("track3 retrieved incorrectly")
 	}
 

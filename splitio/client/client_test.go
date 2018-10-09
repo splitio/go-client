@@ -204,32 +204,32 @@ func TestClientTrackValidationInputs(t *testing.T) {
 	}
 
 	track1 := client.Track("key", "", "eventType", 123)
-	if track1 != false {
+	if track1 == nil {
 		t.Error("track1 retrieved incorrectly")
 	}
 
 	track2 := client.Track("key", "trafficType", "", 123)
-	if track2 != false {
+	if track2 == nil {
 		t.Error("track2 retrieved incorrectly")
 	}
 
 	track3 := client.Track("key", "trafficType", "eventType", nil)
-	if track3 != false {
+	if track3 == nil {
 		t.Error("track3 retrieved incorrectly")
 	}
 
 	track4 := client.Track("key", "trafficType", "eventType", "invalid")
-	if track4 != false {
+	if track4 == nil {
 		t.Error("track4 retrieved incorrectly")
 	}
 
 	track5 := client.Track("key", "trafficType", "eventType", 123)
-	if track5 != true {
+	if track5 != nil {
 		t.Error("track5 retrieved incorrectly")
 	}
 
 	track6 := client.Track("key", "trafficType", "eventType", 1.3)
-	if track6 != true {
+	if track6 != nil {
 		t.Error("track6 retrieved incorrectly")
 	}
 

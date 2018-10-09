@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -153,15 +154,17 @@ func (c *SplitClient) Destroy() {
 }
 
 // Track an event and its custom value
-func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) bool {
+func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
+
+	ret = nil
 
 	key, trafficType, eventType, value, err := ValidateTrackInputs(key, trafficType, eventType, value)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return false
+		return err
 	}
 
-	defer func() bool {
+	defer func() {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
@@ -169,8 +172,8 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
 			)
+			ret = errors.New("Track is panicking. Please check logs")
 		}
-		return false
 	}()
 
 	error := c.events.Push(dtos.EventDTO{
@@ -183,8 +186,8 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 
 	if error != nil {
 		c.logger.Error("Error tracking event", error.Error())
-		return false
+		return nil
 	}
 
-	return true
+	return nil
 }

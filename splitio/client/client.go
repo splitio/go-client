@@ -158,10 +158,10 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 
 	ret = nil
 
-	key, trafficType, eventType, value, err := ValidateTrackInputs(key, trafficType, eventType, value)
-	if err != nil {
-		c.logger.Error(err.Error())
-		return err
+	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
+	if iErr != nil {
+		c.logger.Error(iErr.Error())
+		return iErr
 	}
 
 	defer func() {
@@ -176,7 +176,7 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		}
 	}()
 
-	error := c.events.Push(dtos.EventDTO{
+	err := c.events.Push(dtos.EventDTO{
 		Key:             key,
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,
@@ -184,8 +184,8 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		Timestamp:       time.Now().UnixNano() / 1000000,
 	})
 
-	if error != nil {
-		c.logger.Error("Error tracking event", error.Error())
+	if err != nil {
+		c.logger.Error(err.Error())
 		return nil
 	}
 

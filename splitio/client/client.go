@@ -185,8 +185,8 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 	})
 
 	if err != nil {
-		c.logger.Error(err.Error())
-		return nil
+		c.logger.Error("Error tracking event", err.Error())
+		return err
 	}
 
 	return nil

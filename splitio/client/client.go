@@ -46,19 +46,19 @@ type sdkSync struct {
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
+func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
 	// Set up a guard deferred function to recover if the SDK starts panicking
-	defer func() string {
+	defer func() {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
-				"Returning CONTROL", "\n",
-			)
+				"Returning CONTROL", "\n")
+			ret = evaluator.Control
 		}
-		return evaluator.Control
+		return
 	}()
 
 	if c.IsDestroyed() {
@@ -156,14 +156,6 @@ func (c *SplitClient) Destroy() {
 // Track an event and its custom value
 func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
 
-	ret = nil
-
-	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
-	if iErr != nil {
-		c.logger.Error(iErr.Error())
-		return iErr
-	}
-
 	defer func() {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking
@@ -173,7 +165,14 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 			)
 			ret = errors.New("Track is panicking. Please check logs")
 		}
+		return
 	}()
+
+	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
+	if iErr != nil {
+		c.logger.Error(iErr.Error())
+		return iErr
+	}
 
 	err := c.events.Push(dtos.EventDTO{
 		Key:             key,

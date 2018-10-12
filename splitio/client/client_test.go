@@ -20,6 +20,7 @@ import (
 
 type mockEvaluator struct{}
 type mockEvents struct{}
+type mockEventsPanic struct{}
 
 func (e *mockEvaluator) Evaluate(
 	key string,
@@ -43,6 +44,15 @@ func (e *mockEvaluator) Evaluate(
 			Treatment:         evaluator.Control,
 		}
 	}
+}
+
+func (e *mockEventsPanic) Evaluate(
+	key string,
+	bucketingKey *string,
+	feature string,
+	attributes map[string]interface{},
+) *evaluator.Result {
+	panic("Testing panicking")
 }
 
 func (s *mockEvents) Push(event dtos.EventDTO) error { return nil }
@@ -224,6 +234,26 @@ func TestClientTrackValidationInputs(t *testing.T) {
 	track6 := client.Track("key", "trafficType", "eventType", 1.3)
 	if track6 != nil {
 		t.Error("track6 retrieved incorrectly")
+	}
+}
+
+func TestClientPanicking(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEventsPanic{},
+		events:      &mockEvents{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	treatment := client.Treatment("key", "some", nil)
+	if treatment != "control" {
+		t.Error("treatment retrieved incorrectly")
 	}
 }
 

@@ -166,8 +166,7 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 
 	defer func() {
 		if r := recover(); r != nil {
-			// At this point we'll only trust that the logger isn't panicking trust
-			// that the logger isn't panicking
+			// At this point we'll only trust that the logger isn't panicking
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",

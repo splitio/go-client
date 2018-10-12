@@ -45,11 +45,7 @@ func (e *mockEvaluator) Evaluate(
 	}
 }
 
-func (s *mockEvents) Push(
-	event dtos.EventDTO,
-) error {
-	return nil
-}
+func (s *mockEvents) Push(event dtos.EventDTO) error { return nil }
 
 func TestClientGetTreatment(t *testing.T) {
 	cfg := conf.Default()
@@ -79,7 +75,6 @@ func TestClientGetTreatment(t *testing.T) {
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
-
 }
 
 func TestTreatments(t *testing.T) {
@@ -106,7 +101,6 @@ func TestTreatments(t *testing.T) {
 	if !ok || notFeatureRes != evaluator.Control {
 		t.Error("Incorrect result for \"notFeature\"")
 	}
-
 }
 
 func TestLocalhostMode(t *testing.T) {
@@ -186,7 +180,6 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	if feature5 != "TreatmentA" {
 		t.Error("Feature5 retrieved incorrectly")
 	}
-
 }
 
 func TestClientTrackValidationInputs(t *testing.T) {
@@ -232,7 +225,6 @@ func TestClientTrackValidationInputs(t *testing.T) {
 	if track6 != nil {
 		t.Error("track6 retrieved incorrectly")
 	}
-
 }
 
 func TestClientDestroy(t *testing.T) {
@@ -360,5 +352,4 @@ func TestClientDestroy(t *testing.T) {
 			t.Error("all treatments resulting from .Treatments() should be control")
 		}
 	}
-
 }

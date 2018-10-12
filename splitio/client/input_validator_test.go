@@ -135,7 +135,7 @@ func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
 
 func TestTrackValidatorWithWrongEventType(t *testing.T) {
 
-	key, trafficType, _, value, err := ValidateTrackInputs("key", "trafficType", "", 123)
+	key, trafficType, _, value, err := ValidateTrackInputs("key", "trafficType", "@@", 123)
 
 	if err == nil {
 		t.Error("Should be errors")

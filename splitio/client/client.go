@@ -58,7 +58,6 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 				"Returning CONTROL", "\n")
 			ret = evaluator.Control
 		}
-		return
 	}()
 
 	if c.IsDestroyed() {

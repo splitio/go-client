@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -107,8 +108,15 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 // Treatments evaluates multiple featers for a single user and set of attributes at once
 func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
 	treatments := make(map[string]string)
+
+	if c.IsDestroyed() {
+		return treatments
+	}
+
 	for _, feature := range features {
-		treatments[feature] = c.Treatment(key, feature, attributes)
+		if strings.TrimSpace(feature) != "" {
+			treatments[feature] = c.Treatment(key, feature, attributes)
+		}
 	}
 	return treatments
 }

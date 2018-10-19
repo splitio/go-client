@@ -1,8 +1,6 @@
 package client
 
 import (
-	"fmt"
-
 	"github.com/splitio/go-client/splitio/service/dtos"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -110,6 +108,26 @@ func TestTreatments(t *testing.T) {
 	notFeatureRes, ok := res["notFeature"]
 	if !ok || notFeatureRes != evaluator.Control {
 		t.Error("Incorrect result for \"notFeature\"")
+	}
+}
+
+func TestTreatmentsEmpty(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	res := client.Treatments("user1", []string{"", ""}, nil)
+
+	if len(res) != 0 {
+		t.Error("Should return empty map.")
 	}
 }
 
@@ -273,8 +291,6 @@ func TestClientDestroy(t *testing.T) {
 	resLatencies := 0
 	stoppedLatencies := false
 
-	fmt.Println(stoppedSplit, stoppedSegments, stoppedImpressions, stoppedGauge, stoppedCounters, stoppedLatencies)
-
 	splitSync := func(l logging.LoggerInterface) error { resSplits++; return nil }
 	splitStop := func(l logging.LoggerInterface) { stoppedSplit = true }
 	segmentSync := func(l logging.LoggerInterface) error { resSegments++; return nil }
@@ -376,10 +392,32 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Single .Treatment() call should return control")
 	}
 
+	if !stoppedCounters {
+		t.Error("Counters shoud be stopped")
+	}
+
+	if !stoppedGauge {
+		t.Error("Gauge shoud be stopped")
+	}
+
+	if !stoppedImpressions {
+		t.Error("Impressions shoud be stopped")
+	}
+
+	if !stoppedLatencies {
+		t.Error("Latencies shoud be stopped")
+	}
+
+	if !stoppedSegments {
+		t.Error("Segments shoud be stopped")
+	}
+
+	if !stoppedSplit {
+		t.Error("Split shoud be stopped")
+	}
+
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
-	for _, treatment := range treatments {
-		if treatment != evaluator.Control {
-			t.Error("all treatments resulting from .Treatments() should be control")
-		}
+	if len(treatments) != 0 {
+		t.Error("Should return empty map.")
 	}
 }

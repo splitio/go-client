@@ -1,6 +1,8 @@
 package client
 
 import (
+	"github.com/splitio/go-client/splitio/service/dtos"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/storage"
@@ -15,6 +17,8 @@ import (
 )
 
 type mockEvaluator struct{}
+type mockEvents struct{}
+type mockEventsPanic struct{}
 
 func (e *mockEvaluator) Evaluate(
 	key string,
@@ -39,6 +43,17 @@ func (e *mockEvaluator) Evaluate(
 		}
 	}
 }
+
+func (e *mockEventsPanic) Evaluate(
+	key string,
+	bucketingKey *string,
+	feature string,
+	attributes map[string]interface{},
+) *evaluator.Result {
+	panic("Testing panicking")
+}
+
+func (s *mockEvents) Push(event dtos.EventDTO) error { return nil }
 
 func TestClientGetTreatment(t *testing.T) {
 	cfg := conf.Default()
@@ -68,7 +83,6 @@ func TestClientGetTreatment(t *testing.T) {
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
-
 }
 
 func TestTreatments(t *testing.T) {
@@ -95,7 +109,26 @@ func TestTreatments(t *testing.T) {
 	if !ok || notFeatureRes != evaluator.Control {
 		t.Error("Incorrect result for \"notFeature\"")
 	}
+}
 
+func TestTreatmentsEmpty(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	res := client.Treatments("user1", []string{"", ""}, nil)
+
+	if len(res) != 0 {
+		t.Error("Should return empty map.")
+	}
 }
 
 func TestLocalhostMode(t *testing.T) {
@@ -130,6 +163,116 @@ func TestLocalhostMode(t *testing.T) {
 
 	file.Close()
 	os.Remove(file.Name())
+}
+
+func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
+	}
+
+	feature1 := client.Treatment(nil, "feature", nil)
+	if feature1 != "control" {
+		t.Error("Feature1 retrieved incorrectly")
+	}
+
+	feature2 := client.Treatment(true, "feature", nil)
+	if feature2 != "control" {
+		t.Error("Feature2 retrieved incorrectly")
+	}
+
+	feature3 := client.Treatment(123, "feature", nil)
+	if feature3 != "TreatmentA" {
+		t.Error("Feature3 retrieved incorrectly")
+	}
+
+	feature4 := client.Treatment("key", "feature", nil)
+	if feature4 != "TreatmentA" {
+		t.Error("Feature4 retrieved incorrectly")
+	}
+
+	var key = &Key{
+		MatchingKey:  "key",
+		BucketingKey: "bucketing",
+	}
+
+	feature5 := client.Treatment(key, "feature", nil)
+	if feature5 != "TreatmentA" {
+		t.Error("Feature5 retrieved incorrectly")
+	}
+}
+
+func TestClientTrackValidationInputs(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		events:      &mockEvents{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	track1 := client.Track("key", "", "eventType", 123)
+	if track1 == nil {
+		t.Error("track1 retrieved incorrectly")
+	}
+
+	track2 := client.Track("key", "trafficType", "", 123)
+	if track2 == nil {
+		t.Error("track2 retrieved incorrectly")
+	}
+
+	track3 := client.Track("key", "trafficType", "eventType", nil)
+	if track3 != nil {
+		t.Error("track3 retrieved incorrectly")
+	}
+
+	track4 := client.Track("key", "trafficType", "eventType", "invalid")
+	if track4 == nil {
+		t.Error("track4 retrieved incorrectly")
+	}
+
+	track5 := client.Track("key", "trafficType", "eventType", 123)
+	if track5 != nil {
+		t.Error("track5 retrieved incorrectly")
+	}
+
+	track6 := client.Track("key", "trafficType", "eventType", 1.3)
+	if track6 != nil {
+		t.Error("track6 retrieved incorrectly")
+	}
+}
+
+func TestClientPanicking(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEventsPanic{},
+		events:      &mockEvents{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	treatment := client.Treatment("key", "some", nil)
+	if treatment != "control" {
+		t.Error("treatment retrieved incorrectly")
+	}
 }
 
 func TestClientDestroy(t *testing.T) {
@@ -249,11 +392,32 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Single .Treatment() call should return control")
 	}
 
-	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
-	for _, treatment := range treatments {
-		if treatment != evaluator.Control {
-			t.Error("all treatments resulting from .Treatments() should be control")
-		}
+	if !stoppedCounters {
+		t.Error("Counters shoud be stopped")
 	}
 
+	if !stoppedGauge {
+		t.Error("Gauge shoud be stopped")
+	}
+
+	if !stoppedImpressions {
+		t.Error("Impressions shoud be stopped")
+	}
+
+	if !stoppedLatencies {
+		t.Error("Latencies shoud be stopped")
+	}
+
+	if !stoppedSegments {
+		t.Error("Segments shoud be stopped")
+	}
+
+	if !stoppedSplit {
+		t.Error("Split shoud be stopped")
+	}
+
+	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
+	if len(treatments) != 0 {
+		t.Error("Should return empty map.")
+	}
 }

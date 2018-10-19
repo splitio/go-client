@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type SplitClient struct {
 	impressions  storage.ImpressionStorageProducer
 	metrics      storage.MetricsStorageProducer
 	events       storage.EventStorageProducer
+	validator    inputValidation
 }
 
 type sdkSync struct {
@@ -43,46 +45,29 @@ type sdkSync struct {
 	eventsSync     *asynctask.AsyncTask
 }
 
-func parseKeys(key interface{}) (string, *string, error) {
-	var bucketingKey *string
-	matchingKey, ok := key.(string)
-	bucketingKey = nil
-	if !ok {
-		ckey, ok := key.(*Key)
-		if !ok {
-			return "", nil, errors.New("Supplied key is neither a string or a Key struct")
-		}
-		matchingKey = ckey.MatchingKey
-		bucketingKey = &ckey.BucketingKey
-	}
-
-	return matchingKey, bucketingKey, nil
-}
-
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
+func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
 	// Set up a guard deferred function to recover if the SDK starts panicking
-	defer func() string {
+	defer func() {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
-				"Returning CONTROL", "\n",
-			)
+				"Returning CONTROL", "\n")
+			ret = evaluator.Control
 		}
-		return evaluator.Control
 	}()
 
 	if c.IsDestroyed() {
 		return evaluator.Control
 	}
 
-	matchingKey, bucketingKey, err := parseKeys(key)
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
 	if err != nil {
-		c.logger.Error("Error parsing key: ", err.Error())
+		c.logger.Error(err.Error())
 		return evaluator.Control
 	}
 
@@ -123,8 +108,15 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 // Treatments evaluates multiple featers for a single user and set of attributes at once
 func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
 	treatments := make(map[string]string)
+
+	if c.IsDestroyed() {
+		return treatments
+	}
+
 	for _, feature := range features {
-		treatments[feature] = c.Treatment(key, feature, attributes)
+		if strings.TrimSpace(feature) != "" {
+			treatments[feature] = c.Treatment(key, feature, attributes)
+		}
 	}
 	return treatments
 }
@@ -171,29 +163,22 @@ func (c *SplitClient) Destroy() {
 // Track an event and its custom value
 func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
 
-	ret = nil
-
-	if _, ok := value.(float64); !ok && value != nil {
-		ret = errors.New("Value must be nil or float64")
-		c.logger.Error(ret.Error())
-		return ret
-	}
-
 	defer func() {
 		if r := recover(); r != nil {
-			// At this point we'll only trust that the logger isn't panicking trust
-			// that the logger isn't panicking
+			// At this point we'll only trust that the logger isn't panicking
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
 			)
 			ret = errors.New("Track is panicking. Please check logs")
 		}
+		return
 	}()
 
-	if key == "" || trafficType == "" || eventType == "" {
-		c.logger.Error("Key, trafficType and eventType parameters cannot be empty")
-		return errors.New("Key, trafficType and eventType parameters cannot be empty")
+	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
+	if iErr != nil {
+		c.logger.Error(iErr.Error())
+		return iErr
 	}
 
 	err := c.events.Push(dtos.EventDTO{

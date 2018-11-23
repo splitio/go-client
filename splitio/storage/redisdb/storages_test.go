@@ -1,6 +1,8 @@
 package redisdb
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -8,6 +10,53 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
+type LoggerInterface interface {
+	Debug(msg ...interface{})
+	Error(msg ...interface{})
+	Info(msg ...interface{})
+	Verbose(msg ...interface{})
+	Warning(msg ...interface{})
+	GetLog(key string) int
+}
+
+type MockedLogger struct {
+	logs map[string]int
+}
+
+// NewMockedLogger creates a mocked logger to store logs
+func NewMockedLogger() LoggerInterface {
+	return &MockedLogger{
+		logs: make(map[string]int),
+	}
+}
+
+func (l *MockedLogger) Debug(msg ...interface{}) {
+	messageList := make([]string, len(msg))
+	for i, v := range msg {
+		messageList[i] = fmt.Sprint(v)
+	}
+	var m string
+	m = strings.Join(messageList, m)
+	n, added := l.logs[m]
+	if added == false {
+		l.logs[m] = 1
+	} else {
+		l.logs[m] = n + 1
+	}
+}
+
+func (l *MockedLogger) GetLog(key string) int {
+	n, added := l.logs[key]
+	if added == false {
+		return -1
+	}
+	return n
+}
+
+func (l *MockedLogger) Error(msg ...interface{})   {}
+func (l *MockedLogger) Info(msg ...interface{})    {}
+func (l *MockedLogger) Verbose(msg ...interface{}) {}
+func (l *MockedLogger) Warning(msg ...interface{}) {}
 func TestRedisSplitStorage(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	splitStorage := NewRedisSplitStorage("localhost", 6379, 1, "", "testPrefix", logger)
@@ -225,7 +274,7 @@ func TestSegmentStorage(t *testing.T) {
 }
 
 func TestImpressionStorage(t *testing.T) {
-	logger := logging.NewLogger(&logging.LoggerOptions{})
+	logger := NewMockedLogger()
 	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
 
 	var impression1 = dtos.ImpressionsDTO{
@@ -266,6 +315,12 @@ func TestImpressionStorage(t *testing.T) {
 
 	if len(impressions) != 2 {
 		t.Error("Incorrect number of impressions fetched")
+	}
+
+	expirationAdded := logger.GetLog("Proceeding to set expiration for: " + impressionStorage.redisKey)
+
+	if expirationAdded != 1 {
+		t.Error("It should added expiration only once")
 	}
 
 	var i1 = impressions[0]

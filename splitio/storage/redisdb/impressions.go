@@ -46,25 +46,6 @@ func NewRedisImpressionStorage(
 	}
 }
 
-/*
-// Put stores an impression in redis
-func (r *RedisImpressionStorage) Put(feature string, impression *dtos.ImpressionDTO) {
-	keyToStore := strings.Replace(r.impTemplate, "{feature}", feature, 1)
-	encoded, err := json.Marshal(impression)
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error encoding impression in json for feature %s", feature))
-		r.logger.Error(err)
-		return
-	}
-
-	_, err = r.client.SAdd(keyToStore, string(encoded))
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error storing impression in redis for feature %s", feature))
-		r.logger.Error(err)
-	}
-}
-*/
-
 // LogImpressions stores impressions in redis as Queue
 func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
 	if len(impressions) > 0 {
@@ -99,7 +80,7 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) er
 		}
 	}
 
-	r.logger.Debug("Pushing impressions to:", r.redisKey, len(impressionsJSON))
+	r.logger.Debug("Pushing impressions to: ", r.redisKey, len(impressionsJSON))
 
 	inserted, errPush := r.client.RPush(r.redisKey, impressionsJSON...)
 	if errPush != nil {
@@ -108,7 +89,7 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) er
 	}
 
 	if inserted == int64(len(impressionsJSON)) {
-		r.logger.Debug("Proceeding to set expiration for:", r.redisKey)
+		r.logger.Debug("Proceeding to set expiration for: ", r.redisKey)
 		result := r.client.Expire(r.redisKey, time.Duration(r.impressionsTTL)*time.Minute).Val()
 		if result == false {
 			r.logger.Error("Something were wrong setting expiration", errPush)

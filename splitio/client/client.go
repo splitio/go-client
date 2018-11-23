@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -86,14 +88,20 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		if c.cfg.LabelsEnabled {
 			label = evaluationResult.Label
 		}
-		c.impressions.Put(feature, &dtos.ImpressionDTO{
+		var impression = dtos.ImpressionDTO{
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
 			Label:        label,
 			Treatment:    evaluationResult.Treatment,
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-		})
+		}
+		keyImpressions := []dtos.ImpressionDTO{impression}
+		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
+			TestName:       feature,
+			KeyImpressions: keyImpressions,
+		}}
+		c.impressions.LogImpressions(toStore)
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}
@@ -113,11 +121,75 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		return treatments
 	}
 
-	for _, feature := range features {
-		if strings.TrimSpace(feature) != "" {
-			treatments[feature] = c.Treatment(key, feature, attributes)
+	before := time.Now()
+	var bulkImpressions []dtos.ImpressionsDTO
+
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
+	if err != nil {
+		c.logger.Error(err.Error())
+		for _, feature := range features {
+			if strings.TrimSpace(feature) != "" {
+				var impression = dtos.ImpressionDTO{
+					BucketingKey: "",
+					ChangeNumber: 0,
+					KeyName:      matchingKey,
+					Label:        impressionlabels.Exception,
+					Treatment:    evaluator.Control,
+					Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+				}
+				keyImpressions := []dtos.ImpressionDTO{impression}
+				bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+					TestName:       feature,
+					KeyImpressions: keyImpressions,
+				})
+				treatments[feature] = evaluator.Control
+			}
+		}
+	} else {
+		for _, feature := range features {
+			if strings.TrimSpace(feature) != "" {
+				var evaluationResult *evaluator.Result
+				var impressionBucketingKey = ""
+				if bucketingKey != nil {
+					evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
+					impressionBucketingKey = *bucketingKey
+				} else {
+					evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
+				}
+				// Store impression
+				if c.impressions != nil {
+					var label string
+					if c.cfg.LabelsEnabled {
+						label = evaluationResult.Label
+					}
+					var impression = dtos.ImpressionDTO{
+						BucketingKey: impressionBucketingKey,
+						ChangeNumber: evaluationResult.SplitChangeNumber,
+						KeyName:      matchingKey,
+						Label:        label,
+						Treatment:    evaluationResult.Treatment,
+						Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+					}
+					keyImpressions := []dtos.ImpressionDTO{impression}
+					bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+						TestName:       feature,
+						KeyImpressions: keyImpressions,
+					})
+				} else {
+					c.logger.Warning("No impression storage set in client. Not sending impressions!")
+				}
+
+				treatments[feature] = evaluationResult.Treatment
+			}
 		}
 	}
+
+	// Store latency
+	bucket := metrics.Bucket(time.Now().Sub(before).Nanoseconds())
+	c.metrics.IncLatency("sdk.getTreatments", bucket)
+
+	c.impressions.LogImpressions(bulkImpressions)
+
 	return treatments
 }
 

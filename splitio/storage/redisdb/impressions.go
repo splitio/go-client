@@ -88,6 +88,7 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) er
 		return errPush
 	}
 
+	// Checks if expiration needs to be set
 	if inserted == int64(len(impressionsJSON)) {
 		r.logger.Debug("Proceeding to set expiration for: ", r.redisKey)
 		result := r.client.Expire(r.redisKey, time.Duration(r.impressionsTTL)*time.Minute).Val()

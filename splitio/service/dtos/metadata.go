@@ -1,7 +1,7 @@
 package dtos
 
 //
-// Events DTOs
+// Metadata DTOs
 //
 
 // RedisStoredMachineMetadataDTO alias of QueueStoredMachineMetadataDTO

@@ -30,6 +30,7 @@ func NewRedisImpressionStorage(
 	password string,
 	prefix string,
 	instanceID string,
+	instanceName string,
 	sdkVersion string,
 	logger logging.LoggerInterface,
 ) *RedisImpressionStorage {
@@ -42,7 +43,7 @@ func NewRedisImpressionStorage(
 		impTemplate:     impTemplate,
 		redisKey:        redisImpressionsQueue,
 		impressionsTTL:  redisImpressionsTTL,
-		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: "unknown"},
+		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: instanceName},
 	}
 }
 

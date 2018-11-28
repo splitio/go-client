@@ -275,7 +275,7 @@ func TestSegmentStorage(t *testing.T) {
 
 func TestImpressionStorage(t *testing.T) {
 	logger := NewMockedLogger()
-	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
+	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "instanceName123", "go-test", logger)
 
 	var impression1 = dtos.ImpressionsDTO{
 		TestName: "feature1",

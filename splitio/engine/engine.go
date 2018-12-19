@@ -33,7 +33,7 @@ func (e *Engine) DoEvaluation(
 		if !inRollOut && condition.ConditionType() == grammar.ConditionTypeRollout {
 			if split.TrafficAllocation() < 100 {
 				bucket := e.calculateBucket(split.Algo(), *bucketingKey, split.TrafficAllocationSeed())
-				if bucket >= split.TrafficAllocation() {
+				if bucket > split.TrafficAllocation() {
 					e.logger.Debug(fmt.Sprintf(
 						"Traffic allocation exceeded for feature %s and key %s."+
 							" Returning default treatment", split.Name(), key,

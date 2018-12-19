@@ -8,7 +8,7 @@
 * Bullet 2
 
 ## How to test new changes?
-*
+* `go test ./...`
 
 ## Extra Notes
 * Bullet 1

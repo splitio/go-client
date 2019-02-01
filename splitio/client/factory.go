@@ -280,7 +280,11 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		validator:   inputValidation{logger: logger},
 	}
 
-	manager := &SplitManager{splitStorage: splitStorage}
+	manager := &SplitManager{
+		splitStorage: splitStorage,
+		validator:    inputValidation{logger: logger},
+		logger:       logger,
+	}
 
 	return &SplitFactory{
 		client:  client,

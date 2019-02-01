@@ -210,51 +210,6 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	}
 }
 
-func TestClientTrackValidationInputs(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		events:      &mockEvents{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	track1 := client.Track("key", "", "eventType", 123)
-	if track1 == nil {
-		t.Error("track1 retrieved incorrectly")
-	}
-
-	track2 := client.Track("key", "trafficType", "", 123)
-	if track2 == nil {
-		t.Error("track2 retrieved incorrectly")
-	}
-
-	track3 := client.Track("key", "trafficType", "eventType", nil)
-	if track3 != nil {
-		t.Error("track3 retrieved incorrectly")
-	}
-
-	track4 := client.Track("key", "trafficType", "eventType", "invalid")
-	if track4 == nil {
-		t.Error("track4 retrieved incorrectly")
-	}
-
-	track5 := client.Track("key", "trafficType", "eventType", 123)
-	if track5 != nil {
-		t.Error("track5 retrieved incorrectly")
-	}
-
-	track6 := client.Track("key", "trafficType", "eventType", 1.3)
-	if track6 != nil {
-		t.Error("track6 retrieved incorrectly")
-	}
-}
-
 func TestClientPanicking(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
@@ -319,7 +274,8 @@ func TestClientDestroy(t *testing.T) {
 	latenciesTask.Start()
 
 	client := SplitClient{
-		cfg: &conf.SplitSdkConfig{},
+		cfg:    &conf.SplitSdkConfig{},
+		logger: logger,
 		sync: &sdkSync{
 			countersSync:   countersTask,
 			gaugeSync:      gaugesTask,

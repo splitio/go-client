@@ -62,10 +62,17 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 	}()
 
 	if c.IsDestroyed() {
+		c.logger.Error("Client has already been destroyed - no calls possible")
 		return evaluator.Control
 	}
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return evaluator.Control
+	}
+
+	feature, err = c.validator.ValidateFeatureName(feature)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return evaluator.Control
@@ -175,13 +182,18 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		return
 	}()
 
-	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
-	if iErr != nil {
-		c.logger.Error(iErr.Error())
-		return iErr
+	if c.IsDestroyed() {
+		c.logger.Error("Client has already been destroyed - no calls possible")
+		return errors.New("Client has already been destroyed - no calls possible")
 	}
 
-	err := c.events.Push(dtos.EventDTO{
+	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(key, trafficType, eventType, value)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+
+	err = c.events.Push(dtos.EventDTO{
 		Key:             key,
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,

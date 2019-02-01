@@ -3,11 +3,14 @@ package client
 import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // SplitManager provides information of the currently stored splits
 type SplitManager struct {
 	splitStorage storage.SplitStorageConsumer
+	validator    inputValidation
+	logger       logging.LoggerInterface
 }
 
 // SplitView is a partial representation of a currently stored split
@@ -52,6 +55,12 @@ func (m *SplitManager) Splits() []SplitView {
 
 // Split returns a partial view of a particular split
 func (m *SplitManager) Split(feature string) *SplitView {
+	err := m.validator.ValidateManagerInputs(feature)
+	if err != nil {
+		m.logger.Error(err.Error())
+		return nil
+	}
+
 	split := m.splitStorage.Get(feature)
 	if split != nil {
 		return newSplitView(split)

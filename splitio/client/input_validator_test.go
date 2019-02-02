@@ -356,7 +356,7 @@ func TestTreatmentValidatorWhitespacesFeatureName(t *testing.T) {
 		t.Error("Should be TreatmentA")
 	}
 
-	expected := "Treatment: split name '  feature   ' is not of type string, converting"
+	expected := "Treatment: split name '  feature   ' has extra whitespace, trimming"
 	if strMsg != expected {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)
@@ -390,6 +390,80 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 
 	if result != "control" {
 		t.Error("Should be control")
+	}
+
+	expected := "Client has already been destroyed - no calls possible"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentsEmptyFeatures(t *testing.T) {
+	features := []string{""}
+
+	result := client.Treatments("key", features, nil)
+
+	if result != nil {
+		t.Error("Should return nil")
+	}
+
+	expected := "Treatments: features must be a non-empty array"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentsWhitespaceFeatures(t *testing.T) {
+	features := []string{" some_feature  "}
+
+	result := client.Treatments("key", features, nil)
+
+	if result["some_feature"] != "control" {
+		t.Error("Wrong result")
+	}
+
+	expected := "Treatment: split name ' some_feature  ' has extra whitespace, trimming"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentsClientDestroyed(t *testing.T) {
+
+	var client2 = SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		metrics:     mutexmap.NewMMMetricsStorage(),
+		logger:      logger,
+		validator:   inputValidation{logger: logger},
+		sync: &sdkSync{
+			countersSync:   nil,
+			gaugeSync:      nil,
+			impressionSync: nil,
+			latenciesSync:  nil,
+			segmentSync:    nil,
+			splitSync:      nil,
+		},
+	}
+
+	client2.Destroy()
+
+	features := []string{"some_feature"}
+
+	result := client2.Treatments("key", features, nil)
+
+	if result != nil {
+		t.Error("Should return nil")
 	}
 
 	expected := "Client has already been destroyed - no calls possible"

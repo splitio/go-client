@@ -1,6 +1,8 @@
 package redisdb
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -8,6 +10,53 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
+type LoggerInterface interface {
+	Debug(msg ...interface{})
+	Error(msg ...interface{})
+	Info(msg ...interface{})
+	Verbose(msg ...interface{})
+	Warning(msg ...interface{})
+	GetLog(key string) int
+}
+
+type MockedLogger struct {
+	logs map[string]int
+}
+
+// NewMockedLogger creates a mocked logger to store logs
+func NewMockedLogger() LoggerInterface {
+	return &MockedLogger{
+		logs: make(map[string]int),
+	}
+}
+
+func (l *MockedLogger) Debug(msg ...interface{}) {
+	messageList := make([]string, len(msg))
+	for i, v := range msg {
+		messageList[i] = fmt.Sprint(v)
+	}
+	var m string
+	m = strings.Join(messageList, m)
+	n, added := l.logs[m]
+	if added == false {
+		l.logs[m] = 1
+	} else {
+		l.logs[m] = n + 1
+	}
+}
+
+func (l *MockedLogger) GetLog(key string) int {
+	n, added := l.logs[key]
+	if added == false {
+		return -1
+	}
+	return n
+}
+
+func (l *MockedLogger) Error(msg ...interface{})   {}
+func (l *MockedLogger) Info(msg ...interface{})    {}
+func (l *MockedLogger) Verbose(msg ...interface{}) {}
+func (l *MockedLogger) Warning(msg ...interface{}) {}
 func TestRedisSplitStorage(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 	splitStorage := NewRedisSplitStorage("localhost", 6379, 1, "", "testPrefix", logger)
@@ -225,80 +274,63 @@ func TestSegmentStorage(t *testing.T) {
 }
 
 func TestImpressionStorage(t *testing.T) {
-	logger := logging.NewLogger(&logging.LoggerOptions{})
-	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
+	logger := NewMockedLogger()
+	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "instanceName123", "go-test", logger)
 
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
-		BucketingKey: "abc",
-		ChangeNumber: 123,
-		KeyName:      "key1",
-		Label:        "label1",
-		Time:         111,
-		Treatment:    "on",
-	})
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
-		BucketingKey: "abc",
-		ChangeNumber: 123,
-		KeyName:      "key2",
-		Label:        "label1",
-		Time:         111,
-		Treatment:    "off",
-	})
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{
-		BucketingKey: "abc",
-		ChangeNumber: 123,
-		KeyName:      "key1",
-		Label:        "label1",
-		Time:         111,
-		Treatment:    "off",
-	})
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{
-		BucketingKey: "abc",
-		ChangeNumber: 123,
-		KeyName:      "key2",
-		Label:        "label1",
-		Time:         111,
-		Treatment:    "on",
-	})
+	var impression1 = dtos.ImpressionsDTO{
+		TestName: "feature1",
+		KeyImpressions: []dtos.ImpressionDTO{dtos.ImpressionDTO{
+			BucketingKey: "abc",
+			ChangeNumber: 123,
+			KeyName:      "key1",
+			Label:        "label1",
+			Time:         111,
+			Treatment:    "on",
+		}},
+	}
+	impressionStorage.LogImpressions([]dtos.ImpressionsDTO{impression1})
 
-	if impressionStorage.client.client.Exists(
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature2",
-	).Val() != 2 {
-		t.Error("Keys missing or stored in an incorrect format")
+	impressionStorage.client.client.Del(impressionStorage.redisKey)
+
+	var ttl = impressionStorage.client.client.TTL(impressionStorage.redisKey).Val()
+
+	if ttl > impressionStorage.impressionsTTL {
+		t.Error("TTL should be less than or equal to default")
 	}
 
-	impressions := impressionStorage.PopAll()
+	var impression2 = dtos.ImpressionsDTO{
+		TestName: "feature2",
+		KeyImpressions: []dtos.ImpressionDTO{dtos.ImpressionDTO{
+			BucketingKey: "abc",
+			ChangeNumber: 123,
+			KeyName:      "key1",
+			Label:        "label1",
+			Time:         111,
+			Treatment:    "off",
+		}},
+	}
+	impressionStorage.LogImpressions([]dtos.ImpressionsDTO{impression2})
+
+	impressions, _ := impressionStorage.PopN(2)
 
 	if len(impressions) != 2 {
-		t.Error("Incorrect number of features with impressions fetched")
+		t.Error("Incorrect number of impressions fetched")
 	}
 
-	var feature1, feature2 dtos.ImpressionsDTO
-	if impressions[0].TestName == "feature1" && impressions[1].TestName == "feature2" {
-		feature1 = impressions[0]
-		feature2 = impressions[1]
-	} else if impressions[1].TestName == "feature1" && impressions[0].TestName == "feature2" {
-		feature1 = impressions[1]
-		feature2 = impressions[0]
-	} else {
-		t.Error("Incorrect impression testnames!")
-		return
+	expirationAdded := logger.GetLog("Proceeding to set expiration for: " + impressionStorage.redisKey)
+
+	if expirationAdded != 1 {
+		t.Error("It should added expiration only once")
 	}
 
-	if len(feature1.KeyImpressions) != 2 {
-		t.Error("Incorrect number of impressions fetched for feature1")
+	var i1 = impressions[0]
+	if i1.FeatureName != impression1.TestName {
+		t.Error("Wrong Impression Stored, actual:", i1.FeatureName, " expected: ", impression1.TestName)
 	}
 
-	if len(feature2.KeyImpressions) != 2 {
-		t.Error("Incorrect number of impressions fetched for feature2")
-	}
-
-	if impressionStorage.client.client.Exists(
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature1",
-		"testPrefix.SPLITIO/go-test/instance123/impressions.feature2",
-	).Val() != 0 {
-		t.Error("Keys should have been deleted")
+	var i2 = impressions[1]
+	if i2.FeatureName != impression2.TestName {
+		t.Error("Wrong Impression Stored, actual:", i2.FeatureName, " expected: ", impression2.TestName)
 	}
 }
 

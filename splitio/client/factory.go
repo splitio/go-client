@@ -95,6 +95,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			password,
 			prefix,
 			cfg.IPAddress,
+			cfg.InstanceName,
 			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
@@ -115,6 +116,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			password,
 			prefix,
 			cfg.IPAddress,
+			cfg.InstanceName,
 			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)

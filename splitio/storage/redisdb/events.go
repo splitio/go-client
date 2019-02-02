@@ -25,6 +25,7 @@ func NewRedisEventsStorage(
 	password string,
 	prefix string,
 	instanceID string,
+	instanceName string,
 	sdkVersion string,
 	logger logging.LoggerInterface,
 ) *RedisEventsStorage {
@@ -33,7 +34,7 @@ func NewRedisEventsStorage(
 		logger:          logger,
 		redisKey:        redisEvents,
 		mutex:           &sync.Mutex{},
-		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: "unknown"},
+		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: instanceName},
 	}
 }
 

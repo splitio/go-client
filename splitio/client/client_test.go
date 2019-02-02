@@ -111,26 +111,6 @@ func TestTreatments(t *testing.T) {
 	}
 }
 
-func TestTreatmentsEmpty(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	res := client.Treatments("user1", []string{"", ""}, nil)
-
-	if len(res) != 0 {
-		t.Error("Should return empty map.")
-	}
-}
-
 func TestLocalhostMode(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {

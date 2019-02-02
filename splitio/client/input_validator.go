@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,7 +45,7 @@ func parseIfNumeric(value interface{}) (string, error) {
 func (i *inputValidation) checkWhitespaces(value string, operation string) string {
 	trimmed := strings.TrimSpace(value)
 	if strings.TrimSpace(value) != value {
-		i.logger.Warning(fmt.Sprintf(operation+": split name '%s' is not of type string, converting", value))
+		i.logger.Warning(fmt.Sprintf(operation+": split name '%s' has extra whitespace, trimming", value))
 	}
 	return trimmed
 }
@@ -71,17 +72,17 @@ func checkIsValidString(value string, name string, operation string) error {
 	return checkIsNotValidLength(value, name, operation)
 }
 
-func checkValidKeyObject(matchingKey string, bucketingKey *string) (string, *string, error) {
+func checkValidKeyObject(matchingKey string, bucketingKey *string, operation string) (string, *string, error) {
 	if bucketingKey == nil {
-		return "", nil, errors.New("Treatment: you passed a nil bucketingKey, bucketingKey must be a non-empty string")
+		return "", nil, errors.New(operation + ": you passed a nil bucketingKey, bucketingKey must be a non-empty string")
 	}
 
-	err := checkIsValidString(matchingKey, "matchingKey", "Treatment")
+	err := checkIsValidString(matchingKey, "matchingKey", operation)
 	if err != nil {
 		return "", nil, err
 	}
 
-	err = checkIsValidString(*bucketingKey, "bucketingKey", "Treatment")
+	err = checkIsValidString(*bucketingKey, "bucketingKey", operation)
 	if err != nil {
 		return "", nil, err
 	}
@@ -90,13 +91,13 @@ func checkValidKeyObject(matchingKey string, bucketingKey *string) (string, *str
 }
 
 // ValidateTreatmentKey implements the validation for Treatment call
-func (i *inputValidation) ValidateTreatmentKey(key interface{}) (string, *string, error) {
+func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string) (string, *string, error) {
 	if key == nil {
-		return "", nil, errors.New("Treatment: you passed a nil key, key must be a non-empty string")
+		return "", nil, errors.New(operation + ": you passed a nil key, key must be a non-empty string")
 	}
 	okey, ok := key.(*Key)
 	if ok {
-		return checkValidKeyObject(okey.MatchingKey, &okey.BucketingKey)
+		return checkValidKeyObject(okey.MatchingKey, &okey.BucketingKey, operation)
 	}
 	var sMatchingKey string
 	var err error
@@ -106,7 +107,7 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}) (string, *string
 		if err != nil {
 			return "", nil, err
 		}
-		i.logger.Warning(fmt.Sprintf("Treatment: key %s is not of type string, converting", key))
+		i.logger.Warning(fmt.Sprintf(operation+": key %s is not of type string, converting", key))
 	}
 	err = checkIsValidString(sMatchingKey, "key", "Treatment")
 	if err != nil {
@@ -197,4 +198,29 @@ func (i *inputValidation) ValidateTrackInputs(key string, trafficType string, ev
 // ValidateManagerInputs implements the validation for Track call
 func (i *inputValidation) ValidateManagerInputs(feature string) error {
 	return checkIsEmptyString(feature, "split name", "Split")
+}
+
+// ValidateFeatureNames implements the validation for Treatments call
+func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, error) {
+	var featuresMap = make(map[string]string)
+	if len(features) == 0 {
+		return []string{}, errors.New("Treatments: features must be a non-empty array")
+	}
+	for _, feature := range features {
+		f, err := i.ValidateFeatureName(feature)
+		if err != nil {
+			i.logger.Error(err.Error())
+		} else {
+			featuresMap[f] = ""
+		}
+	}
+	keys := reflect.ValueOf(featuresMap).MapKeys()
+	if len(keys) == 0 {
+		return []string{}, errors.New("Treatments: features must be a non-empty array")
+	}
+	filtered := make([]string, len(keys))
+	for i := 0; i < len(keys); i++ {
+		filtered[i] = keys[i].String()
+	}
+	return filtered, nil
 }

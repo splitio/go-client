@@ -4,6 +4,7 @@ package client
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/splitio/go-client/splitio"
@@ -25,18 +26,28 @@ var inMemoryFullQueueChan = make(chan bool, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	client  *SplitClient
-	manager *SplitManager
+	client    *SplitClient
+	manager   *SplitManager
+	destroyed atomic.Value
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
+	f.client.factory = f
+	f.manager.factory = f
 	return f.client
 }
 
 // Manager returns the split manager instantiated by the factory
 func (f *SplitFactory) Manager() *SplitManager {
+	f.client.factory = f
+	f.manager.factory = f
 	return f.manager
+}
+
+// Destroy ss
+func (f *SplitFactory) Destroy() {
+	f.destroyed.Store(true)
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -62,7 +73,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	err := conf.Normalize(apikey, cfg)
 	if err != nil {
-		logger.Error("Error occurred when processing configuration")
+		logger.Error(err.Error())
 		return nil, err
 	}
 
@@ -288,8 +299,12 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		logger:       logger,
 	}
 
-	return &SplitFactory{
+	sp := &SplitFactory{
 		client:  client,
 		manager: manager,
-	}, nil
+	}
+
+	sp.destroyed.Store(false)
+
+	return sp, nil
 }

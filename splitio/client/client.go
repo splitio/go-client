@@ -32,6 +32,7 @@ type SplitClient struct {
 	metrics      storage.MetricsStorageProducer
 	events       storage.EventStorageProducer
 	validator    inputValidation
+	factory      *SplitFactory
 }
 
 type sdkSync struct {
@@ -123,7 +124,7 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return nil
+		return c.validator.ParseFeatureNames(features)
 	}
 
 	before := time.Now()
@@ -221,6 +222,10 @@ func (c *SplitClient) Destroy() {
 	}
 	if c.sync.latenciesSync != nil {
 		c.sync.latenciesSync.Stop()
+	}
+
+	if c.factory != nil {
+		c.factory.Destroy()
 	}
 }
 

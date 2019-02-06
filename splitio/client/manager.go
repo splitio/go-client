@@ -11,6 +11,7 @@ type SplitManager struct {
 	splitStorage storage.SplitStorageConsumer
 	validator    inputValidation
 	logger       logging.LoggerInterface
+	factory      *SplitFactory
 }
 
 // SplitView is a partial representation of a currently stored split
@@ -40,11 +41,21 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 
 // SplitNames returns a list with the name of all the currently stored splits
 func (m *SplitManager) SplitNames() []string {
+	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+		m.logger.Error("Client has already been destroyed - no calls possible")
+		return []string{}
+	}
+
 	return m.splitStorage.SplitNames()
 }
 
 // Splits returns a list of a partial view of every currently stored split
 func (m *SplitManager) Splits() []SplitView {
+	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+		m.logger.Error("Client has already been destroyed - no calls possible")
+		return []SplitView{}
+	}
+
 	splitViews := make([]SplitView, 0)
 	splits := m.splitStorage.GetAll()
 	for _, split := range splits {
@@ -55,6 +66,11 @@ func (m *SplitManager) Splits() []SplitView {
 
 // Split returns a partial view of a particular split
 func (m *SplitManager) Split(feature string) *SplitView {
+	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+		m.logger.Error("Client has already been destroyed - no calls possible")
+		return nil
+	}
+
 	err := m.validator.ValidateManagerInputs(feature)
 	if err != nil {
 		m.logger.Error(err.Error())

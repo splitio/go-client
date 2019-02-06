@@ -353,7 +353,19 @@ func TestClientDestroy(t *testing.T) {
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
-	if len(treatments) != 0 {
-		t.Error("Should return empty map.")
+	if len(treatments) != 3 {
+		t.Error("Should return 3 treatments.")
+	}
+
+	if treatments["feature1"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature2"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature3"] != evaluator.Control {
+		t.Error("Wrong treatment result")
 	}
 }

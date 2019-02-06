@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -223,4 +225,16 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		filtered[i] = keys[i].String()
 	}
 	return filtered, nil
+}
+
+func (i *inputValidation) ParseFeatureNames(features []string) map[string]string {
+	treatments := make(map[string]string)
+	filtered, err := i.ValidateFeatureNames(features)
+	if err != nil {
+		return treatments
+	}
+	for _, feature := range filtered {
+		treatments[feature] = evaluator.Control
+	}
+	return treatments
 }

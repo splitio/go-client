@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/logging"
@@ -41,6 +43,24 @@ var client = SplitClient{
 	logger:      logger,
 	validator:   inputValidation{logger: logger},
 	events:      &mockEvents{},
+}
+
+func TestFactoryWithNilApiKey(t *testing.T) {
+	cfg := conf.Default()
+	cfg.Logger = logger
+	_, err := NewSplitFactory("", cfg)
+
+	if err == nil {
+		t.Error("Should be error")
+	}
+
+	expected := "Factory instantiation: you passed and empty apikey, apikey must be a non-empty string"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWithNilKey(t *testing.T) {
@@ -462,8 +482,12 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 
 	result := client2.Treatments("key", features, nil)
 
-	if result != nil {
-		t.Error("Should return nil")
+	if result == nil {
+		t.Error("Should return control treatments")
+	}
+
+	if result["some_feature"] != evaluator.Control {
+		t.Error("Wrong treatment result")
 	}
 
 	expected := "Client has already been destroyed - no calls possible"

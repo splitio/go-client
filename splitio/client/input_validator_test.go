@@ -439,6 +439,45 @@ func TestTreatmentsEmptyFeatures(t *testing.T) {
 	strMsg = ""
 }
 
+func TestTreatmentsValidatorWitFloatInfKey(t *testing.T) {
+	features := []string{"feature"}
+
+	result := client.Treatments(math.Inf, features, nil)
+
+	if len(result) != 0 {
+		t.Error("Should not return values")
+	}
+
+	expected := "Treatments: you passed an invalid key, key must be a non-empty string"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmenstValidatorWitFloatKey(t *testing.T) {
+	features := []string{"feature"}
+
+	result := client.Treatments(1.3, features, nil)
+
+	if len(result) != 1 {
+		t.Error("Should return elements")
+	}
+
+	if result["feature"] != "TreatmentA" {
+		t.Error("Should be TreatmentA")
+	}
+
+	expected := "Treatments: key %!s(float64=1.3) is not of type string, converting"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+}
+
 func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 	features := []string{" some_feature  "}
 

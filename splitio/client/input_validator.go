@@ -20,7 +20,7 @@ type inputValidation struct {
 	logger logging.LoggerInterface
 }
 
-func parseIfNumeric(value interface{}) (string, error) {
+func parseIfNumeric(value interface{}, operation string) (string, error) {
 	f, float := value.(float64)
 	i, integer := value.(int)
 	i32, integer32 := value.(int32)
@@ -28,7 +28,7 @@ func parseIfNumeric(value interface{}) (string, error) {
 
 	if float {
 		if math.IsNaN(f) || math.IsInf(f, -1) || math.IsInf(f, 1) || math.IsInf(f, 0) {
-			return "", errors.New("Treatment: you passed an invalid key, key must be a non-empty string")
+			return "", errors.New(operation + ": you passed an invalid key, key must be a non-empty string")
 		}
 		return strconv.FormatFloat(f, 'f', -1, 64), nil
 	}
@@ -41,7 +41,7 @@ func parseIfNumeric(value interface{}) (string, error) {
 	if integer64 {
 		return strconv.FormatInt(i64, 10), nil
 	}
-	return "", errors.New("Treatment: you passed an invalid key, key must be a non-empty string")
+	return "", errors.New(operation + ": you passed an invalid key, key must be a non-empty string")
 }
 
 func (i *inputValidation) checkWhitespaces(value string, operation string) string {
@@ -105,7 +105,7 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 	var err error
 	sMatchingKey, ok = key.(string)
 	if !ok {
-		sMatchingKey, err = parseIfNumeric(key)
+		sMatchingKey, err = parseIfNumeric(key, operation)
 		if err != nil {
 			return "", nil, err
 		}

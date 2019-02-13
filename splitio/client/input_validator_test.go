@@ -426,8 +426,8 @@ func TestTreatmentsEmptyFeatures(t *testing.T) {
 
 	result := client.Treatments("key", features, nil)
 
-	if result != nil {
-		t.Error("Should return nil")
+	if len(result) != 0 {
+		t.Error("Should not have elements")
 	}
 
 	expected := "Treatments: features must be a non-empty array"
@@ -444,8 +444,12 @@ func TestTreatmentsValidatorWitFloatInfKey(t *testing.T) {
 
 	result := client.Treatments(math.Inf, features, nil)
 
-	if len(result) != 0 {
-		t.Error("Should not return values")
+	if len(result) != 1 {
+		t.Error("Should return values")
+	}
+
+	if result["feature"] != "control" {
+		t.Error("Should return feature with control value")
 	}
 
 	expected := "Treatments: you passed an invalid key, key must be a non-empty string"
@@ -595,7 +599,7 @@ func TestTrackValidatorWithNotConformEventName(t *testing.T) {
 	err := client.Track("key", "trafficType", "//", nil)
 
 	expected := "Track: you passed //, event name must adhere to " +
-		"the regular expression [a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}. This means an event " +
+		"the regular expression ^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$. This means an event " +
 		"name must be alphanumeric, cannot be more than 80 characters long, and can " +
 		"only include a dash, underscore, period, or colon as separators of " +
 		"alphanumeric characters"

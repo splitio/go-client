@@ -16,6 +16,13 @@ import (
 
 // InputValidation struct is responsible for cheking any input of treatment and
 // track methods.
+
+// MaxLength constant to check the length of the splits
+const MaxLength = 250
+
+// RegExpEventType constant that EventType must match
+const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
+
 type inputValidation struct {
 	logger logging.LoggerInterface
 }
@@ -60,8 +67,8 @@ func checkIsEmptyString(value string, name string, operation string) error {
 }
 
 func checkIsNotValidLength(value string, name string, operation string) error {
-	if len(value) > 250 {
-		return errors.New(operation + ": " + name + " too long - must be 250 characters or less")
+	if len(value) > MaxLength {
+		return errors.New(operation + ": " + name + " too long - must be " + strconv.Itoa(MaxLength) + " characters or less")
 	}
 	return nil
 }
@@ -133,10 +140,10 @@ func checkEventType(eventType string) error {
 	if err != nil {
 		return err
 	}
-	var r = regexp.MustCompile(`^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$`)
+	var r = regexp.MustCompile(RegExpEventType)
 	if !r.MatchString(eventType) {
 		return errors.New("Track: you passed " + eventType + ", event name must adhere to " +
-			"the regular expression [a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}. This means an event " +
+			"the regular expression " + RegExpEventType + ". This means an event " +
 			"name must be alphanumeric, cannot be more than 80 characters long, and can " +
 			"only include a dash, underscore, period, or colon as separators of " +
 			"alphanumeric characters")

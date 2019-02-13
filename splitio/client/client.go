@@ -133,13 +133,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatments")
 	if err != nil {
 		c.logger.Error(err.Error())
-		return nil
+		return c.validator.ParseFeatureNames(features)
 	}
 
 	filteredFeatures, err := c.validator.ValidateFeatureNames(features)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return nil
+		return map[string]string{}
 	}
 
 	for _, feature := range filteredFeatures {

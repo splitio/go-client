@@ -234,7 +234,7 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 	return filtered, nil
 }
 
-func (i *inputValidation) ParseFeatureNames(features []string) map[string]string {
+func (i *inputValidation) GenerateControlTreatments(features []string) map[string]string {
 	treatments := make(map[string]string)
 	filtered, err := i.ValidateFeatureNames(features)
 	if err != nil {

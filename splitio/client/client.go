@@ -124,7 +124,7 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return c.validator.ParseFeatureNames(features)
+		return c.validator.GenerateControlTreatments(features)
 	}
 
 	before := time.Now()
@@ -133,7 +133,7 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatments")
 	if err != nil {
 		c.logger.Error(err.Error())
-		return c.validator.ParseFeatureNames(features)
+		return c.validator.GenerateControlTreatments(features)
 	}
 
 	filteredFeatures, err := c.validator.ValidateFeatureNames(features)

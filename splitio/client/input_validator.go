@@ -234,7 +234,10 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 	}
 	f := make([]string, featuresSet.Size())
 	for i, v := range featuresSet.List() {
-		f[i] = fmt.Sprint(v)
+		s, ok := v.(string)
+		if ok {
+			f[i] = s
+		}
 	}
 	return f, nil
 }

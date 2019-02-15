@@ -47,25 +47,36 @@ func NewRedisImpressionStorage(
 	}
 }
 
-// LogImpressions stores impressions in redis as Queue
-func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
-	if len(impressions) > 0 {
-		var impressionsToStore []dtos.ImpressionsQueueDTO
-		for _, i := range impressions {
-			var impression = dtos.ImpressionsQueueDTO{Metadata: r.metadataMessage, Impression: dtos.ImpressionQueueDTO{
-				KeyName:      i.KeyImpressions[0].KeyName,
-				BucketingKey: i.KeyImpressions[0].BucketingKey,
-				FeatureName:  i.TestName,
-				Treatment:    i.KeyImpressions[0].Treatment,
-				Label:        i.KeyImpressions[0].Label,
-				ChangeNumber: i.KeyImpressions[0].ChangeNumber,
-				Time:         i.KeyImpressions[0].Time,
-			}}
-			impressionsToStore = append(impressionsToStore, impression)
-		}
+func (r *RedisImpressionStorage) pushImpressionsWithLock(impressionsToStore []dtos.ImpressionsQueueDTO) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if len(impressionsToStore) > 0 {
 		return r.Push(impressionsToStore)
 	}
 	return nil
+}
+
+// LogImpressions stores impressions in redis as Queue
+func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
+	var impressionsToStore []dtos.ImpressionsQueueDTO
+	for _, i := range impressions {
+		if len(i.KeyImpressions) == 0 {
+			continue
+		}
+		var impression = dtos.ImpressionsQueueDTO{Metadata: r.metadataMessage, Impression: dtos.ImpressionQueueDTO{
+			KeyName:      i.KeyImpressions[0].KeyName,
+			BucketingKey: i.KeyImpressions[0].BucketingKey,
+			FeatureName:  i.TestName,
+			Treatment:    i.KeyImpressions[0].Treatment,
+			Label:        i.KeyImpressions[0].Label,
+			ChangeNumber: i.KeyImpressions[0].ChangeNumber,
+			Time:         i.KeyImpressions[0].Time,
+		}}
+		impressionsToStore = append(impressionsToStore, impression)
+	}
+
+	return r.pushImpressionsWithLock(impressionsToStore)
 }
 
 // Push stores impressions in redis
@@ -102,9 +113,10 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) er
 
 // PopN return N elements from 0 to N
 func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionQueueDTO, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	toReturn := make([]dtos.ImpressionQueueDTO, 0)
 
-	r.mutex.Lock()
 	lrange := r.client.LRange(r.redisKey, 0, n-1)
 	if lrange.Err() != nil {
 		r.logger.Error("Fetching impressions", lrange.Err().Error())
@@ -124,7 +136,6 @@ func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionQueueDTO, error
 		r.mutex.Unlock()
 		return nil, res.Err()
 	}
-	r.mutex.Unlock()
 
 	//JSON unmarshal
 	listOfImpressions := lrange.Val()

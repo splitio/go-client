@@ -3,7 +3,6 @@ package client
 import (
 	"errors"
 	"runtime/debug"
-	"sync"
 	"time"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -18,11 +17,7 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey    string
-	destroyed struct {
-		status bool
-		mutex  sync.RWMutex
-	}
+	apikey       string
 	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
@@ -188,16 +183,17 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (c *SplitClient) IsDestroyed() bool {
-	c.destroyed.mutex.RLock()
-	defer c.destroyed.mutex.RUnlock()
-	return c.destroyed.status
+	if c.factory != nil {
+		return c.factory.IsDestroyed()
+	}
+	return false
 }
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
-	c.destroyed.mutex.Lock()
-	defer c.destroyed.mutex.Unlock()
-	c.destroyed.status = true
+	if c.factory != nil {
+		c.factory.Destroy()
+	}
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
 		return
@@ -222,10 +218,6 @@ func (c *SplitClient) Destroy() {
 	}
 	if c.sync.latenciesSync != nil {
 		c.sync.latenciesSync.Stop()
-	}
-
-	if c.factory != nil {
-		c.factory.Destroy()
 	}
 }
 

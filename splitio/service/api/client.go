@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +17,8 @@ const prodSdkURL = "https://sdk.split.io/api"
 const prodEventsURL = "https://events.split.io/api"
 const defaultHTTPTimeout = 30
 
-func getUrls(cfg *conf.AdvancedConfig) (sdkURL string, eventsURL string) {
+// GetUrls returns Split Servers urls
+func GetUrls(cfg *conf.AdvancedConfig) (sdkURL string, eventsURL string) {
 	if cfg != nil && cfg.SdkURL != "" {
 		sdkURL = cfg.SdkURL
 	} else {
@@ -108,10 +108,6 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 	}
 
 	c.logger.Verbose("[RESPONSE_BODY]", string(body), "[END_RESPONSE_BODY]")
-
-	if resp.StatusCode == 403 {
-		return nil, errors.New("factory instantiation: you passed a browser type apikey, please grab an apikey from the Split console that is of type sdk")
-	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return body, nil

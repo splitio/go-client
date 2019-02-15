@@ -45,9 +45,14 @@ func (f *SplitFactory) Manager() *SplitManager {
 	return f.manager
 }
 
-// Destroy ss
+// Destroy blocks all the operations
 func (f *SplitFactory) Destroy() {
 	f.destroyed.Store(true)
+}
+
+// IsDestroyed returns true if tbe client has been destroyed
+func (f *SplitFactory) IsDestroyed() bool {
+	return f.destroyed.Load().(bool)
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -83,6 +88,14 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
 	var eventsStorage storage.EventsStorage
+
+	if cfg.OperationMode == "inmemory-standalone" {
+		validator := &inputValidation{logger: logger, cfg: cfg.Advanced}
+		err = validator.ValidateApikey(apikey)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	switch cfg.OperationMode {
 	case "inmemory-standalone", "localhost":

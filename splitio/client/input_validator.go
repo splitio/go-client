@@ -4,12 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"reflect"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/splitio/go-toolkit/datastructures/set"
+
+	"github.com/splitio/go-client/splitio"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/service/api"
 
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -25,6 +30,7 @@ const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
 	logger logging.LoggerInterface
+	cfg    conf.AdvancedConfig
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -211,7 +217,7 @@ func (i *inputValidation) ValidateManagerInputs(feature string) error {
 
 // ValidateFeatureNames implements the validation for Treatments call
 func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, error) {
-	var featuresMap = make(map[string]string)
+	var featuresSet = set.NewSet()
 	if len(features) == 0 {
 		return []string{}, errors.New("Treatments: features must be a non-empty array")
 	}
@@ -220,18 +226,17 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		if err != nil {
 			i.logger.Error(err.Error())
 		} else {
-			featuresMap[f] = ""
+			featuresSet.Add(f)
 		}
 	}
-	keys := reflect.ValueOf(featuresMap).MapKeys()
-	if len(keys) == 0 {
+	if featuresSet.IsEmpty() {
 		return []string{}, errors.New("Treatments: features must be a non-empty array")
 	}
-	filtered := make([]string, len(keys))
-	for i := 0; i < len(keys); i++ {
-		filtered[i] = keys[i].String()
+	f := make([]string, featuresSet.Size())
+	for i, v := range featuresSet.List() {
+		f[i] = fmt.Sprint(v)
 	}
-	return filtered, nil
+	return f, nil
 }
 
 func (i *inputValidation) GenerateControlTreatments(features []string) map[string]string {
@@ -244,4 +249,22 @@ func (i *inputValidation) GenerateControlTreatments(features []string) map[strin
 		treatments[feature] = evaluator.Control
 	}
 	return treatments
+}
+
+func (i *inputValidation) ValidateApikey(apikey string) error {
+	sdkURL, _ := api.GetUrls(&i.cfg)
+	client := &http.Client{}
+
+	req, _ := http.NewRequest("GET", sdkURL+"/segmentChanges/___TEST___?since=-1", nil)
+	req.Header.Add("SplitSDKVersion", splitio.Version)
+	req.Header.Add("Accept-Encoding", "gzip")
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+apikey)
+	resp, _ := client.Do(req)
+
+	if resp != nil && resp.StatusCode == 403 {
+		return errors.New("you passed a browser type apikey, please grab an apikey from the Split console that is of type sdk")
+	}
+
+	return nil
 }

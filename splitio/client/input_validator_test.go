@@ -404,6 +404,12 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 		},
 	}
 
+	factory := SplitFactory{
+		client: &client2,
+	}
+
+	client2.factory = &factory
+
 	client2.Destroy()
 
 	result := client2.Treatment("key", "  feature   ", nil)
@@ -518,6 +524,12 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 			splitSync:      nil,
 		},
 	}
+
+	factory := SplitFactory{
+		client: &client2,
+	}
+
+	client2.factory = &factory
 
 	client2.Destroy()
 
@@ -688,6 +700,12 @@ func TestTrackClientDestroyed(t *testing.T) {
 		},
 	}
 
+	factory := SplitFactory{
+		client: &client2,
+	}
+
+	client2.factory = &factory
+
 	client2.Destroy()
 
 	err := client2.Track("key", "trafficType", "eventType", 0)
@@ -718,6 +736,69 @@ func TestManagerWithEmptySplit(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestDestroy(t *testing.T) {
+
+	var client2 = SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexmap.NewMMImpressionStorage(),
+		metrics:     mutexmap.NewMMMetricsStorage(),
+		logger:      logger,
+		validator:   inputValidation{logger: logger},
+		sync: &sdkSync{
+			countersSync:   nil,
+			gaugeSync:      nil,
+			impressionSync: nil,
+			latenciesSync:  nil,
+			segmentSync:    nil,
+			splitSync:      nil,
+		},
+	}
+
+	var manager = SplitManager{
+		logger:    logger,
+		validator: inputValidation{logger: logger},
+	}
+
+	factory := SplitFactory{
+		client:  &client2,
+		manager: &manager,
+	}
+
+	client2.factory = &factory
+	manager.factory = &factory
+
+	client2.Destroy()
+
+	result := client2.Treatment("key", "  feature   ", nil)
+
+	if result != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "Client has already been destroyed - no calls possible"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+
+	resultManager := manager.Split("feature")
+
+	if resultManager != nil {
+		t.Error("Should be nil")
+	}
+
+	expected = "Client has already been destroyed - no calls possible"
 	if strMsg != expected {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)

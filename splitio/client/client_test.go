@@ -266,6 +266,12 @@ func TestClientDestroy(t *testing.T) {
 		},
 	}
 
+	factory := SplitFactory{
+		client: &client,
+	}
+
+	client.factory = &factory
+
 	time.Sleep(1 * time.Second)
 	client.Destroy()
 	time.Sleep(1 * time.Second)

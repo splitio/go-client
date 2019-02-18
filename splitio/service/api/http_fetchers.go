@@ -3,11 +3,12 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"strconv"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
-	"strconv"
 )
 
 type httpFetcherBase struct {
@@ -25,7 +26,6 @@ func (h *httpFetcherBase) fetchRaw(url string, since int64) ([]byte, error) {
 	}
 	data, err := h.client.Get(bufferQuery.String())
 	if err != nil {
-		h.logger.Error("Error fetching raw data for url: ", url)
 		return nil, err
 	}
 	return data, nil
@@ -109,7 +109,7 @@ func (f *HTTPSegmentFetcher) Fetch(segmentName string, since int64) (*dtos.Segme
 
 	data, err := f.fetchRaw(bufferQuery.String(), since)
 	if err != nil {
-		//		f.logger.Error("Error fetching segment changes ", err)
+		f.logger.Error(err.Error())
 		return nil, err
 	}
 	var segmentChangesDto dtos.SegmentChangesDTO

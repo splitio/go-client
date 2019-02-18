@@ -67,7 +67,7 @@ func NewHTTPImpressionRecorder(
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPImpressionRecorder {
-	_, eventsURL := GetUrls(&cfg.Advanced)
+	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
@@ -154,7 +154,7 @@ func NewHTTPMetricsRecorder(
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPMetricsRecorder {
-	_, eventsURL := GetUrls(&cfg.Advanced)
+	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPMetricsRecorder{
 		httpRecorderBase: httpRecorderBase{
@@ -197,7 +197,7 @@ func NewHTTPEventsRecorder(
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPEventsRecorder {
-	_, eventsURL := GetUrls(&cfg.Advanced)
+	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPEventsRecorder{
 		httpRecorderBase: httpRecorderBase{

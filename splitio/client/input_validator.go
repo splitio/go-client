@@ -4,17 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/splitio/go-toolkit/datastructures/set"
 
-	"github.com/splitio/go-client/splitio"
-	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/service/api"
 
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -30,7 +26,6 @@ const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
 	logger logging.LoggerInterface
-	cfg    conf.AdvancedConfig
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -252,22 +247,4 @@ func (i *inputValidation) GenerateControlTreatments(features []string) map[strin
 		treatments[feature] = evaluator.Control
 	}
 	return treatments
-}
-
-func (i *inputValidation) ValidateApikey(apikey string) error {
-	sdkURL, _ := api.GetUrls(&i.cfg)
-	client := &http.Client{}
-
-	req, _ := http.NewRequest("GET", sdkURL+"/segmentChanges/___TEST___?since=-1", nil)
-	req.Header.Add("SplitSDKVersion", splitio.Version)
-	req.Header.Add("Accept-Encoding", "gzip")
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+apikey)
-	resp, _ := client.Do(req)
-
-	if resp != nil && resp.StatusCode == 403 {
-		return errors.New("you passed a browser type apikey, please grab an apikey from the Split console that is of type sdk")
-	}
-
-	return nil
 }

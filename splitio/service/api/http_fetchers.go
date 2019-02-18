@@ -42,7 +42,7 @@ func NewHTTPSplitFetcher(
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPSplitFetcher {
-	sdkURL, _ := GetUrls(&cfg.Advanced)
+	sdkURL, _ := getUrls(&cfg.Advanced)
 	return &HTTPSplitFetcher{
 		httpFetcherBase: httpFetcherBase{
 			client: NewHTTPClient(apikey, cfg, sdkURL, splitio.Version, logger),
@@ -92,7 +92,7 @@ func NewHTTPSegmentFetcher(
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
 ) *HTTPSegmentFetcher {
-	sdkURL, _ := GetUrls(&cfg.Advanced)
+	sdkURL, _ := getUrls(&cfg.Advanced)
 	return &HTTPSegmentFetcher{
 		httpFetcherBase: httpFetcherBase{
 			client: NewHTTPClient(apikey, cfg, sdkURL, splitio.Version, logger),

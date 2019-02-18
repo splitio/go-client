@@ -90,8 +90,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var eventsStorage storage.EventsStorage
 
 	if cfg.OperationMode == "inmemory-standalone" {
-		validator := &inputValidation{logger: logger, cfg: cfg.Advanced}
-		err = validator.ValidateApikey(apikey)
+		err = api.ValidateApikey(apikey, cfg.Advanced)
 		if err != nil {
 			return nil, err
 		}

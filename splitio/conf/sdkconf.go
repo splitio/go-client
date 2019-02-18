@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/splitio/go-client/splitio/util/impressionlistener"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
@@ -70,14 +70,14 @@ type RedisConfig struct {
 // - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
 // - SegmentWorkers - How many workers will be used when performing segments sync.
 type AdvancedConfig struct {
-	ImpressionListener impressionlistener.ListenerInterface
-	HTTPTimeout        int
-	SegmentQueueSize   int
-	SegmentWorkers     int
-	SdkURL             string
-	EventsURL          string
-	EventsBulkSize     int64
-	EventsQueueSize    int
+	ImpressionListener2 impressionlistener.ImpressionListener
+	HTTPTimeout         int
+	SegmentQueueSize    int
+	SegmentWorkers      int
+	SdkURL              string
+	EventsURL           string
+	EventsBulkSize      int64
+	EventsQueueSize     int
 }
 
 // Default returns a config struct with all the default values
@@ -122,14 +122,14 @@ func Default() *SplitSdkConfig {
 			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{
-			EventsURL:          "",
-			SdkURL:             "",
-			HTTPTimeout:        0,
-			ImpressionListener: nil,
-			SegmentQueueSize:   500,
-			SegmentWorkers:     10,
-			EventsBulkSize:     1000,
-			EventsQueueSize:    500,
+			EventsURL:           "",
+			SdkURL:              "",
+			HTTPTimeout:         0,
+			ImpressionListener2: nil,
+			SegmentQueueSize:    500,
+			SegmentWorkers:      10,
+			EventsBulkSize:      1000,
+			EventsQueueSize:     500,
 		},
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/splitio/go-client/splitio/impressionListener"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
@@ -182,7 +184,6 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				version,
 				ip,
 				instance,
-				cfg.Advanced.ImpressionListener,
 				logger,
 			),
 			countersSync: tasks.NewRecordCountersTask(
@@ -278,6 +279,10 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		cfg:         cfg,
 		events:      eventsStorage,
 		validator:   inputValidation{logger: logger},
+	}
+
+	if cfg.Advanced.ImpressionListener2 != nil {
+		client.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener2)
 	}
 
 	manager := &SplitManager{splitStorage: splitStorage}

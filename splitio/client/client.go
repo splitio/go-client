@@ -9,6 +9,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
@@ -24,15 +25,16 @@ type SplitClient struct {
 		status bool
 		mutex  sync.RWMutex
 	}
-	cfg          *conf.SplitSdkConfig
-	logger       logging.LoggerInterface
-	loggerConfig logging.LoggerOptions
-	evaluator    evaluator.Interface
-	sync         *sdkSync
-	impressions  storage.ImpressionStorageProducer
-	metrics      storage.MetricsStorageProducer
-	events       storage.EventStorageProducer
-	validator    inputValidation
+	cfg                *conf.SplitSdkConfig
+	logger             logging.LoggerInterface
+	loggerConfig       logging.LoggerOptions
+	evaluator          evaluator.Interface
+	sync               *sdkSync
+	impressions        storage.ImpressionStorageProducer
+	metrics            storage.MetricsStorageProducer
+	events             storage.EventStorageProducer
+	validator          inputValidation
+	impressionListener *impressionlistener.WrapperImpressionListener
 }
 
 type sdkSync struct {
@@ -86,14 +88,23 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		if c.cfg.LabelsEnabled {
 			label = evaluationResult.Label
 		}
-		c.impressions.Put(feature, &dtos.ImpressionDTO{
+		impression := &dtos.ImpressionDTO{
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
 			Label:        label,
 			Treatment:    evaluationResult.Treatment,
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-		})
+		}
+		c.impressions.Put(feature, impression)
+
+		if c.impressionListener != nil {
+			dataToSend := &dtos.ImpressionsDTO{
+				TestName:       feature,
+				KeyImpressions: []dtos.ImpressionDTO{*impression},
+			}
+			c.impressionListener.SendDataToClient(*dataToSend, attributes)
+		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}

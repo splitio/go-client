@@ -1,6 +1,10 @@
 package client
 
 import (
+	"fmt"
+
+	"github.com/splitio/go-client/splitio/impressionListener"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -419,5 +423,49 @@ func TestClientDestroy(t *testing.T) {
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
 	if len(treatments) != 0 {
 		t.Error("Should return empty map.")
+	}
+}
+
+type ImpressionListenerTest struct {
+}
+
+var ilTest = make(map[string]interface{})
+
+func (i *ImpressionListenerTest) LogImpression(impression dtos.ImpressionsDTO) {
+	fmt.Println("SADASD")
+	ilTest["TestName"] = impression.TestName
+	ilTest["BucketingKey"] = impression.KeyImpressions[0].BucketingKey
+	ilTest["ChangeNumber"] = impression.KeyImpressions[0].ChangeNumber
+	ilTest["KeyName"] = impression.KeyImpressions[0].KeyName
+	ilTest["Label"] = impression.KeyImpressions[0].Label
+	ilTest["Time"] = impression.KeyImpressions[0].Time
+	ilTest["Treatment"] = impression.KeyImpressions[0].Treatment
+}
+
+func TestImpressionListener(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	impTest := &ImpressionListenerTest{}
+	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresiionL,
+	}
+
+	res := client.Treatment("user1", "feature", nil)
+
+	if res != "TreatmentA" {
+		t.Error("Wrong Treatment result")
+	}
+
+	if ilTest["TestName"] != "feature" || ilTest["KeyName"] != "user1" || ilTest["Label"] != "aLabel" || ilTest["Treatment"] != "TreatmentA" || ilTest["ChangeNumber"] != int64(123) || ilTest["BucketingKey"] != "" {
+		t.Error("An error occurred on ImpressionListener")
 	}
 }

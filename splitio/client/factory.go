@@ -306,8 +306,8 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		validator:   inputValidation{logger: logger},
 	}
 
-	if cfg.Advanced.ImpressionListener2 != nil {
-		client.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener2)
+	if cfg.Advanced.ImpressionListener != nil {
+		client.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener)
 	}
 
 	manager := &SplitManager{

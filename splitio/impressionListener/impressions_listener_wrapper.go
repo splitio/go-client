@@ -38,22 +38,24 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener) *Wrappe
 
 // SendDataToClient sends the data to client
 func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}, instanceName string) {
-	impressionData := ImpressionData{
-		KeyName:      impression.KeyImpressions[0].KeyName,
-		Feature:      impression.TestName,
-		BucketingKey: impression.KeyImpressions[0].BucketingKey,
-		ChangeNumber: impression.KeyImpressions[0].ChangeNumber,
-		Label:        impression.KeyImpressions[0].Label,
-		Time:         impression.KeyImpressions[0].Time,
-		Treatment:    impression.KeyImpressions[0].Treatment,
-	}
+	if len(impression.KeyImpressions) > 0 {
+		impressionData := ImpressionData{
+			KeyName:      impression.KeyImpressions[0].KeyName,
+			Feature:      impression.TestName,
+			BucketingKey: impression.KeyImpressions[0].BucketingKey,
+			ChangeNumber: impression.KeyImpressions[0].ChangeNumber,
+			Label:        impression.KeyImpressions[0].Label,
+			Time:         impression.KeyImpressions[0].Time,
+			Treatment:    impression.KeyImpressions[0].Treatment,
+		}
 
-	datToSend := ILObject{
-		Impression:         impressionData,
-		Attributes:         attributes,
-		InstanceID:         instanceName,
-		SDKLanguageVersion: "go-" + splitio.Version,
-	}
+		datToSend := ILObject{
+			Impression:         impressionData,
+			Attributes:         attributes,
+			InstanceID:         instanceName,
+			SDKLanguageVersion: "go-" + splitio.Version,
+		}
 
-	i.ImpressionListener.LogImpression(datToSend)
+		i.ImpressionListener.LogImpression(datToSend)
+	}
 }

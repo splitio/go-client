@@ -3,12 +3,14 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -163,4 +165,22 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	}
 
 	return fmt.Errorf("POST method: Status Code: %d - %s", resp.StatusCode, resp.Status)
+}
+
+func ValidateApikey(apikey string, config conf.AdvancedConfig) error {
+	sdkURL, _ := getUrls(&config)
+	client := &http.Client{}
+
+	req, _ := http.NewRequest("GET", sdkURL+"/segmentChanges/___TEST___?since=-1", nil)
+	req.Header.Add("SplitSDKVersion", splitio.Version)
+	req.Header.Add("Accept-Encoding", "gzip")
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+apikey)
+	resp, _ := client.Do(req)
+
+	if resp != nil && resp.StatusCode == 403 {
+		return errors.New("you passed a browser type apikey, please grab an apikey from the Split console that is of type sdk")
+	}
+
+	return nil
 }

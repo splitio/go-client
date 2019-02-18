@@ -3,11 +3,7 @@ package client
 import (
 	"errors"
 	"runtime/debug"
-	"strings"
-	"sync"
 	"time"
-
-	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
@@ -21,11 +17,7 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey    string
-	destroyed struct {
-		status bool
-		mutex  sync.RWMutex
-	}
+	apikey       string
 	cfg          *conf.SplitSdkConfig
 	logger       logging.LoggerInterface
 	loggerConfig logging.LoggerOptions
@@ -35,6 +27,7 @@ type SplitClient struct {
 	metrics      storage.MetricsStorageProducer
 	events       storage.EventStorageProducer
 	validator    inputValidation
+	factory      *SplitFactory
 }
 
 type sdkSync struct {
@@ -64,10 +57,17 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 	}()
 
 	if c.IsDestroyed() {
+		c.logger.Error("Client has already been destroyed - no calls possible")
 		return evaluator.Control
 	}
 
-	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatment")
+	if err != nil {
+		c.logger.Error(err.Error())
+		return evaluator.Control
+	}
+
+	feature, err = c.validator.ValidateFeatureName(feature)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return evaluator.Control
@@ -118,70 +118,58 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 	treatments := make(map[string]string)
 
 	if c.IsDestroyed() {
-		return treatments
+		c.logger.Error("Client has already been destroyed - no calls possible")
+		return c.validator.GenerateControlTreatments(features)
 	}
 
 	before := time.Now()
 	var bulkImpressions []dtos.ImpressionsDTO
 
-	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key)
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatments")
 	if err != nil {
 		c.logger.Error(err.Error())
-		for _, feature := range features {
-			if strings.TrimSpace(feature) != "" {
-				var impression = dtos.ImpressionDTO{
-					BucketingKey: "",
-					ChangeNumber: 0,
-					KeyName:      matchingKey,
-					Label:        impressionlabels.Exception,
-					Treatment:    evaluator.Control,
-					Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-				}
-				keyImpressions := []dtos.ImpressionDTO{impression}
-				bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-					TestName:       feature,
-					KeyImpressions: keyImpressions,
-				})
-				treatments[feature] = evaluator.Control
-			}
-		}
-	} else {
-		for _, feature := range features {
-			if strings.TrimSpace(feature) != "" {
-				var evaluationResult *evaluator.Result
-				var impressionBucketingKey = ""
-				if bucketingKey != nil {
-					evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
-					impressionBucketingKey = *bucketingKey
-				} else {
-					evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
-				}
-				// Store impression
-				if c.impressions != nil {
-					var label string
-					if c.cfg.LabelsEnabled {
-						label = evaluationResult.Label
-					}
-					var impression = dtos.ImpressionDTO{
-						BucketingKey: impressionBucketingKey,
-						ChangeNumber: evaluationResult.SplitChangeNumber,
-						KeyName:      matchingKey,
-						Label:        label,
-						Treatment:    evaluationResult.Treatment,
-						Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-					}
-					keyImpressions := []dtos.ImpressionDTO{impression}
-					bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-						TestName:       feature,
-						KeyImpressions: keyImpressions,
-					})
-				} else {
-					c.logger.Warning("No impression storage set in client. Not sending impressions!")
-				}
+		return c.validator.GenerateControlTreatments(features)
+	}
 
-				treatments[feature] = evaluationResult.Treatment
-			}
+	filteredFeatures, err := c.validator.ValidateFeatureNames(features)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return map[string]string{}
+	}
+
+	for _, feature := range filteredFeatures {
+		var evaluationResult *evaluator.Result
+		var impressionBucketingKey = ""
+		if bucketingKey != nil {
+			evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
+			impressionBucketingKey = *bucketingKey
+		} else {
+			evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
 		}
+		// Store impression
+		if c.impressions != nil {
+			var label string
+			if c.cfg.LabelsEnabled {
+				label = evaluationResult.Label
+			}
+			var impression = dtos.ImpressionDTO{
+				BucketingKey: impressionBucketingKey,
+				ChangeNumber: evaluationResult.SplitChangeNumber,
+				KeyName:      matchingKey,
+				Label:        label,
+				Treatment:    evaluationResult.Treatment,
+				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+			}
+			keyImpressions := []dtos.ImpressionDTO{impression}
+			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+				TestName:       feature,
+				KeyImpressions: keyImpressions,
+			})
+		} else {
+			c.logger.Warning("No impression storage set in client. Not sending impressions!")
+		}
+
+		treatments[feature] = evaluationResult.Treatment
 	}
 
 	// Store latency
@@ -195,16 +183,17 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (c *SplitClient) IsDestroyed() bool {
-	c.destroyed.mutex.RLock()
-	defer c.destroyed.mutex.RUnlock()
-	return c.destroyed.status
+	if c.factory != nil {
+		return c.factory.IsDestroyed()
+	}
+	return false
 }
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
-	c.destroyed.mutex.Lock()
-	defer c.destroyed.mutex.Unlock()
-	c.destroyed.status = true
+	if c.factory != nil {
+		c.factory.Destroy()
+	}
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
 		return
@@ -247,13 +236,18 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		return
 	}()
 
-	key, trafficType, eventType, value, iErr := ValidateTrackInputs(key, trafficType, eventType, value)
-	if iErr != nil {
-		c.logger.Error(iErr.Error())
-		return iErr
+	if c.IsDestroyed() {
+		c.logger.Error("Client has already been destroyed - no calls possible")
+		return errors.New("Client has already been destroyed - no calls possible")
 	}
 
-	err := c.events.Push(dtos.EventDTO{
+	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(key, trafficType, eventType, value)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+
+	err = c.events.Push(dtos.EventDTO{
 		Key:             key,
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,

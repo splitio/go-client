@@ -4,6 +4,7 @@ package client
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/splitio/go-client/splitio"
@@ -25,18 +26,33 @@ var inMemoryFullQueueChan = make(chan bool, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	client  *SplitClient
-	manager *SplitManager
+	client    *SplitClient
+	manager   *SplitManager
+	destroyed atomic.Value
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
+	f.client.factory = f
+	f.manager.factory = f
 	return f.client
 }
 
 // Manager returns the split manager instantiated by the factory
 func (f *SplitFactory) Manager() *SplitManager {
+	f.client.factory = f
+	f.manager.factory = f
 	return f.manager
+}
+
+// Destroy blocks all the operations
+func (f *SplitFactory) Destroy() {
+	f.destroyed.Store(true)
+}
+
+// IsDestroyed returns true if tbe client has been destroyed
+func (f *SplitFactory) IsDestroyed() bool {
+	return f.destroyed.Load().(bool)
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -62,7 +78,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	err := conf.Normalize(apikey, cfg)
 	if err != nil {
-		logger.Error("Error occurred when processing configuration")
+		logger.Error(err.Error())
 		return nil, err
 	}
 
@@ -72,6 +88,13 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
 	var eventsStorage storage.EventsStorage
+
+	if cfg.OperationMode == "inmemory-standalone" {
+		err = api.ValidateApikey(apikey, cfg.Advanced)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	switch cfg.OperationMode {
 	case "inmemory-standalone", "localhost":
@@ -282,10 +305,18 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		validator:   inputValidation{logger: logger},
 	}
 
-	manager := &SplitManager{splitStorage: splitStorage}
+	manager := &SplitManager{
+		splitStorage: splitStorage,
+		validator:    inputValidation{logger: logger},
+		logger:       logger,
+	}
 
-	return &SplitFactory{
+	sp := &SplitFactory{
 		client:  client,
 		manager: manager,
-	}, nil
+	}
+
+	sp.destroyed.Store(false)
+
+	return sp, nil
 }

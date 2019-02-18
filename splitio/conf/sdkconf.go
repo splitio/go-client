@@ -139,7 +139,7 @@ func Default() *SplitSdkConfig {
 func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != "localhost" {
-		return errors.New("Config parameter \"Apikey\" is mandatory for operation modes other than localhost")
+		return errors.New("Factory instantiation: you passed and empty apikey, apikey must be a non-empty string")
 	}
 
 	// To keep the interface consistent with other sdks we accept "localhost" as an apikey,

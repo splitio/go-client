@@ -48,9 +48,6 @@ func NewRedisImpressionStorage(
 }
 
 func (r *RedisImpressionStorage) pushImpressionsWithLock(impressionsToStore []dtos.ImpressionsQueueDTO) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	if len(impressionsToStore) > 0 {
 		return r.Push(impressionsToStore)
 	}

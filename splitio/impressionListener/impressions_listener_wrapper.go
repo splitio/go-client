@@ -1,11 +1,28 @@
 package impressionlistener
 
 import (
-	"fmt"
-
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 )
+
+// ILObject struct to map entire data for listener
+type ILObject struct {
+	Impression         ImpressionData
+	Attributes         map[string]interface{}
+	InstanceID         string
+	SDKLanguageVersion string
+}
+
+// ImpressionData impression data for listener
+type ImpressionData struct {
+	Feature      string
+	KeyName      string
+	Treatment    string
+	Time         int64
+	ChangeNumber int64
+	Label        string
+	BucketingKey string
+}
 
 // WrapperImpressionListener struct
 type WrapperImpressionListener struct {
@@ -20,11 +37,8 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener) *Wrappe
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}) {
-	fmt.Println("KEY")
-	fmt.Println(impression.TestName)
-
-	impressionData := dtos.ImpressionDataDTO{
+func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}, instanceName string) {
+	impressionData := ImpressionData{
 		KeyName:      impression.KeyImpressions[0].KeyName,
 		Feature:      impression.TestName,
 		BucketingKey: impression.KeyImpressions[0].BucketingKey,
@@ -34,11 +48,11 @@ func (i *WrapperImpressionListener) SendDataToClient(impression dtos.Impressions
 		Treatment:    impression.KeyImpressions[0].Treatment,
 	}
 
-	datToSend := dtos.ImpressionListenerDTO{
+	datToSend := ILObject{
 		Impression:         impressionData,
 		Attributes:         attributes,
-		InstanceID:         "",
-		SDKLanguageVersion: splitio.Version,
+		InstanceID:         instanceName,
+		SDKLanguageVersion: "go-" + splitio.Version,
 	}
 
 	i.ImpressionListener.LogImpression(datToSend)

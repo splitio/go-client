@@ -198,3 +198,13 @@ func (r *prefixedRedisClient) LTrim(key string, start, stop int64) *redis.Status
 func (r *prefixedRedisClient) LLen(key string) *redis.IntCmd {
 	return r.client.LLen(r.withPrefix(key))
 }
+
+// Expire set expiration time for particular key
+func (r *prefixedRedisClient) Expire(key string, value time.Duration) *redis.BoolCmd {
+	return r.client.Expire(r.withPrefix(key), value)
+}
+
+// Get TTL for particular key
+func (r *prefixedRedisClient) TTL(key string) *redis.DurationCmd {
+	return r.client.TTL(r.withPrefix(key))
+}

@@ -1,8 +1,7 @@
 package client
 
 import (
-	"fmt"
-
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/impressionListener"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -115,26 +114,6 @@ func TestTreatments(t *testing.T) {
 	}
 }
 
-func TestTreatmentsEmpty(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	res := client.Treatments("user1", []string{"", ""}, nil)
-
-	if len(res) != 0 {
-		t.Error("Should return empty map.")
-	}
-}
-
 func TestLocalhostMode(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
@@ -214,51 +193,6 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	}
 }
 
-func TestClientTrackValidationInputs(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		events:      &mockEvents{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	track1 := client.Track("key", "", "eventType", 123)
-	if track1 == nil {
-		t.Error("track1 retrieved incorrectly")
-	}
-
-	track2 := client.Track("key", "trafficType", "", 123)
-	if track2 == nil {
-		t.Error("track2 retrieved incorrectly")
-	}
-
-	track3 := client.Track("key", "trafficType", "eventType", nil)
-	if track3 != nil {
-		t.Error("track3 retrieved incorrectly")
-	}
-
-	track4 := client.Track("key", "trafficType", "eventType", "invalid")
-	if track4 == nil {
-		t.Error("track4 retrieved incorrectly")
-	}
-
-	track5 := client.Track("key", "trafficType", "eventType", 123)
-	if track5 != nil {
-		t.Error("track5 retrieved incorrectly")
-	}
-
-	track6 := client.Track("key", "trafficType", "eventType", 1.3)
-	if track6 != nil {
-		t.Error("track6 retrieved incorrectly")
-	}
-}
-
 func TestClientPanicking(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
@@ -323,7 +257,8 @@ func TestClientDestroy(t *testing.T) {
 	latenciesTask.Start()
 
 	client := SplitClient{
-		cfg: &conf.SplitSdkConfig{},
+		cfg:    &conf.SplitSdkConfig{},
+		logger: logger,
 		sync: &sdkSync{
 			countersSync:   countersTask,
 			gaugeSync:      gaugesTask,
@@ -333,6 +268,12 @@ func TestClientDestroy(t *testing.T) {
 			splitSync:      splitTask,
 		},
 	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+
+	client.factory = &factory
 
 	time.Sleep(1 * time.Second)
 	client.Destroy()
@@ -421,8 +362,20 @@ func TestClientDestroy(t *testing.T) {
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
-	if len(treatments) != 0 {
-		t.Error("Should return empty map.")
+	if len(treatments) != 3 {
+		t.Error("Should return 3 treatments.")
+	}
+
+	if treatments["feature1"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature2"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature3"] != evaluator.Control {
+		t.Error("Wrong treatment result")
 	}
 }
 
@@ -431,15 +384,17 @@ type ImpressionListenerTest struct {
 
 var ilTest = make(map[string]interface{})
 
-func (i *ImpressionListenerTest) LogImpression(impression dtos.ImpressionsDTO) {
-	fmt.Println("SADASD")
-	ilTest["TestName"] = impression.TestName
-	ilTest["BucketingKey"] = impression.KeyImpressions[0].BucketingKey
-	ilTest["ChangeNumber"] = impression.KeyImpressions[0].ChangeNumber
-	ilTest["KeyName"] = impression.KeyImpressions[0].KeyName
-	ilTest["Label"] = impression.KeyImpressions[0].Label
-	ilTest["Time"] = impression.KeyImpressions[0].Time
-	ilTest["Treatment"] = impression.KeyImpressions[0].Treatment
+func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject) {
+	ilTest["Feature"] = data.Impression.Feature
+	ilTest["BucketingKey"] = data.Impression.BucketingKey
+	ilTest["ChangeNumber"] = data.Impression.ChangeNumber
+	ilTest["KeyName"] = data.Impression.KeyName
+	ilTest["Label"] = data.Impression.Label
+	ilTest["Time"] = data.Impression.Time
+	ilTest["Treatment"] = data.Impression.Treatment
+	ilTest["Attributes"] = data.Attributes
+	ilTest["Version"] = data.SDKLanguageVersion
+	ilTest["InstanceName"] = data.InstanceID
 }
 
 func TestImpressionListener(t *testing.T) {
@@ -459,13 +414,30 @@ func TestImpressionListener(t *testing.T) {
 		impressionListener: impresiionL,
 	}
 
-	res := client.Treatment("user1", "feature", nil)
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatment("user1", "feature", attributes)
 
 	if res != "TreatmentA" {
 		t.Error("Wrong Treatment result")
 	}
 
-	if ilTest["TestName"] != "feature" || ilTest["KeyName"] != "user1" || ilTest["Label"] != "aLabel" || ilTest["Treatment"] != "TreatmentA" || ilTest["ChangeNumber"] != int64(123) || ilTest["BucketingKey"] != "" {
-		t.Error("An error occurred on ImpressionListener")
+	if ilTest["Feature"] != "feature" || ilTest["KeyName"] != "user1" || ilTest["Label"] != "aLabel" || ilTest["Treatment"] != "TreatmentA" || ilTest["ChangeNumber"] != int64(123) || ilTest["BucketingKey"] != "" {
+		t.Error("Impression should match")
+	}
+
+	if ilTest["InstanceName"] != cfg.InstanceName {
+		t.Error("Wrong instance name")
+	}
+
+	attr1, _ := ilTest["Attributes"].(map[string]interface{})
+	if attr1["One"] != "test" {
+		t.Error("Should match attribute")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+	if ilTest["Version"] != expectedVersion {
+		t.Error("Version should be equals")
 	}
 }

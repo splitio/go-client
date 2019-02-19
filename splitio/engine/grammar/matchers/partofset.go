@@ -1,7 +1,6 @@
 package matchers
 
 import (
-	"fmt"
 	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
@@ -30,7 +29,6 @@ func (m *PartOfSetMatcher) Match(key string, attributes map[string]interface{}, 
 		matchingSet.Add(x)
 	}
 
-	fmt.Println(matchingSet, m.comparisonSet)
 	if matchingSet.IsEmpty() {
 		return false
 	}

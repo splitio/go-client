@@ -1,10 +1,11 @@
 package mutexmap
 
 import (
+	"sync"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/deepcopy"
-	"sync"
 )
 
 // ** SPLIT STORAGE **
@@ -202,6 +203,16 @@ func (m *MMImpressionStorage) Put(feature string, impression *dtos.ImpressionDTO
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data[feature] = append(m.data[feature], *impression)
+}
+
+// LogImpressions stores impressions in redis as Queue
+func (m *MMImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
+	if len(impressions) > 0 {
+		for _, i := range impressions {
+			m.Put(i.TestName, &i.KeyImpressions[0])
+		}
+	}
+	return nil
 }
 
 // PopAll Returns and removes all the impressions currently stored

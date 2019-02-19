@@ -111,26 +111,6 @@ func TestTreatments(t *testing.T) {
 	}
 }
 
-func TestTreatmentsEmpty(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	res := client.Treatments("user1", []string{"", ""}, nil)
-
-	if len(res) != 0 {
-		t.Error("Should return empty map.")
-	}
-}
-
 func TestLocalhostMode(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
@@ -210,51 +190,6 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	}
 }
 
-func TestClientTrackValidationInputs(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		events:      &mockEvents{},
-		impressions: mutexmap.NewMMImpressionStorage(),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-	}
-
-	track1 := client.Track("key", "", "eventType", 123)
-	if track1 == nil {
-		t.Error("track1 retrieved incorrectly")
-	}
-
-	track2 := client.Track("key", "trafficType", "", 123)
-	if track2 == nil {
-		t.Error("track2 retrieved incorrectly")
-	}
-
-	track3 := client.Track("key", "trafficType", "eventType", nil)
-	if track3 != nil {
-		t.Error("track3 retrieved incorrectly")
-	}
-
-	track4 := client.Track("key", "trafficType", "eventType", "invalid")
-	if track4 == nil {
-		t.Error("track4 retrieved incorrectly")
-	}
-
-	track5 := client.Track("key", "trafficType", "eventType", 123)
-	if track5 != nil {
-		t.Error("track5 retrieved incorrectly")
-	}
-
-	track6 := client.Track("key", "trafficType", "eventType", 1.3)
-	if track6 != nil {
-		t.Error("track6 retrieved incorrectly")
-	}
-}
-
 func TestClientPanicking(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
@@ -319,7 +254,8 @@ func TestClientDestroy(t *testing.T) {
 	latenciesTask.Start()
 
 	client := SplitClient{
-		cfg: &conf.SplitSdkConfig{},
+		cfg:    &conf.SplitSdkConfig{},
+		logger: logger,
 		sync: &sdkSync{
 			countersSync:   countersTask,
 			gaugeSync:      gaugesTask,
@@ -329,6 +265,12 @@ func TestClientDestroy(t *testing.T) {
 			splitSync:      splitTask,
 		},
 	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+
+	client.factory = &factory
 
 	time.Sleep(1 * time.Second)
 	client.Destroy()
@@ -417,7 +359,19 @@ func TestClientDestroy(t *testing.T) {
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
-	if len(treatments) != 0 {
-		t.Error("Should return empty map.")
+	if len(treatments) != 3 {
+		t.Error("Should return 3 treatments.")
+	}
+
+	if treatments["feature1"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature2"] != evaluator.Control {
+		t.Error("Wrong treatment result")
+	}
+
+	if treatments["feature3"] != evaluator.Control {
+		t.Error("Wrong treatment result")
 	}
 }

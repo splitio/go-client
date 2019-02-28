@@ -1,6 +1,6 @@
 3.0.0 (Feb 19, 2019)
  - Updated SDK Parity.
- - Moved Impressions to Single Queue.
+ - Moved Impressions to Single Queue (breaking change).
 2.1.1 (Dec 19, 2018)
  - Fixed traffic allocation issue on 1%.
 2.1.0: (Oct 12, 2018)

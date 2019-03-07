@@ -118,7 +118,7 @@ func Default() *SplitSdkConfig {
 			LatencySync:    defaultTaskPeriod,
 			ImpressionSync: defaultTaskPeriod,
 			SegmentSync:    defaultTaskPeriod,
-			SplitSync:      defaultTaskPeriod,
+			SplitSync:      defaultFeatureRefreshRate,
 			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{

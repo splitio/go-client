@@ -45,6 +45,16 @@ var client = SplitClient{
 	events:      &mockEvents{},
 }
 
+var factory = SplitFactory{
+	client: &client,
+}
+
+func init() {
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	client.factory = &factory
+}
+
 func TestFactoryWithNilApiKey(t *testing.T) {
 	cfg := conf.Default()
 	cfg.Logger = logger
@@ -729,6 +739,14 @@ func TestManagerWithEmptySplit(t *testing.T) {
 		splitStorage: splitStorage,
 		logger:       logger,
 	}
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	manager.factory = &factory
+
 	result := manager.Split("")
 
 	expected := "Split: you passed an empty split name, split name must be a non-empty string"

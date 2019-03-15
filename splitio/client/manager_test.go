@@ -1,10 +1,11 @@
 package client
 
 import (
+	"testing"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
-	"testing"
 )
 
 func TestSplitManager(t *testing.T) {
@@ -43,6 +44,14 @@ func TestSplitManager(t *testing.T) {
 	}, 123)
 
 	manager := SplitManager{splitStorage: splitStorage}
+
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	manager.factory = &factory
 
 	splitNames := manager.SplitNames()
 	splitNameSet := set.NewSet(splitNames[0], splitNames[1])

@@ -46,6 +46,11 @@ func (m *SplitManager) SplitNames() []string {
 		return []string{}
 	}
 
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
+		return []string{}
+	}
+
 	return m.splitStorage.SplitNames()
 }
 
@@ -53,6 +58,11 @@ func (m *SplitManager) SplitNames() []string {
 func (m *SplitManager) Splits() []SplitView {
 	if m.factory != nil && m.factory.destroyed.Load().(bool) {
 		m.logger.Error("Client has already been destroyed - no calls possible")
+		return []SplitView{}
+	}
+
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return []SplitView{}
 	}
 
@@ -71,6 +81,11 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		return nil
 	}
 
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
+		return nil
+	}
+
 	err := m.validator.ValidateManagerInputs(feature)
 	if err != nil {
 		m.logger.Error(err.Error())
@@ -82,4 +97,9 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		return newSplitView(split)
 	}
 	return nil
+}
+
+// BlockUntilReady Calls BlockUntilReady on factory to block manager on readiness
+func (m *SplitManager) BlockUntilReady(timer int) error {
+	return m.factory.BlockUntilReady(timer)
 }

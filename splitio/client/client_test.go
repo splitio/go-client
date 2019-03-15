@@ -68,6 +68,13 @@ func TestClientGetTreatment(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
 
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	client.factory = &factory
+
 	client.Treatment("key", "feature", nil)
 
 	impressions := client.impressions.(storage.ImpressionStorage)
@@ -98,6 +105,13 @@ func TestTreatments(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
 
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	client.factory = &factory
+
 	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil)
 
 	featureRes, ok := res["feature"]
@@ -126,6 +140,7 @@ func TestLocalhostMode(t *testing.T) {
 	sdkConf.SplitFile = file.Name()
 	factory, _ := NewSplitFactory("localhost", sdkConf)
 	client := factory.Client()
+	client.BlockUntilReady(1)
 
 	if client.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
@@ -158,6 +173,13 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
 	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.destroyed.Store(false)
+	factory.ready.Store(true)
+	client.factory = &factory
 
 	feature1 := client.Treatment(nil, "feature", nil)
 	if feature1 != "control" {
@@ -373,5 +395,185 @@ func TestClientDestroy(t *testing.T) {
 
 	if treatments["feature3"] != evaluator.Control {
 		t.Error("Wrong treatment result")
+	}
+}
+
+func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Write([]byte("feature2 off\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	err = client.BlockUntilReady(-1)
+	expected := "SDK Initialization: timer must be positive number"
+	if err != nil && err.Error() != expected {
+		t.Error("Error was expected")
+	}
+
+	manager := factory.Manager()
+	err = manager.BlockUntilReady(-1)
+	if err != nil && err.Error() != expected {
+		t.Error("Error was expected")
+	}
+}
+
+func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	manager := factory.Manager()
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = client.Track("something", "something", "something", nil)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready")
+	}
+
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready")
+	}
+
+	err = client.Track("something", "something", "something", nil)
+	if err != nil {
+		t.Error("It should not return error")
+	}
+
+	feature1 := client.Treatment("asd", "feature1", nil)
+	if feature1 != "on" {
+		t.Error("Feature1 retrieved incorrectly")
+	}
+
+	if manager.SplitNames()[0] != "feature1" {
+		t.Error("It should return splits")
+	}
+}
+
+func TestBlockUntilReadyRedis(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.OperationMode = "redis-consumer"
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if !factory.IsReady() {
+		t.Error("Factory should be ready immediately")
+	}
+
+	client := factory.Client()
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready immediately")
+	}
+	err := client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	manager := factory.Manager()
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready immediately")
+	}
+	err = manager.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+}
+
+func TestBlockUntilReadyInMemory(t *testing.T) {
+	sdkConf := conf.Default()
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if factory.IsReady() {
+		t.Error("Factory should not be ready")
+	}
+
+	client := factory.Client()
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err := client.Track("something", "something", "something", nil)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected := "Client Instantiation: Client is not ready yet"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	if err != nil && err.Error() != "SDK Initialization failed" {
+		t.Error("Wrong error")
 	}
 }

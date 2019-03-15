@@ -1,6 +1,11 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -530,7 +535,7 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 	}
 }
 
-func TestBlockUntilReadyInMemory(t *testing.T) {
+func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	sdkConf := conf.Default()
 
 	factory, _ := NewSplitFactory("something", sdkConf)
@@ -575,5 +580,163 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 
 	if err != nil && err.Error() != "SDK Initialization failed" {
 		t.Error("Wrong error")
+	}
+}
+
+func TestBlockUntilReadyInMemory(t *testing.T) {
+	mockedSplit1 := dtos.SplitDTO{
+		Algo:                  2,
+		ChangeNumber:          123,
+		DefaultTreatment:      "default",
+		Killed:                false,
+		Name:                  "split",
+		Seed:                  1234,
+		Status:                "ACTIVE",
+		TrafficAllocation:     1,
+		TrafficAllocationSeed: -1667452163,
+		TrafficTypeName:       "tt1",
+		Conditions: []dtos.ConditionDTO{
+			{
+				ConditionType: "ROLLOUT",
+				Label:         "in segment all",
+				MatcherGroup: dtos.MatcherGroupDTO{
+					Combiner: "AND",
+					Matchers: []dtos.MatcherDTO{
+						{
+							MatcherType:        "ALL_KEYS",
+							Whitelist:          nil,
+							Negate:             false,
+							UserDefinedSegment: nil,
+						},
+					},
+				},
+				Partitions: []dtos.PartitionDTO{
+					{
+						Size:      100,
+						Treatment: "on",
+					},
+				},
+			},
+		},
+	}
+	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
+	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(4 * time.Second)
+		if r.URL.Path != "/splits" && r.Method != "GET" {
+			t.Error("Invalid request. Should be GET to /splits")
+		}
+
+		splitChanges := dtos.SplitChangesDTO{
+			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+			Since:  3,
+			Till:   3,
+		}
+
+		raw, err := json.Marshal(splitChanges)
+		if err != nil {
+			t.Error("Error building json")
+			return
+		}
+
+		w.Write(raw)
+	}))
+	defer ts.Close()
+
+	segmentMock, _ := ioutil.ReadFile("../../testdata/segment_mock.json")
+
+	tss := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second)
+		fmt.Fprintln(w, fmt.Sprintf(string(segmentMock)))
+	}))
+	defer tss.Close()
+
+	sdkConf := conf.Default()
+	sdkConf.Advanced.EventsURL = tss.URL
+	sdkConf.Advanced.SdkURL = ts.URL
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if factory.IsReady() {
+		t.Error("Factory should not be ready")
+	}
+
+	client := factory.Client()
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	manager := factory.Manager()
+	if manager.factory.IsReady() {
+		t.Error("Manager should not be ready")
+	}
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err := client.Track("something", "something", "something", nil)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected := "Client Instantiation: Client is not ready yet"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected2 := "SDK Initialization: time of 1 exceeded"
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = manager.BlockUntilReady(2)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected2 = "SDK Initialization: time of 2 exceeded"
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	err = client.BlockUntilReady(2)
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	if !client.factory.IsReady() || !manager.factory.IsReady() {
+		t.Error("Both client and manager should be ready")
+	}
+
+	if len(manager.SplitNames()) != 2 {
+		t.Error("It should return Splits")
+	}
+
+	if client.Treatment("aaaaaaklmnbv", "split", nil) != "on" {
+		t.Error("Treatment error")
 	}
 }

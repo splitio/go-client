@@ -5,6 +5,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -39,6 +40,7 @@ type SplitFactory struct {
 	readinessSubscriptors map[int]chan int
 	ready                 atomic.Value
 	operationMode         string
+	mutex                 *sync.Mutex
 }
 
 // Client returns the split client instantiated by the factory
@@ -228,6 +230,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		manager:               manager,
 		readinessSubscriptors: make(map[int]chan int),
 		operationMode:         cfg.OperationMode,
+		mutex:                 &sync.Mutex{},
 	}
 	sp.ready.Store(false)
 
@@ -348,11 +351,15 @@ func (f *SplitFactory) broadcastReadiness(status int) {
 
 // subscribes listener
 func (f *SplitFactory) subscribe(name int, subscriptor chan int) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	f.readinessSubscriptors[name] = subscriptor
 }
 
 // removes a particular subscriptor from the list
 func (f *SplitFactory) unsubscribe(name int, subscriptor chan int) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	_, ok := f.readinessSubscriptors[name]
 	if ok {
 		delete(f.readinessSubscriptors, name)
@@ -374,7 +381,9 @@ func (f *SplitFactory) BlockUntilReady(timer int) error {
 	}
 	block := make(chan int, 1)
 
+	f.mutex.Lock()
 	subscriptorName := len(f.readinessSubscriptors)
+	f.mutex.Unlock()
 
 	defer func() {
 		// Unsubscription will happen only if a block channel has been created

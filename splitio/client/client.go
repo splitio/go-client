@@ -7,7 +7,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
@@ -101,11 +101,11 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		}
 
 		if c.impressionListener != nil {
-			dataToSend := &dtos.ImpressionsDTO{
+			dataToSend := dtos.ImpressionsDTO{
 				TestName:       feature,
 				KeyImpressions: []dtos.ImpressionDTO{impression},
 			}
-			c.impressionListener.SendDataToClient(*dataToSend, attributes, c.cfg.InstanceName)
+			c.impressionListener.SendDataToClient(dataToSend, attributes, c.cfg.InstanceName)
 		}
 
 		keyImpressions := []dtos.ImpressionDTO{impression}

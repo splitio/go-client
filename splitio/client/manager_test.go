@@ -49,8 +49,7 @@ func TestSplitManager(t *testing.T) {
 		manager: &manager,
 	}
 
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	manager.factory = &factory
 
 	splitNames := manager.SplitNames()

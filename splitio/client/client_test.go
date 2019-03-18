@@ -76,8 +76,7 @@ func TestClientGetTreatment(t *testing.T) {
 	factory := SplitFactory{
 		client: &client,
 	}
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	client.factory = &factory
 
 	client.Treatment("key", "feature", nil)
@@ -113,8 +112,7 @@ func TestTreatments(t *testing.T) {
 	factory := SplitFactory{
 		client: &client,
 	}
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	client.factory = &factory
 
 	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil)
@@ -182,8 +180,7 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	factory := SplitFactory{
 		client: &client,
 	}
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	client.factory = &factory
 
 	feature1 := client.Treatment(nil, "feature", nil)

@@ -193,17 +193,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (c *SplitClient) IsDestroyed() bool {
-	if c.factory != nil {
-		return c.factory.IsDestroyed()
-	}
-	return false
+	return c.factory.IsDestroyed()
+
 }
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
-	if c.factory != nil {
-		c.factory.Destroy()
-	}
+	c.factory.Destroy()
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
 		return

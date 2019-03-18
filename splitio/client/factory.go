@@ -24,11 +24,17 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-// SdkError flag
-const SdkError = 0
+// SdkDestroyed flag
+const SdkDestroyed = 0
+
+// SdkOnInitialization flag
+const SdkOnInitialization = 1
 
 // SdkReady flag
-const SdkReady = 1
+const SdkReady = 2
+
+// SdkError flag
+const SdkError = -1
 
 var inMemoryFullQueueChan = make(chan bool, 1)
 
@@ -36,35 +42,30 @@ var inMemoryFullQueueChan = make(chan bool, 1)
 type SplitFactory struct {
 	client                *SplitClient
 	manager               *SplitManager
-	destroyed             atomic.Value
+	status                atomic.Value
 	readinessSubscriptors map[int]chan int
-	ready                 atomic.Value
 	operationMode         string
 	mutex                 *sync.Mutex
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
-	f.client.factory = f
-	f.manager.factory = f
 	return f.client
 }
 
 // Manager returns the split manager instantiated by the factory
 func (f *SplitFactory) Manager() *SplitManager {
-	f.client.factory = f
-	f.manager.factory = f
 	return f.manager
 }
 
 // Destroy blocks all the operations
 func (f *SplitFactory) Destroy() {
-	f.destroyed.Store(true)
+	f.status.Store(SdkDestroyed)
 }
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (f *SplitFactory) IsDestroyed() bool {
-	return f.destroyed.Load().(bool)
+	return f.status.Load() == SdkDestroyed
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -225,14 +226,14 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	}
 
 	// Create new Split Factory
-	sp := &SplitFactory{
+	splitFactory := &SplitFactory{
 		client:                client,
 		manager:               manager,
 		readinessSubscriptors: make(map[int]chan int),
 		operationMode:         cfg.OperationMode,
 		mutex:                 &sync.Mutex{},
 	}
-	sp.ready.Store(false)
+	splitFactory.status.Store(SdkOnInitialization)
 
 	switch cfg.OperationMode {
 	case "localhost":
@@ -243,7 +244,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 		}
 		// Call fetching tasks as goroutine
-		go sp.initializationLocalhost(readyChannel, syncTasks)
+		go splitFactory.initializationLocalhost(readyChannel, syncTasks)
 	case "inmemory-standalone", "redis-standalone":
 		// Sync structs
 		splitFetcher := api.NewHTTPSplitFetcher(apikey, cfg, logger)
@@ -308,7 +309,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			),
 		}
 		// Call fetching tasks as goroutine
-		go sp.initializationInMemory(readyChannel, syncTasks)
+		go splitFactory.initializationInMemory(readyChannel, syncTasks)
 
 		// Flushing storage queue signal only for inmemory-standalone
 		if cfg.OperationMode == "inmemory-standalone" {
@@ -327,22 +328,25 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		}
 
 	case "redis-consumer":
-		sp.ready.Store(true)
+		splitFactory.status.Store(SdkReady)
 	default:
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
 
 	logger.Info("Sdk initialization complete!")
 
-	sp.destroyed.Store(false)
+	splitFactory.client.factory = splitFactory
+	splitFactory.manager.factory = splitFactory
 
-	return sp, nil
+	return splitFactory, nil
 }
 
 // broadcastReadiness broadcasts message to all the subscriptors
 func (f *SplitFactory) broadcastReadiness(status int) {
-	if status == SdkReady {
-		f.ready.Store(true)
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	if f.status.Load() == SdkOnInitialization && status == SdkReady {
+		f.status.Store(SdkReady)
 	}
 	for _, subscriptor := range f.readinessSubscriptors {
 		subscriptor <- status
@@ -368,7 +372,7 @@ func (f *SplitFactory) unsubscribe(name int, subscriptor chan int) {
 
 // IsReady returns true if the factory is ready
 func (f *SplitFactory) IsReady() bool {
-	return f.ready.Load().(bool)
+	return f.status.Load() == SdkReady
 }
 
 // BlockUntilReady blocks client or manager until the SDK is ready, error occurs or times out

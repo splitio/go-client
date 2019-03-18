@@ -50,8 +50,7 @@ var factory = SplitFactory{
 }
 
 func init() {
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	client.factory = &factory
 }
 
@@ -743,8 +742,7 @@ func TestManagerWithEmptySplit(t *testing.T) {
 		manager: &manager,
 	}
 
-	factory.destroyed.Store(false)
-	factory.ready.Store(true)
+	factory.status.Store(SdkReady)
 	manager.factory = &factory
 
 	result := manager.Split("")

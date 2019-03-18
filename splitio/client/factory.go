@@ -383,6 +383,9 @@ func (f *SplitFactory) BlockUntilReady(timer int) error {
 	if timer <= 0 {
 		return errors.New("SDK Initialization: timer must be positive number")
 	}
+	if f.IsDestroyed() {
+		return errors.New("SDK Initialization: Client is destroyed")
+	}
 	block := make(chan int, 1)
 
 	f.mutex.Lock()

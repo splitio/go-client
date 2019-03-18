@@ -503,6 +503,62 @@ func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
 	}
 }
 
+func TestBlockUntilReadyStatusLoclahostOnDestroy(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	manager := factory.Manager()
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready")
+	}
+
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready")
+	}
+
+	client.Destroy()
+
+	if !client.factory.IsDestroyed() {
+		t.Error("Client should be destroyed")
+	}
+
+	if !manager.factory.IsDestroyed() {
+		t.Error("Manager should be destroyed")
+	}
+
+	err = manager.BlockUntilReady(1)
+	expected := "SDK Initialization: Client is destroyed"
+	if err == nil || err.Error() != expected {
+		t.Error("It should return an error")
+	}
+}
+
 func TestBlockUntilReadyRedis(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.OperationMode = "redis-consumer"

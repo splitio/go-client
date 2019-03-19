@@ -1,8 +1,10 @@
 4.0.0 ()
 - Added custom Impression Listener.
+3.0.1 (March 8, 2019)
+ - Updated Splits refreshing rate.
 3.0.0 (Feb 19, 2019)
  - Updated SDK Parity.
- - Moved Impressions to Single Queue.
+ - BREAKING CHANGE: Moved Impressions to Single Queue.
 2.1.1 (Dec 19, 2018)
  - Fixed traffic allocation issue on 1%.
 2.1.0: (Oct 12, 2018)

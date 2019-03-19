@@ -1,5 +1,5 @@
 4.0.0 ()
-- Breaking Change: Added custom Impression Listener.
+- Added custom Impression Listener.
 3.0.0 (Feb 19, 2019)
  - Updated SDK Parity.
  - Moved Impressions to Single Queue.

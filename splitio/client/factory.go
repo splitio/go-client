@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/splitio/go-client/splitio/service/dtos"
+
 	"github.com/splitio/go-client/splitio/impressionListener"
 
 	"github.com/splitio/go-client/splitio"
@@ -293,6 +295,12 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	logger.Info("Sdk initialization complete!")
 
+	metadata := dtos.QueueStoredMachineMetadataDTO{
+		MachineIP:   ip,
+		MachineName: instance,
+		SDKVersion:  version,
+	}
+
 	engine := engine.NewEngine(logger)
 	client := &SplitClient{
 		apikey:      apikey,
@@ -304,6 +312,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		cfg:         cfg,
 		events:      eventsStorage,
 		validator:   inputValidation{logger: logger},
+		metadata:    metadata,
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {

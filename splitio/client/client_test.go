@@ -37,6 +37,13 @@ func (e *mockEvaluator) Evaluate(
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentA",
 		}
+	case "feature2":
+		return &evaluator.Result{
+			EvaluationTimeNs:  0,
+			Label:             "bLabel",
+			SplitChangeNumber: 123,
+			Treatment:         "TreatmentB",
+		}
 	default:
 		return &evaluator.Result{
 			EvaluationTimeNs:  0,
@@ -382,9 +389,10 @@ func TestClientDestroy(t *testing.T) {
 type ImpressionListenerTest struct {
 }
 
-var ilTest = make(map[string]interface{})
+var ilResult = make(map[string]interface{})
 
 func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject) {
+	ilTest := make(map[string]interface{})
 	ilTest["Feature"] = data.Impression.Feature
 	ilTest["BucketingKey"] = data.Impression.BucketingKey
 	ilTest["ChangeNumber"] = data.Impression.ChangeNumber
@@ -395,6 +403,22 @@ func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject)
 	ilTest["Attributes"] = data.Attributes
 	ilTest["Version"] = data.SDKLanguageVersion
 	ilTest["InstanceName"] = data.InstanceID
+
+	ilResult[data.Impression.Feature] = ilTest
+}
+
+func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string) bool {
+	if ilTest["Feature"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
+		return false
+	}
+	if ilTest["Version"] != v {
+		return false
+	}
+	attr1, _ := ilTest["Attributes"].(map[string]interface{})
+	if attr1["One"] != a {
+		return false
+	}
+	return true
 }
 
 func TestImpressionListener(t *testing.T) {
@@ -412,6 +436,10 @@ func TestImpressionListener(t *testing.T) {
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresiionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
 	}
 
 	attributes := make(map[string]interface{})
@@ -423,21 +451,56 @@ func TestImpressionListener(t *testing.T) {
 		t.Error("Wrong Treatment result")
 	}
 
-	if ilTest["Feature"] != "feature" || ilTest["KeyName"] != "user1" || ilTest["Label"] != "aLabel" || ilTest["Treatment"] != "TreatmentA" || ilTest["ChangeNumber"] != int64(123) || ilTest["BucketingKey"] != "" {
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
 
-	if ilTest["InstanceName"] != cfg.InstanceName {
-		t.Error("Wrong instance name")
+	delete(ilResult, "feature")
+}
+
+func TestImpressionListenerForTreatments(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	impTest := &ImpressionListenerTest{}
+	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresiionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
 	}
 
-	attr1, _ := ilTest["Attributes"].(map[string]interface{})
-	if attr1["One"] != "test" {
-		t.Error("Should match attribute")
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes)
+
+	if res["feature"] != "TreatmentA" || res["feature2"] != "TreatmentB" {
+		t.Error("Wrong Treatment result")
+	}
+
+	if len(ilResult) != 2 {
+		t.Error("Error on ImpressionListener")
 	}
 
 	expectedVersion := "go-" + splitio.Version
-	if ilTest["Version"] != expectedVersion {
-		t.Error("Version should be equals")
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
 	}
 }

@@ -1,7 +1,6 @@
 package impressionlistener
 
 import (
-	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 )
 
@@ -37,7 +36,7 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener) *Wrappe
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}, instanceName string) {
+func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}, metadata dtos.QueueStoredMachineMetadataDTO) {
 	if len(impression.KeyImpressions) > 0 {
 		impressionData := ImpressionData{
 			KeyName:      impression.KeyImpressions[0].KeyName,
@@ -52,8 +51,8 @@ func (i *WrapperImpressionListener) SendDataToClient(impression dtos.Impressions
 		datToSend := ILObject{
 			Impression:         impressionData,
 			Attributes:         attributes,
-			InstanceID:         instanceName,
-			SDKLanguageVersion: "go-" + splitio.Version,
+			InstanceID:         metadata.MachineName,
+			SDKLanguageVersion: "go-" + metadata.SDKVersion,
 		}
 
 		i.ImpressionListener.LogImpression(datToSend)

@@ -30,6 +30,7 @@ type SplitClient struct {
 	validator          inputValidation
 	factory            *SplitFactory
 	impressionListener *impressionlistener.WrapperImpressionListener
+	metadata           dtos.QueueStoredMachineMetadataDTO
 }
 
 type sdkSync struct {
@@ -100,20 +101,20 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
 
-		if c.impressionListener != nil {
-			dataToSend := dtos.ImpressionsDTO{
-				TestName:       feature,
-				KeyImpressions: []dtos.ImpressionDTO{impression},
-			}
-			c.impressionListener.SendDataToClient(dataToSend, attributes, c.cfg.InstanceName)
-		}
-
 		keyImpressions := []dtos.ImpressionDTO{impression}
 		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
+
 		c.impressions.LogImpressions(toStore)
+
+		// Custom Impression Listener
+		if c.impressionListener != nil {
+			for _, dataToSend := range toStore {
+				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+			}
+		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}
@@ -182,6 +183,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		}
 
 		treatments[feature] = evaluationResult.Treatment
+	}
+
+	// Custom Impression Listener
+	if c.impressionListener != nil {
+		for _, dataToSend := range bulkImpressions {
+			c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+		}
 	}
 
 	// Store latency

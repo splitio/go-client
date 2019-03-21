@@ -2,12 +2,10 @@ package client
 
 import (
 	"github.com/splitio/go-client/splitio"
-	"github.com/splitio/go-client/splitio/impressionListener"
-
-	"github.com/splitio/go-client/splitio/service/dtos"
-
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/asynctask"

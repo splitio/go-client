@@ -61,6 +61,11 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		return evaluator.Control
 	}
 
+	if !c.factory.IsReady() {
+		c.logger.Error("Client Instantiation: Client is not ready yet.")
+		return evaluator.Control
+	}
+
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatment")
 	if err != nil {
 		c.logger.Error(err.Error())
@@ -119,6 +124,11 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
+		return c.validator.GenerateControlTreatments(features)
+	}
+
+	if !c.factory.IsReady() {
+		c.logger.Error("Client Instantiation: Client is not ready yet.")
 		return c.validator.GenerateControlTreatments(features)
 	}
 
@@ -183,17 +193,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (c *SplitClient) IsDestroyed() bool {
-	if c.factory != nil {
-		return c.factory.IsDestroyed()
-	}
-	return false
+	return c.factory.IsDestroyed()
+
 }
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
-	if c.factory != nil {
-		c.factory.Destroy()
-	}
+	c.factory.Destroy()
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
 		return
@@ -241,6 +247,11 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		return errors.New("Client has already been destroyed - no calls possible")
 	}
 
+	if !c.factory.IsReady() {
+		c.logger.Error("Client Instantiation: Client is not ready yet.")
+		return errors.New("Client Instantiation: Client is not ready yet")
+	}
+
 	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(key, trafficType, eventType, value)
 	if err != nil {
 		c.logger.Error(err.Error())
@@ -261,4 +272,9 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 	}
 
 	return nil
+}
+
+// BlockUntilReady Calls BlockUntilReady on factory to block client on readiness
+func (c *SplitClient) BlockUntilReady(timer int) error {
+	return c.factory.BlockUntilReady(timer)
 }

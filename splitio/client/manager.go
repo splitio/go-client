@@ -41,8 +41,13 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 
 // SplitNames returns a list with the name of all the currently stored splits
 func (m *SplitManager) SplitNames() []string {
-	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+	if m.factory.IsDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
+		return []string{}
+	}
+
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return []string{}
 	}
 
@@ -51,8 +56,13 @@ func (m *SplitManager) SplitNames() []string {
 
 // Splits returns a list of a partial view of every currently stored split
 func (m *SplitManager) Splits() []SplitView {
-	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+	if m.factory.IsDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
+		return []SplitView{}
+	}
+
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return []SplitView{}
 	}
 
@@ -66,8 +76,13 @@ func (m *SplitManager) Splits() []SplitView {
 
 // Split returns a partial view of a particular split
 func (m *SplitManager) Split(feature string) *SplitView {
-	if m.factory != nil && m.factory.destroyed.Load().(bool) {
+	if m.factory.IsDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
+		return nil
+	}
+
+	if !m.factory.IsReady() {
+		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return nil
 	}
 
@@ -82,4 +97,9 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		return newSplitView(split)
 	}
 	return nil
+}
+
+// BlockUntilReady Calls BlockUntilReady on factory to block manager on readiness
+func (m *SplitManager) BlockUntilReady(timer int) error {
+	return m.factory.BlockUntilReady(timer)
 }

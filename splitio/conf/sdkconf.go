@@ -97,14 +97,13 @@ func Default() *SplitSdkConfig {
 	}
 
 	return &SplitSdkConfig{
-		OperationMode:   "inmemory-standalone",
-		LabelsEnabled:   true,
-		BlockUntilReady: defaultBlockUntilReady,
-		IPAddress:       ipAddress,
-		InstanceName:    fmt.Sprintf("ip-%s", strings.Replace(ipAddress, ".", "-", -1)),
-		Logger:          nil,
-		LoggerConfig:    logging.LoggerOptions{},
-		SplitFile:       splitFile,
+		OperationMode: "inmemory-standalone",
+		LabelsEnabled: true,
+		IPAddress:     ipAddress,
+		InstanceName:  fmt.Sprintf("ip-%s", strings.Replace(ipAddress, ".", "-", -1)),
+		Logger:        nil,
+		LoggerConfig:  logging.LoggerOptions{},
+		SplitFile:     splitFile,
 		Redis: RedisConfig{
 			Database: 0,
 			Host:     "localhost",

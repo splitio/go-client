@@ -449,7 +449,7 @@ func TestImpressionListener(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
 
 	client := SplitClient{
 		cfg:                cfg,
@@ -457,7 +457,7 @@ func TestImpressionListener(t *testing.T) {
 		impressions:        mutexmap.NewMMImpressionStorage(),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
-		impressionListener: impresiionL,
+		impressionListener: impresionL,
 		metadata: dtos.QueueStoredMachineMetadataDTO{
 			MachineName: cfg.InstanceName,
 			SDKVersion:  splitio.Version,
@@ -494,7 +494,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
 
 	client := SplitClient{
 		cfg:                cfg,
@@ -502,7 +502,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 		impressions:        mutexmap.NewMMImpressionStorage(),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
-		impressionListener: impresiionL,
+		impressionListener: impresionL,
 		metadata: dtos.QueueStoredMachineMetadataDTO{
 			MachineName: cfg.InstanceName,
 			SDKVersion:  splitio.Version,
@@ -537,6 +537,9 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
+
+	delete(ilResult, "feature")
+	delete(ilResult, "feature2")
 }
 
 func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
@@ -582,6 +585,9 @@ func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
 
+	impTest := &ImpressionListenerTest{}
+	sdkConf.Advanced.ImpressionListener = impTest
+
 	factory, _ := NewSplitFactory("localhost", sdkConf)
 
 	client := factory.Client()
@@ -596,12 +602,20 @@ func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
 	}
 
 	err = client.Track("something", "something", "something", nil)
-	if err == nil {
-		t.Error("It should return error")
+	if err != nil {
+		t.Error("It should not return error")
 	}
 
-	if client.Treatment("something", "something", nil) != evaluator.Control {
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	if client.Treatment("something", "something", attributes) != evaluator.Control {
 		t.Error("Wrong evaluation")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+	if !compareListener(ilResult["something"].(map[string]interface{}), "something", "something", "definition not found", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
 	}
 
 	if client.Treatment("something", "something", nil) != evaluator.Control {
@@ -756,8 +770,8 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	}
 
 	err := client.Track("something", "something", "something", nil)
-	if err == nil {
-		t.Error("It should return error")
+	if err != nil {
+		t.Error("It should not return error")
 	}
 
 	expected := "Client Instantiation: Client is not ready yet"
@@ -882,8 +896,8 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	}
 
 	err := client.Track("something", "something", "something", nil)
-	if err == nil {
-		t.Error("It should return error")
+	if err != nil {
+		t.Error("It should not return error")
 	}
 
 	expected := "Client Instantiation: Client is not ready yet"

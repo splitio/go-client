@@ -46,11 +46,6 @@ func (m *SplitManager) SplitNames() []string {
 		return []string{}
 	}
 
-	if !m.factory.IsReady() {
-		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
-		return []string{}
-	}
-
 	return m.splitStorage.SplitNames()
 }
 
@@ -58,11 +53,6 @@ func (m *SplitManager) SplitNames() []string {
 func (m *SplitManager) Splits() []SplitView {
 	if m.factory.IsDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
-		return []SplitView{}
-	}
-
-	if !m.factory.IsReady() {
-		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return []SplitView{}
 	}
 
@@ -78,11 +68,6 @@ func (m *SplitManager) Splits() []SplitView {
 func (m *SplitManager) Split(feature string) *SplitView {
 	if m.factory.IsDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
-		return nil
-	}
-
-	if !m.factory.IsReady() {
-		m.logger.Error("Manager Instantiation: Manager is not ready yet.")
 		return nil
 	}
 

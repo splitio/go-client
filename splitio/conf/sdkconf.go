@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/splitio/go-client/splitio/util/impressionlistener"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
@@ -70,7 +70,7 @@ type RedisConfig struct {
 // - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
 // - SegmentWorkers - How many workers will be used when performing segments sync.
 type AdvancedConfig struct {
-	ImpressionListener impressionlistener.ListenerInterface
+	ImpressionListener impressionlistener.ImpressionListener
 	HTTPTimeout        int
 	SegmentQueueSize   int
 	SegmentWorkers     int

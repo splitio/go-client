@@ -13,14 +13,15 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/api"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -207,6 +208,12 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	engine := engine.NewEngine(logger)
 
+	metadata := dtos.QueueStoredMachineMetadataDTO{
+		MachineIP:   ip,
+		MachineName: instance,
+		SDKVersion:  version,
+	}
+
 	client := &SplitClient{
 		apikey:      apikey,
 		logger:      logger,
@@ -217,6 +224,11 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		cfg:         cfg,
 		events:      eventsStorage,
 		validator:   inputValidation{logger: logger},
+		metadata:    metadata,
+	}
+
+	if cfg.Advanced.ImpressionListener != nil {
+		client.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener)
 	}
 
 	manager := &SplitManager{
@@ -285,7 +297,6 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				version,
 				ip,
 				instance,
-				cfg.Advanced.ImpressionListener,
 				logger,
 			),
 			countersSync: tasks.NewRecordCountersTask(

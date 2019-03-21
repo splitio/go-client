@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
-
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/asynctask"
@@ -38,6 +39,13 @@ func (e *mockEvaluator) Evaluate(
 			Label:             "aLabel",
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentA",
+		}
+	case "feature2":
+		return &evaluator.Result{
+			EvaluationTimeNs:  0,
+			Label:             "bLabel",
+			SplitChangeNumber: 123,
+			Treatment:         "TreatmentB",
 		}
 	default:
 		return &evaluator.Result{
@@ -397,6 +405,137 @@ func TestClientDestroy(t *testing.T) {
 
 	if treatments["feature3"] != evaluator.Control {
 		t.Error("Wrong treatment result")
+	}
+}
+
+type ImpressionListenerTest struct {
+}
+
+var ilResult = make(map[string]interface{})
+
+func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject) {
+	ilTest := make(map[string]interface{})
+	ilTest["Feature"] = data.Impression.Feature
+	ilTest["BucketingKey"] = data.Impression.BucketingKey
+	ilTest["ChangeNumber"] = data.Impression.ChangeNumber
+	ilTest["KeyName"] = data.Impression.KeyName
+	ilTest["Label"] = data.Impression.Label
+	ilTest["Time"] = data.Impression.Time
+	ilTest["Treatment"] = data.Impression.Treatment
+	ilTest["Attributes"] = data.Attributes
+	ilTest["Version"] = data.SDKLanguageVersion
+	ilTest["InstanceName"] = data.InstanceID
+
+	ilResult[data.Impression.Feature] = ilTest
+}
+
+func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string) bool {
+	if ilTest["Feature"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
+		return false
+	}
+	if ilTest["Version"] != v {
+		return false
+	}
+	attr1, _ := ilTest["Attributes"].(map[string]interface{})
+	if attr1["One"] != a {
+		return false
+	}
+	return true
+}
+
+func TestImpressionListener(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	impTest := &ImpressionListenerTest{}
+	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresiionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
+	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatment("user1", "feature", attributes)
+
+	if res != "TreatmentA" {
+		t.Error("Wrong Treatment result")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	delete(ilResult, "feature")
+}
+
+func TestImpressionListenerForTreatments(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	impTest := &ImpressionListenerTest{}
+	impresiionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresiionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
+	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes)
+
+	if res["feature"] != "TreatmentA" || res["feature2"] != "TreatmentB" {
+		t.Error("Wrong Treatment result")
+	}
+
+	if len(ilResult) != 2 {
+		t.Error("Error on ImpressionListener")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
 	}
 }
 

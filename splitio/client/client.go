@@ -7,6 +7,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
@@ -17,17 +18,19 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey       string
-	cfg          *conf.SplitSdkConfig
-	logger       logging.LoggerInterface
-	loggerConfig logging.LoggerOptions
-	evaluator    evaluator.Interface
-	sync         *sdkSync
-	impressions  storage.ImpressionStorageProducer
-	metrics      storage.MetricsStorageProducer
-	events       storage.EventStorageProducer
-	validator    inputValidation
-	factory      *SplitFactory
+	apikey             string
+	cfg                *conf.SplitSdkConfig
+	logger             logging.LoggerInterface
+	loggerConfig       logging.LoggerOptions
+	evaluator          evaluator.Interface
+	sync               *sdkSync
+	impressions        storage.ImpressionStorageProducer
+	metrics            storage.MetricsStorageProducer
+	events             storage.EventStorageProducer
+	validator          inputValidation
+	factory            *SplitFactory
+	impressionListener *impressionlistener.WrapperImpressionListener
+	metadata           dtos.QueueStoredMachineMetadataDTO
 }
 
 type sdkSync struct {
@@ -93,6 +96,7 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 		if c.cfg.LabelsEnabled {
 			label = evaluationResult.Label
 		}
+
 		var impression = dtos.ImpressionDTO{
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
@@ -101,12 +105,21 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 			Treatment:    evaluationResult.Treatment,
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
+
 		keyImpressions := []dtos.ImpressionDTO{impression}
 		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
+
 		c.impressions.LogImpressions(toStore)
+
+		// Custom Impression Listener
+		if c.impressionListener != nil {
+			for _, dataToSend := range toStore {
+				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+			}
+		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}
@@ -180,6 +193,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		}
 
 		treatments[feature] = evaluationResult.Treatment
+	}
+
+	// Custom Impression Listener
+	if c.impressionListener != nil {
+		for _, dataToSend := range bulkImpressions {
+			c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+		}
 	}
 
 	// Store latency

@@ -14,17 +14,18 @@ type SplitChangesDTO struct {
 
 // SplitDTO structure to map an Split definition fetched from JSON message.
 type SplitDTO struct {
-	ChangeNumber          int64          `json:"changeNumber"`
-	TrafficTypeName       string         `json:"trafficTypeName"`
-	Name                  string         `json:"name"`
-	TrafficAllocation     int            `json:"trafficAllocation"`
-	TrafficAllocationSeed int64          `json:"trafficAllocationSeed"`
-	Seed                  int64          `json:"seed"`
-	Status                string         `json:"status"`
-	Killed                bool           `json:"killed"`
-	DefaultTreatment      string         `json:"defaultTreatment"`
-	Algo                  int            `json:"algo"`
-	Conditions            []ConditionDTO `json:"conditions"`
+	ChangeNumber          int64             `json:"changeNumber"`
+	TrafficTypeName       string            `json:"trafficTypeName"`
+	Name                  string            `json:"name"`
+	TrafficAllocation     int               `json:"trafficAllocation"`
+	TrafficAllocationSeed int64             `json:"trafficAllocationSeed"`
+	Seed                  int64             `json:"seed"`
+	Status                string            `json:"status"`
+	Killed                bool              `json:"killed"`
+	DefaultTreatment      string            `json:"defaultTreatment"`
+	Algo                  int               `json:"algo"`
+	Conditions            []ConditionDTO    `json:"conditions"`
+	Configurations        map[string]string `json:"configurations"`
 }
 
 // MarshalBinary exports SplitDTO to JSON string

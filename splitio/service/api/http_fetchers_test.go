@@ -45,6 +45,18 @@ func TestSpitChangesFetch(t *testing.T) {
 		splitChangesDTO.Splits[0].Name != "DEMO_MURMUR2" {
 		t.Error("DTO mal formed")
 	}
+
+	if splitChangesDTO.Splits[0].Configurations == nil {
+		t.Error("DTO mal formed")
+	}
+
+	if splitChangesDTO.Splits[0].Configurations["of"] != "" {
+		t.Error("DTO mal formed")
+	}
+
+	if splitChangesDTO.Splits[0].Configurations["on"] != "{\"color\": \"blue\",\"size\": 13}" {
+		t.Error("DTO mal formed")
+	}
 }
 
 func TestSpitChangesFetchHTTPError(t *testing.T) {

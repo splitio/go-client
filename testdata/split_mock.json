@@ -9,6 +9,9 @@
   "defaultTreatment": "of",
   "changeNumber": 1491244291288,
   "algo": 2,
+  "configurations": {
+    "on": "{\"color\": \"blue\",\"size\": 13}"
+  },
   "conditions": [
     {
       "conditionType": "ROLLOUT",

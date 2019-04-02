@@ -47,6 +47,19 @@ func TestSplitDTO(t *testing.T) {
 			t.Error("Marshal struct mal formed [Killed]")
 		}
 
+		if splitChangesDtoFromMarshal.Splits[0].Configurations == nil {
+			t.Error("Marshal struct mal formed [Configurations]")
+		}
+
+		if splitChangesDtoFromMarshal.Splits[0].Configurations["of"] !=
+			splitChangesDtoFromMock.Splits[0].Configurations["of"] {
+			t.Error("Marshal struct mal formed [Configurations]")
+		}
+
+		if splitChangesDtoFromMarshal.Splits[0].Configurations["on"] !=
+			splitChangesDtoFromMock.Splits[0].Configurations["on"] {
+			t.Error("Marshal struct mal formed [Configurations]")
+		}
 	}
 }
 

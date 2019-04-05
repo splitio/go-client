@@ -119,7 +119,7 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 		}
 		i.logger.Warning(fmt.Sprintf(operation+": key %s is not of type string, converting", key))
 	}
-	err = checkIsValidString(sMatchingKey, "key", "Treatment")
+	err = checkIsValidString(sMatchingKey, "key", operation)
 	if err != nil {
 		return "", nil, err
 	}
@@ -128,12 +128,12 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 }
 
 // ValidateFeatureName implements the validation for FetureName
-func (i *inputValidation) ValidateFeatureName(featureName string) (string, error) {
-	err := checkIsEmptyString(featureName, "featureName", "Treatment")
+func (i *inputValidation) ValidateFeatureName(featureName string, operation string) (string, error) {
+	err := checkIsEmptyString(featureName, "featureName", operation)
 	if err != nil {
 		return "", err
 	}
-	return i.checkWhitespaces(featureName, "Treatment"), nil
+	return i.checkWhitespaces(featureName, operation), nil
 }
 
 func checkEventType(eventType string) error {
@@ -217,7 +217,7 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		return []string{}, errors.New("Treatments: features must be a non-empty array")
 	}
 	for _, feature := range features {
-		f, err := i.ValidateFeatureName(feature)
+		f, err := i.ValidateFeatureName(feature, "Treatments")
 		if err != nil {
 			i.logger.Error(err.Error())
 		} else {

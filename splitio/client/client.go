@@ -40,9 +40,19 @@ type sdkSync struct {
 	eventsSync     *asynctask.AsyncTask
 }
 
-// Treatment implements the main functionality of split. Retrieve treatments of a specific feature
+type treatmentResult struct {
+	Treatment string
+	Config    interface{}
+}
+
+// doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
+func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attributes map[string]interface{}, operation string) (t treatmentResult) {
+	controlTreatment := treatmentResult{
+		Treatment: evaluator.Control,
+		Config:    nil,
+	}
+
 	// Set up a guard deferred function to recover if the SDK starts panicking
 	defer func() {
 		if r := recover(); r != nil {
@@ -52,25 +62,25 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
 				"Returning CONTROL", "\n")
-			ret = evaluator.Control
+			t = controlTreatment
 		}
 	}()
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return evaluator.Control
+		return controlTreatment
 	}
 
-	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatment")
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return evaluator.Control
+		return controlTreatment
 	}
 
 	feature, err = c.validator.ValidateFeatureName(feature)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return evaluator.Control
+		return controlTreatment
 	}
 
 	var evaluationResult *evaluator.Result
@@ -110,7 +120,16 @@ func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[
 	bucket := metrics.Bucket(evaluationResult.EvaluationTimeNs)
 	c.metrics.IncLatency("sdk.getTreatment", bucket)
 
-	return evaluationResult.Treatment
+	return treatmentResult{
+		Treatment: evaluationResult.Treatment,
+		Config:    nil,
+	}
+}
+
+// Treatment implements the main functionality of split. Retrieve treatments of a specific feature
+// for a certain key and set of attributes
+func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
+	return c.doTreatmentCall(key, feature, attributes, "Treatment").Treatment
 }
 
 // Treatments evaluates multiple featers for a single user and set of attributes at once

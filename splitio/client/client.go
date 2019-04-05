@@ -40,15 +40,16 @@ type sdkSync struct {
 	eventsSync     *asynctask.AsyncTask
 }
 
-type treatmentResult struct {
+// TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
+type TreatmentResult struct {
 	Treatment string
 	Config    interface{}
 }
 
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
 // for a certain key and set of attributes
-func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attributes map[string]interface{}, operation string) (t treatmentResult) {
-	controlTreatment := treatmentResult{
+func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attributes map[string]interface{}, operation string) (t TreatmentResult) {
+	controlTreatment := TreatmentResult{
 		Treatment: evaluator.Control,
 		Config:    nil,
 	}
@@ -120,7 +121,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 	bucket := metrics.Bucket(evaluationResult.EvaluationTimeNs)
 	c.metrics.IncLatency("sdk.getTreatment", bucket)
 
-	return treatmentResult{
+	return TreatmentResult{
 		Treatment: evaluationResult.Treatment,
 		Config:    nil,
 	}
@@ -130,6 +131,12 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 // for a certain key and set of attributes
 func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
 	return c.doTreatmentCall(key, feature, attributes, "Treatment").Treatment
+}
+
+// TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature with
+// the corresponding configuration if it is present
+func (c *SplitClient) TreatmentWithConfig(key interface{}, feature string, attributes map[string]interface{}) TreatmentResult {
+	return c.doTreatmentCall(key, feature, attributes, "Treatment")
 }
 
 // Treatments evaluates multiple featers for a single user and set of attributes at once

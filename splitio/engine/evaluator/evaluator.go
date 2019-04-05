@@ -25,6 +25,7 @@ type Result struct {
 	Label             string
 	EvaluationTimeNs  int64
 	SplitChangeNumber int64
+	Config            interface{}
 }
 
 // Evaluator struct is the main evaluator
@@ -53,9 +54,10 @@ func NewEvaluator(
 // Evaluate returns a struct with the resulting treatment and extra information for the impression
 func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	splitDto := e.splitStorage.Get(feature)
+	var config interface{}
 	if splitDto == nil {
 		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
-		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound}
+		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
 	}
 
 	// TODO: Move this to NewEvaluator ?
@@ -71,10 +73,16 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 			feature,
 			split.DefaultTreatment(),
 		))
+
+		if currentConfig, ok := split.Configurations()[split.DefaultTreatment()]; ok {
+			config = currentConfig
+		}
+
 		return &Result{
 			Treatment:         split.DefaultTreatment(),
 			Label:             impressionlabels.Killed,
 			SplitChangeNumber: split.ChangeNumber(),
+			Config:            config,
 		}
 	}
 
@@ -92,11 +100,16 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 		label = impressionlabels.NoConditionMatched
 	}
 
+	if currentConfig, ok := split.Configurations()[*treatment]; ok {
+		config = currentConfig
+	}
+
 	return &Result{
 		Treatment:         *treatment,
 		Label:             label,
 		EvaluationTimeNs:  after.Sub(before).Nanoseconds(),
 		SplitChangeNumber: split.ChangeNumber(),
+		Config:            config,
 	}
 }
 

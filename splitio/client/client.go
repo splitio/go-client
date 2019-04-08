@@ -123,7 +123,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 
 	return TreatmentResult{
 		Treatment: evaluationResult.Treatment,
-		Config:    nil,
+		Config:    evaluationResult.Config,
 	}
 }
 

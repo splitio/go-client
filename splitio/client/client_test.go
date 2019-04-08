@@ -8,6 +8,7 @@ import (
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/asynctask"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 
 	"io/ioutil"
@@ -373,5 +374,237 @@ func TestClientDestroy(t *testing.T) {
 
 	if treatments["feature3"] != evaluator.Control {
 		t.Error("Wrong treatment result")
+	}
+}
+
+var valid = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "off",
+	Killed:                false,
+	Name:                  "valid",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"on": "{\"color\": \"blue\",\"size\": 13}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   nil,
+						},
+						MatcherType: "IN_SEGMENT",
+						Whitelist:   nil,
+						Negate:      false,
+						UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+							SegmentName: "employees",
+						},
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "on",
+				},
+			},
+		},
+	},
+}
+var killed = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "defTreatment",
+	Killed:                true,
+	Name:                  "killed",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"defTreatment": "{\"color\": \"orange\",\"size\": 15}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   nil,
+						},
+						MatcherType: "IN_SEGMENT",
+						Whitelist:   nil,
+						Negate:      false,
+						UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+							SegmentName: "employees",
+						},
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "off",
+				},
+			},
+		},
+	},
+}
+
+type mockStorage struct{}
+
+func (s *mockStorage) Get(
+	feature string,
+) *dtos.SplitDTO {
+	switch feature {
+	default:
+	case "valid":
+		return valid
+	case "killed":
+		return killed
+	}
+	return nil
+}
+func (s *mockStorage) GetAll() []dtos.SplitDTO            { return make([]dtos.SplitDTO, 0) }
+func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet { return nil }
+func (s *mockStorage) SplitNames() []string               { return make([]string, 0) }
+
+type mockSegmentStorage struct{}
+
+func (i *mockSegmentStorage) Get(feature string) *set.ThreadUnsafeSet {
+	switch feature {
+	default:
+	case "employees":
+		return set.NewSet("user1")
+	}
+	return nil
+}
+
+func isInvalidImpression(client SplitClient, key string, feature string, treatment string) bool {
+	impressions := client.impressions.(storage.ImpressionStorage)
+	impression := impressions.PopAll()[0]
+	name := impression.TestName
+	i := impression.KeyImpressions[0]
+
+	if name != feature || i.KeyName != key || treatment != i.Treatment {
+		return true
+	}
+	return false
+}
+func TestClient(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	evaluator := evaluator.NewEvaluator(
+		&mockStorage{},
+		&mockSegmentStorage{},
+		nil,
+		logger,
+	)
+
+	client := SplitClient{
+		cfg:         cfg,
+		evaluator:   evaluator,
+		impressions: mutexmap.NewMMImpressionStorage(),
+		logger:      logger,
+		metrics:     mutexmap.NewMMMetricsStorage(),
+	}
+
+	// Assertions Treatment
+	if client.Treatment("user1", "valid", nil) != "on" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if isInvalidImpression(client, "user1", "valid", "on") {
+		t.Error("Wrong impression saved")
+	}
+
+	if client.Treatment("invalid", "valid", nil) != "off" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if isInvalidImpression(client, "invalid", "valid", "off") {
+		t.Error("Wrong impression saved")
+	}
+
+	if client.Treatment("invalid", "invalid", nil) != "control" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if isInvalidImpression(client, "invalid", "invalid", "control") {
+		t.Error("Wrong impression saved")
+	}
+
+	if client.Treatment("invalid", "killed", nil) != "defTreatment" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if isInvalidImpression(client, "invalid", "killed", "defTreatment") {
+		t.Error("Wrong impression saved")
+	}
+
+	// Assertion Treatments
+	treatments := client.Treatments("user1", []string{"valid", "invalid", "killed"}, nil)
+	if treatments["invalid"] != "control" {
+		t.Error("Unexpected treatment result")
+	}
+	if treatments["killed"] != "defTreatment" {
+		t.Error("Unexpected treatment result")
+	}
+	if treatments["valid"] != "on" {
+		t.Error("Unexpected treatment result")
+	}
+
+	// Assertion TreatmentWithConfig
+	result := client.TreatmentWithConfig("user1", "valid", nil)
+	if result.Treatment != "on" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if result.Config != "{\"color\": \"blue\",\"size\": 13}" {
+		t.Error("Unexpected Config Result")
+	}
+	if isInvalidImpression(client, "user1", "valid", "on") {
+		t.Error("Wrong impression saved")
+	}
+
+	result = client.TreatmentWithConfig("invalid", "valid", nil)
+	if result.Treatment != "off" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if result.Config != nil {
+		t.Error("Unexpected Config Result")
+	}
+	if isInvalidImpression(client, "invalid", "valid", result.Treatment) {
+		t.Error("Wrong impression saved")
+	}
+
+	result = client.TreatmentWithConfig("invalid", "invalid", nil)
+	if result.Treatment != "control" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if result.Config != nil {
+		t.Error("Unexpected Config Result")
+	}
+	if isInvalidImpression(client, "invalid", "invalid", result.Treatment) {
+		t.Error("Wrong impression saved")
+	}
+
+	result = client.TreatmentWithConfig("invalid", "killed", nil)
+	if result.Treatment != "defTreatment" {
+		t.Error("Unexpected Treatment Result")
+	}
+	if result.Config != "{\"color\": \"orange\",\"size\": 15}" {
+		t.Error("Unexpected Config Result")
+	}
+	if isInvalidImpression(client, "invalid", "killed", result.Treatment) {
+		t.Error("Wrong impression saved")
 	}
 }

@@ -74,8 +74,8 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 			split.DefaultTreatment(),
 		))
 
-		if currentConfig, ok := split.Configurations()[split.DefaultTreatment()]; ok {
-			config = currentConfig
+		if _, ok := split.Configurations()[split.DefaultTreatment()]; ok {
+			config = split.Configurations()[split.DefaultTreatment()]
 		}
 
 		return &Result{
@@ -100,8 +100,8 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 		label = impressionlabels.NoConditionMatched
 	}
 
-	if currentConfig, ok := split.Configurations()[*treatment]; ok {
-		config = currentConfig
+	if _, ok := split.Configurations()[*treatment]; ok {
+		config = split.Configurations()[*treatment]
 	}
 
 	return &Result{

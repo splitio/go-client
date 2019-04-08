@@ -211,13 +211,13 @@ func (i *inputValidation) ValidateManagerInputs(feature string) error {
 }
 
 // ValidateFeatureNames implements the validation for Treatments call
-func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, error) {
+func (i *inputValidation) ValidateFeatureNames(features []string, operation string) ([]string, error) {
 	var featuresSet = set.NewSet()
 	if len(features) == 0 {
-		return []string{}, errors.New("Treatments: features must be a non-empty array")
+		return []string{}, errors.New(operation + ": features must be a non-empty array")
 	}
 	for _, feature := range features {
-		f, err := i.ValidateFeatureName(feature, "Treatments")
+		f, err := i.ValidateFeatureName(feature, operation)
 		if err != nil {
 			i.logger.Error(err.Error())
 		} else {
@@ -225,7 +225,7 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		}
 	}
 	if featuresSet.IsEmpty() {
-		return []string{}, errors.New("Treatments: features must be a non-empty array")
+		return []string{}, errors.New(operation + ": features must be a non-empty array")
 	}
 	f := make([]string, featuresSet.Size())
 	for i, v := range featuresSet.List() {
@@ -237,14 +237,17 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 	return f, nil
 }
 
-func (i *inputValidation) GenerateControlTreatments(features []string) map[string]string {
-	treatments := make(map[string]string)
-	filtered, err := i.ValidateFeatureNames(features)
+func (i *inputValidation) GenerateControlTreatments(features []string, operation string) map[string]TreatmentResult {
+	treatments := make(map[string]TreatmentResult)
+	filtered, err := i.ValidateFeatureNames(features, operation)
 	if err != nil {
 		return treatments
 	}
 	for _, feature := range filtered {
-		treatments[feature] = evaluator.Control
+		treatments[feature] = TreatmentResult{
+			Treatment: evaluator.Control,
+			Config:    nil,
+		}
 	}
 	return treatments
 }

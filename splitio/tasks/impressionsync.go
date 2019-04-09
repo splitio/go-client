@@ -28,16 +28,11 @@ func submitImpressions(
 	sdkVersion string,
 	machineIP string,
 	machineName string,
-	listener impressionlistener.ListenerInterface,
 	logger logging.LoggerInterface,
 ) error {
 	impressions := impressionStorage.PopAll()
 	if len(impressions) > 0 {
-		err := impressionRecorder.Record(impressions, sdkVersion, machineIP, machineName)
-		if listener != nil {
-			go listenerWrapper(impressions, listener, logger)
-		}
-		return err
+		return impressionRecorder.Record(impressions, sdkVersion, machineIP, machineName)
 	}
 	return nil
 }
@@ -50,7 +45,6 @@ func NewRecordImpressionsTask(
 	sdkVersion,
 	machineIP string,
 	machineName string,
-	listener impressionlistener.ListenerInterface,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
@@ -60,7 +54,6 @@ func NewRecordImpressionsTask(
 			sdkVersion,
 			machineIP,
 			machineName,
-			listener,
 			logger,
 		)
 	}

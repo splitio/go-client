@@ -2,9 +2,16 @@ package local
 
 import (
 	"fmt"
-	"github.com/splitio/go-client/splitio/service/dtos"
 	"io/ioutil"
+	"log"
+	"regexp"
+	"runtime/debug"
 	"strings"
+
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+
+	"github.com/splitio/go-client/splitio/service/dtos"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -12,6 +19,8 @@ const (
 	SplitFileFormatClassic = iota
 	// SplitFileFormatJSON represents the file format of a JSON representation of split dtos
 	SplitFileFormatJSON
+	// SplitFileFormatYAML represents the file format of a YAML representation of split dtos
+	SplitFileFormatYAML
 )
 
 // FileSplitFetcher struct fetches splits from a file
@@ -22,10 +31,17 @@ type FileSplitFetcher struct {
 }
 
 // NewFileSplitFetcher returns a new instance of LocalFileSplitFetcher
-func NewFileSplitFetcher(splitFile string, fileFormat int) *FileSplitFetcher {
+func NewFileSplitFetcher(splitFile string) *FileSplitFetcher {
+	var r = regexp.MustCompile("(.yml$|.yaml$)")
+	if r.MatchString(splitFile) {
+		return &FileSplitFetcher{
+			splitFile:  splitFile,
+			fileFormat: SplitFileFormatYAML,
+		}
+	}
 	return &FileSplitFetcher{
 		splitFile:  splitFile,
-		fileFormat: fileFormat,
+		fileFormat: SplitFileFormatClassic,
 	}
 }
 
@@ -41,36 +57,166 @@ func parseSplitsClassic(data string) []dtos.SplitDTO {
 		}
 		splitName := words[0]
 		treatment := words[1]
-		splits = append(splits, dtos.SplitDTO{
-			Name: splitName,
-			Conditions: []dtos.ConditionDTO{
+		splits = append(splits, createSplit(
+			splitName,
+			treatment,
+			createRolloutCondition(treatment),
+			make(map[string]string),
+		))
+	}
+	return splits
+}
+
+func createSplit(splitName string, treatment string, condition dtos.ConditionDTO, configurations map[string]string) dtos.SplitDTO {
+	split := dtos.SplitDTO{
+		Name:              splitName,
+		TrafficAllocation: 100,
+		Conditions:        []dtos.ConditionDTO{condition},
+		Status:            "ACTIVE",
+		DefaultTreatment:  evaluator.Control,
+		Configurations:    configurations,
+	}
+	return split
+}
+
+func createWhitelistedCondition(treatment string, keys interface{}) dtos.ConditionDTO {
+	var whitelist []string
+	switch keys := keys.(type) {
+	case string:
+		whitelist = []string{keys}
+	case []string:
+		whitelist = keys
+	case []interface{}:
+		whitelist = make([]string, 0)
+		for _, key := range keys {
+			k, ok := key.(string)
+			if ok {
+				whitelist = append(whitelist, k)
+			}
+		}
+	default:
+		whitelist = make([]string, 0)
+	}
+	return dtos.ConditionDTO{
+		ConditionType: "WHITELIST",
+		Label:         "LOCAL_",
+		MatcherGroup: dtos.MatcherGroupDTO{
+			Combiner: "AND",
+			Matchers: []dtos.MatcherDTO{
 				{
-					Label: "LOCAL",
-					MatcherGroup: dtos.MatcherGroupDTO{
-						Combiner: "AND",
-						Matchers: []dtos.MatcherDTO{
-							{
-								MatcherType: "ALL_KEYS",
-								Negate:      false,
-							},
-						},
-					},
-					Partitions: []dtos.PartitionDTO{
-						{
-							Size:      100,
-							Treatment: treatment,
-						},
-						{
-							Size:      0,
-							Treatment: "_",
-						},
+					MatcherType: "WHITELIST",
+					Negate:      false,
+					Whitelist: &dtos.WhitelistMatcherDataDTO{
+						Whitelist: whitelist,
 					},
 				},
 			},
-			Status:           "ACTIVE",
-			DefaultTreatment: treatment,
-		})
+		},
+		Partitions: []dtos.PartitionDTO{
+			{
+				Size:      100,
+				Treatment: treatment,
+			},
+		},
 	}
+}
+
+func createRolloutCondition(treatment string) dtos.ConditionDTO {
+	return dtos.ConditionDTO{
+		ConditionType: "ROLLOUT",
+		Label:         "LOCAL_ROLLOUT",
+		MatcherGroup: dtos.MatcherGroupDTO{
+			Combiner: "AND",
+			Matchers: []dtos.MatcherDTO{
+				{
+					MatcherType: "ALL_KEYS",
+					Negate:      false,
+				},
+			},
+		},
+		Partitions: []dtos.PartitionDTO{
+			{
+				Size:      100,
+				Treatment: treatment,
+			},
+			{
+				Size:      0,
+				Treatment: "_",
+			},
+		},
+	}
+}
+
+func createCondition(keys interface{}, treatment string) dtos.ConditionDTO {
+	if keys != nil {
+		return createWhitelistedCondition(treatment, keys)
+	}
+	return createRolloutCondition(treatment)
+}
+
+func parseSplitsYAML(data string) (d []dtos.SplitDTO) {
+	// Set up a guard deferred function to recover if some error occurs during parsing
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			log.Fatalf("Localhost Parsing: %v", string(debug.Stack()))
+			d = make([]dtos.SplitDTO, 0)
+		}
+	}()
+
+	splits := make([]dtos.SplitDTO, 0)
+
+	var splitsFromYAML []map[string]map[string]interface{}
+	err := yaml.Unmarshal([]byte(data), &splitsFromYAML)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+		return splits
+	}
+
+	splitsToParse := make(map[string]dtos.SplitDTO, 0)
+
+	for _, splitMap := range splitsFromYAML {
+		for splitName, splitParsed := range splitMap {
+			split, ok := splitsToParse[splitName]
+			treatment, isString := splitParsed["treatment"].(string)
+			if !isString {
+				break
+			}
+			config, isValidConfig := splitParsed["config"].(string)
+			if !ok {
+				configurations := make(map[string]string)
+				if isValidConfig {
+					configurations[treatment] = config
+				}
+				splitsToParse[splitName] = createSplit(
+					splitName,
+					treatment,
+					createCondition(splitParsed["keys"], treatment),
+					configurations,
+				)
+			} else {
+				newCondition := createCondition(splitParsed["keys"], treatment)
+				if newCondition.ConditionType == "ROLLOUT" {
+					split.Conditions = append(split.Conditions, newCondition)
+				} else {
+					split.Conditions = append([]dtos.ConditionDTO{newCondition}, split.Conditions...)
+				}
+				configurations := split.Configurations
+				if isValidConfig {
+					configurations[treatment] = config
+				}
+				split.Configurations = configurations
+				splitsToParse[splitName] = split
+			}
+
+		}
+	}
+
+	for _, split := range splitsToParse {
+		splits = append(splits, split)
+	}
+
 	return splits
 }
 
@@ -93,6 +239,8 @@ func (s *FileSplitFetcher) Fetch(changeNumber int64) (*dtos.SplitChangesDTO, err
 	switch s.fileFormat {
 	case SplitFileFormatClassic:
 		splits = parseSplitsClassic(data)
+	case SplitFileFormatYAML:
+		splits = parseSplitsYAML(data)
 	case SplitFileFormatJSON:
 		return nil, fmt.Errorf("JSON is not yet supported")
 	default:

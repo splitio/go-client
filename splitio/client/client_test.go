@@ -1141,6 +1141,7 @@ func TestClient(t *testing.T) {
 	if treatments["valid"] != "on" {
 		t.Error("Unexpected treatment result")
 	}
+	client.impressions.(storage.ImpressionStorage).PopAll()
 
 	// Assertion TreatmentWithConfig
 	result := client.TreatmentWithConfig("user1", "valid", nil)

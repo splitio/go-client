@@ -3,7 +3,9 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -11,48 +13,60 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/api"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
-
 	"github.com/splitio/go-toolkit/logging"
 )
+
+// SdkDestroyed flag
+const SdkDestroyed = 0
+
+// SdkOnInitialization flag
+const SdkOnInitialization = 1
+
+// SdkReady flag
+const SdkReady = 2
+
+// SdkError flag
+const SdkError = -1
 
 var inMemoryFullQueueChan = make(chan bool, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	client    *SplitClient
-	manager   *SplitManager
-	destroyed atomic.Value
+	client                *SplitClient
+	manager               *SplitManager
+	status                atomic.Value
+	readinessSubscriptors map[int]chan int
+	operationMode         string
+	mutex                 *sync.Mutex
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
-	f.client.factory = f
-	f.manager.factory = f
 	return f.client
 }
 
 // Manager returns the split manager instantiated by the factory
 func (f *SplitFactory) Manager() *SplitManager {
-	f.client.factory = f
-	f.manager.factory = f
 	return f.manager
 }
 
 // Destroy blocks all the operations
 func (f *SplitFactory) Destroy() {
-	f.destroyed.Store(true)
+	f.status.Store(SdkDestroyed)
 }
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (f *SplitFactory) IsDestroyed() bool {
-	return f.destroyed.Load().(bool)
+	return f.status.Load() == SdkDestroyed
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -65,6 +79,45 @@ func setupLogger(cfg *conf.SplitSdkConfig) logging.LoggerInterface {
 		logger = logging.NewLogger(&cfg.LoggerConfig)
 	}
 	return logger
+}
+
+// initializates task for localhost mode
+func (f *SplitFactory) initializationLocalhost(readyChannel chan string, syncTasks *sdkSync) {
+	syncTasks.splitSync.Start()
+
+	<-readyChannel
+	f.broadcastReadiness(SdkReady)
+}
+
+// initializates tasks for in-memory mode
+func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTasks *sdkSync) {
+	// Start split fetching task
+	syncTasks.splitSync.Start()
+
+	msg := <-readyChannel
+	switch msg {
+	case "SPLITS_READY":
+		// Once splits are ready, start segment fetching task
+		syncTasks.segmentSync.Start()
+		break
+	case "SPLITS_ERROR":
+		// Broadcast on error
+		f.broadcastReadiness(SdkError)
+		return
+	}
+
+	msg = <-readyChannel
+	switch msg {
+	case "SEGMENTS_READY":
+		// Once segments are ready, start impressions and metrics recording tasks
+		syncTasks.impressionSync.Start()
+		syncTasks.latenciesSync.Start()
+		syncTasks.countersSync.Start()
+		syncTasks.gaugeSync.Start()
+		syncTasks.eventsSync.Start()
+		// Broadcast ready status for SDK
+		f.broadcastReadiness(SdkReady)
+	}
 }
 
 // NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
@@ -152,6 +205,48 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	instance := cfg.InstanceName
 	// Setup synchronization structs and tasks
 	var syncTasks *sdkSync
+
+	engine := engine.NewEngine(logger)
+
+	metadata := dtos.QueueStoredMachineMetadataDTO{
+		MachineIP:   ip,
+		MachineName: instance,
+		SDKVersion:  version,
+	}
+
+	client := &SplitClient{
+		apikey:      apikey,
+		logger:      logger,
+		evaluator:   evaluator.NewEvaluator(splitStorage, segmentStorage, engine, logger),
+		impressions: impressionStorage,
+		metrics:     metricsStorage,
+		sync:        syncTasks,
+		cfg:         cfg,
+		events:      eventsStorage,
+		validator:   inputValidation{logger: logger},
+		metadata:    metadata,
+	}
+
+	if cfg.Advanced.ImpressionListener != nil {
+		client.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener)
+	}
+
+	manager := &SplitManager{
+		splitStorage: splitStorage,
+		validator:    inputValidation{logger: logger},
+		logger:       logger,
+	}
+
+	// Create new Split Factory
+	splitFactory := &SplitFactory{
+		client:                client,
+		manager:               manager,
+		readinessSubscriptors: make(map[int]chan int),
+		operationMode:         cfg.OperationMode,
+		mutex:                 &sync.Mutex{},
+	}
+	splitFactory.status.Store(SdkOnInitialization)
+
 	switch cfg.OperationMode {
 	case "localhost":
 		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, local.SplitFileFormatClassic)
@@ -160,13 +255,8 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 		}
-		syncTasks.splitSync.Start()
-		select {
-		case <-readyChannel:
-			break // Only SPLITS_READY should be sent, no need to check
-		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
-			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
-		}
+		// Call fetching tasks as goroutine
+		go splitFactory.initializationLocalhost(readyChannel, syncTasks)
 	case "inmemory-standalone", "redis-standalone":
 		// Sync structs
 		splitFetcher := api.NewHTTPSplitFetcher(apikey, cfg, logger)
@@ -207,7 +297,6 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				version,
 				ip,
 				instance,
-				cfg.Advanced.ImpressionListener,
 				logger,
 			),
 			countersSync: tasks.NewRecordCountersTask(
@@ -230,43 +319,8 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				logger,
 			),
 		}
-
-		// Start split fetching task
-		syncTasks.splitSync.Start()
-
-		// Block until ready part 1: splits
-		preSplitsTS := time.Now()
-		select {
-		case msg := <-readyChannel:
-			switch msg {
-			case "SPLITS_READY":
-				// Once splits are ready, start segment fetching task
-				syncTasks.segmentSync.Start()
-				break
-			case "SPLITS_ERROR":
-				return nil, fmt.Errorf("Split syncrhonization failed. Please check your apikey")
-			}
-		case <-time.After(time.Second * time.Duration(cfg.BlockUntilReady)):
-			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
-		}
-
-		// Block until ready part 2: segments
-		remaining := cfg.BlockUntilReady - int(time.Now().Sub(preSplitsTS).Seconds())
-		select {
-		case msg := <-readyChannel:
-			switch msg {
-			case "SEGMENTS_READY":
-				// Once segments are ready, start impressions and metrics recording tasks
-				syncTasks.impressionSync.Start()
-				syncTasks.latenciesSync.Start()
-				syncTasks.countersSync.Start()
-				syncTasks.gaugeSync.Start()
-				syncTasks.eventsSync.Start()
-				break
-			}
-		case <-time.After(time.Duration(remaining) * time.Second):
-			return nil, fmt.Errorf("SDK Initialization time of %d exceeded", cfg.BlockUntilReady)
-		}
+		// Call fetching tasks as goroutine
+		go splitFactory.initializationInMemory(readyChannel, syncTasks)
 
 		// Flushing storage queue signal only for inmemory-standalone
 		if cfg.OperationMode == "inmemory-standalone" {
@@ -285,38 +339,91 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		}
 
 	case "redis-consumer":
-		// No synchronization tasks necessary in redis-consumer mode
+		splitFactory.status.Store(SdkReady)
 	default:
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
 
 	logger.Info("Sdk initialization complete!")
 
-	engine := engine.NewEngine(logger)
-	client := &SplitClient{
-		apikey:      apikey,
-		logger:      logger,
-		evaluator:   evaluator.NewEvaluator(splitStorage, segmentStorage, engine, logger),
-		impressions: impressionStorage,
-		metrics:     metricsStorage,
-		sync:        syncTasks,
-		cfg:         cfg,
-		events:      eventsStorage,
-		validator:   inputValidation{logger: logger},
+	splitFactory.client.factory = splitFactory
+	splitFactory.manager.factory = splitFactory
+
+	return splitFactory, nil
+}
+
+// broadcastReadiness broadcasts message to all the subscriptors
+func (f *SplitFactory) broadcastReadiness(status int) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	if f.status.Load() == SdkOnInitialization && status == SdkReady {
+		f.status.Store(SdkReady)
+	}
+	for _, subscriptor := range f.readinessSubscriptors {
+		subscriptor <- status
+	}
+}
+
+// subscribes listener
+func (f *SplitFactory) subscribe(name int, subscriptor chan int) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	f.readinessSubscriptors[name] = subscriptor
+}
+
+// removes a particular subscriptor from the list
+func (f *SplitFactory) unsubscribe(name int, subscriptor chan int) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	_, ok := f.readinessSubscriptors[name]
+	if ok {
+		delete(f.readinessSubscriptors, name)
+	}
+}
+
+// IsReady returns true if the factory is ready
+func (f *SplitFactory) IsReady() bool {
+	return f.status.Load() == SdkReady
+}
+
+// BlockUntilReady blocks client or manager until the SDK is ready, error occurs or times out
+func (f *SplitFactory) BlockUntilReady(timer int) error {
+	if f.IsReady() {
+		return nil
+	}
+	if timer <= 0 {
+		return errors.New("SDK Initialization: timer must be positive number")
+	}
+	if f.IsDestroyed() {
+		return errors.New("SDK Initialization: Client is destroyed")
+	}
+	block := make(chan int, 1)
+
+	f.mutex.Lock()
+	subscriptorName := len(f.readinessSubscriptors)
+	f.mutex.Unlock()
+
+	defer func() {
+		// Unsubscription will happen only if a block channel has been created
+		if block != nil {
+			f.unsubscribe(subscriptorName, block)
+			close(block)
+		}
+	}()
+
+	f.subscribe(subscriptorName, block)
+
+	select {
+	case status := <-block:
+		switch status {
+		case SdkReady:
+			break
+		case SdkError:
+			return errors.New("SDK Initialization failed")
+		}
+	case <-time.After(time.Second * time.Duration(timer)):
+		return fmt.Errorf("SDK Initialization: time of %d exceeded", timer)
 	}
 
-	manager := &SplitManager{
-		splitStorage: splitStorage,
-		validator:    inputValidation{logger: logger},
-		logger:       logger,
-	}
-
-	sp := &SplitFactory{
-		client:  client,
-		manager: manager,
-	}
-
-	sp.destroyed.Store(false)
-
-	return sp, nil
+	return nil
 }

@@ -506,7 +506,7 @@ func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	expected := "Treatment: split name ' some_feature  ' has extra whitespace, trimming"
+	expected := "Treatments: split name ' some_feature  ' has extra whitespace, trimming"
 	if strMsg != expected {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)

@@ -1,10 +1,16 @@
 package client
 
 import (
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/asynctask"
@@ -34,6 +40,13 @@ func (e *mockEvaluator) Evaluate(
 			Label:             "aLabel",
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentA",
+		}
+	case "feature2":
+		return &evaluator.Result{
+			EvaluationTimeNs:  0,
+			Label:             "bLabel",
+			SplitChangeNumber: 123,
+			Treatment:         "TreatmentB",
 		}
 	default:
 		return &evaluator.Result{
@@ -69,6 +82,12 @@ func TestClientGetTreatment(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
 
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
 	client.Treatment("key", "feature", nil)
 
 	impressions := client.impressions.(storage.ImpressionStorage)
@@ -99,6 +118,12 @@ func TestTreatments(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
 
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
 	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil)
 
 	featureRes, ok := res["feature"]
@@ -127,6 +152,7 @@ func TestLocalhostMode(t *testing.T) {
 	sdkConf.SplitFile = file.Name()
 	factory, _ := NewSplitFactory("localhost", sdkConf)
 	client := factory.Client()
+	client.BlockUntilReady(1)
 
 	if client.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
@@ -159,6 +185,12 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
 	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
 
 	feature1 := client.Treatment(nil, "feature", nil)
 	if feature1 != "control" {
@@ -377,6 +409,545 @@ func TestClientDestroy(t *testing.T) {
 	}
 }
 
+type ImpressionListenerTest struct {
+}
+
+var ilResult = make(map[string]interface{})
+
+func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject) {
+	ilTest := make(map[string]interface{})
+	ilTest["Feature"] = data.Impression.Feature
+	ilTest["BucketingKey"] = data.Impression.BucketingKey
+	ilTest["ChangeNumber"] = data.Impression.ChangeNumber
+	ilTest["KeyName"] = data.Impression.KeyName
+	ilTest["Label"] = data.Impression.Label
+	ilTest["Time"] = data.Impression.Time
+	ilTest["Treatment"] = data.Impression.Treatment
+	ilTest["Attributes"] = data.Attributes
+	ilTest["Version"] = data.SDKLanguageVersion
+	ilTest["InstanceName"] = data.InstanceID
+
+	ilResult[data.Impression.Feature] = ilTest
+}
+
+func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string) bool {
+	if ilTest["Feature"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
+		return false
+	}
+	if ilTest["Version"] != v {
+		return false
+	}
+	attr1, _ := ilTest["Attributes"].(map[string]interface{})
+	if attr1["One"] != a {
+		return false
+	}
+	return true
+}
+
+func TestImpressionListener(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	impTest := &ImpressionListenerTest{}
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
+	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatment("user1", "feature", attributes)
+
+	if res != "TreatmentA" {
+		t.Error("Wrong Treatment result")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	delete(ilResult, "feature")
+}
+
+func TestImpressionListenerForTreatments(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+	impTest := &ImpressionListenerTest{}
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+
+	client := SplitClient{
+		cfg:                cfg,
+		evaluator:          &mockEvaluator{},
+		impressions:        mutexmap.NewMMImpressionStorage(),
+		logger:             logger,
+		metrics:            mutexmap.NewMMMetricsStorage(),
+		impressionListener: impresionL,
+		metadata: dtos.QueueStoredMachineMetadataDTO{
+			MachineName: cfg.InstanceName,
+			SDKVersion:  splitio.Version,
+		},
+	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes)
+
+	if res["feature"] != "TreatmentA" || res["feature2"] != "TreatmentB" {
+		t.Error("Wrong Treatment result")
+	}
+
+	if len(ilResult) != 2 {
+		t.Error("Error on ImpressionListener")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	delete(ilResult, "feature")
+	delete(ilResult, "feature2")
+}
+
+func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Write([]byte("feature2 off\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	err = client.BlockUntilReady(-1)
+	expected := "SDK Initialization: timer must be positive number"
+	if err != nil && err.Error() != expected {
+		t.Error("Error was expected")
+	}
+
+	manager := factory.Manager()
+	err = manager.BlockUntilReady(-1)
+	if err != nil && err.Error() != expected {
+		t.Error("Error was expected")
+	}
+}
+
+func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	impTest := &ImpressionListenerTest{}
+	sdkConf.Advanced.ImpressionListener = impTest
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	manager := factory.Manager()
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = client.Track("something", "something", "something", nil)
+	if err != nil {
+		t.Error("It should not return error")
+	}
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	if client.Treatment("something", "something", attributes) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+	if !compareListener(ilResult["something"].(map[string]interface{}), "something", "something", "definition not found", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready")
+	}
+
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready")
+	}
+
+	err = client.Track("something", "something", "something", nil)
+	if err != nil {
+		t.Error("It should not return error")
+	}
+
+	feature1 := client.Treatment("asd", "feature1", nil)
+	if feature1 != "on" {
+		t.Error("Feature1 retrieved incorrectly")
+	}
+
+	if manager.SplitNames()[0] != "feature1" {
+		t.Error("It should return splits")
+	}
+}
+
+func TestBlockUntilReadyStatusLoclahostOnDestroy(t *testing.T) {
+	file, err := ioutil.TempFile("", "splitio_tests")
+	if err != nil {
+		t.Error("Couldn't create temporary file for localhost client tests: ", err)
+		return
+	}
+
+	file.Write([]byte("feature1 on\n"))
+	file.Sync()
+
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = file.Name()
+
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+
+	client := factory.Client()
+	manager := factory.Manager()
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready")
+	}
+
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready")
+	}
+
+	client.Destroy()
+
+	if !client.factory.IsDestroyed() {
+		t.Error("Client should be destroyed")
+	}
+
+	if !manager.factory.IsDestroyed() {
+		t.Error("Manager should be destroyed")
+	}
+
+	err = manager.BlockUntilReady(1)
+	expected := "SDK Initialization: Client is destroyed"
+	if err == nil || err.Error() != expected {
+		t.Error("It should return an error")
+	}
+}
+
+func TestBlockUntilReadyRedis(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.OperationMode = "redis-consumer"
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if !factory.IsReady() {
+		t.Error("Factory should be ready immediately")
+	}
+
+	client := factory.Client()
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready immediately")
+	}
+	err := client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	manager := factory.Manager()
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready immediately")
+	}
+	err = manager.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+}
+
+func TestBlockUntilReadyInMemoryError(t *testing.T) {
+	sdkConf := conf.Default()
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if factory.IsReady() {
+		t.Error("Factory should not be ready")
+	}
+
+	client := factory.Client()
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err := client.Track("something", "something", "something", nil)
+	if err != nil {
+		t.Error("It should not return error")
+	}
+
+	expected := "Client Instantiation: Client is not ready yet"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	if err != nil && err.Error() != "SDK Initialization failed" {
+		t.Error("Wrong error")
+	}
+}
+
+func TestBlockUntilReadyInMemory(t *testing.T) {
+	mockedSplit1 := dtos.SplitDTO{
+		Algo:                  2,
+		ChangeNumber:          123,
+		DefaultTreatment:      "default",
+		Killed:                false,
+		Name:                  "split",
+		Seed:                  1234,
+		Status:                "ACTIVE",
+		TrafficAllocation:     1,
+		TrafficAllocationSeed: -1667452163,
+		TrafficTypeName:       "tt1",
+		Conditions: []dtos.ConditionDTO{
+			{
+				ConditionType: "ROLLOUT",
+				Label:         "in segment all",
+				MatcherGroup: dtos.MatcherGroupDTO{
+					Combiner: "AND",
+					Matchers: []dtos.MatcherDTO{
+						{
+							MatcherType:        "ALL_KEYS",
+							Whitelist:          nil,
+							Negate:             false,
+							UserDefinedSegment: nil,
+						},
+					},
+				},
+				Partitions: []dtos.PartitionDTO{
+					{
+						Size:      100,
+						Treatment: "on",
+					},
+				},
+			},
+		},
+	}
+	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
+	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(4 * time.Second)
+		if r.URL.Path != "/splits" && r.Method != "GET" {
+			t.Error("Invalid request. Should be GET to /splits")
+		}
+
+		splitChanges := dtos.SplitChangesDTO{
+			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+			Since:  3,
+			Till:   3,
+		}
+
+		raw, err := json.Marshal(splitChanges)
+		if err != nil {
+			t.Error("Error building json")
+			return
+		}
+
+		w.Write(raw)
+	}))
+	defer ts.Close()
+
+	segmentMock, _ := ioutil.ReadFile("../../testdata/segment_mock.json")
+
+	tss := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second)
+		fmt.Fprintln(w, fmt.Sprintf(string(segmentMock)))
+	}))
+	defer tss.Close()
+
+	sdkConf := conf.Default()
+	sdkConf.Advanced.EventsURL = tss.URL
+	sdkConf.Advanced.SdkURL = ts.URL
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if factory.IsReady() {
+		t.Error("Factory should not be ready")
+	}
+
+	client := factory.Client()
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	manager := factory.Manager()
+	if manager.factory.IsReady() {
+		t.Error("Manager should not be ready")
+	}
+
+	if len(manager.SplitNames()) != 0 {
+		t.Error("It should not return splits")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	if client.Treatment("something", "something", nil) != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	features := []string{"something"}
+	result := client.Treatments("something", features, nil)
+	if result["something"] != evaluator.Control {
+		t.Error("Wrong evaluation")
+	}
+
+	err := client.Track("something", "something", "something", nil)
+	if err != nil {
+		t.Error("It should not return error")
+	}
+
+	expected := "Client Instantiation: Client is not ready yet"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	err = client.BlockUntilReady(1)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected2 := "SDK Initialization: time of 1 exceeded"
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	if client.factory.IsReady() {
+		t.Error("Client should not be ready")
+	}
+
+	err = manager.BlockUntilReady(2)
+	if err == nil {
+		t.Error("It should return error")
+	}
+
+	expected2 = "SDK Initialization: time of 2 exceeded"
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	err = client.BlockUntilReady(2)
+	if err != nil && err.Error() != expected2 {
+		t.Error("Wrong message error")
+	}
+
+	if !client.factory.IsReady() || !manager.factory.IsReady() {
+		t.Error("Both client and manager should be ready")
+	}
+
+	if len(manager.SplitNames()) != 2 {
+		t.Error("It should return Splits")
+	}
+
+	if client.Treatment("aaaaaaklmnbv", "split", nil) != "on" {
+		t.Error("Treatment error")
+	}
+}
+
 var valid = &dtos.SplitDTO{
 	Algo:                  2,
 	ChangeNumber:          1494593336752,
@@ -419,6 +990,7 @@ var valid = &dtos.SplitDTO{
 		},
 	},
 }
+
 var killed = &dtos.SplitDTO{
 	Algo:                  2,
 	ChangeNumber:          1494593336752,
@@ -502,6 +1074,7 @@ func isInvalidImpression(client SplitClient, key string, feature string, treatme
 	}
 	return false
 }
+
 func TestClient(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
@@ -521,6 +1094,12 @@ func TestClient(t *testing.T) {
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
+
+	factory := SplitFactory{
+		client: &client,
+	}
+	factory.status.Store(SdkReady)
+	client.factory = &factory
 
 	// Assertions Treatment
 	if client.Treatment("user1", "valid", nil) != "on" {
@@ -568,7 +1147,7 @@ func TestClient(t *testing.T) {
 	if result.Treatment != "on" {
 		t.Error("Unexpected Treatment Result")
 	}
-	if result.Config != "{\"color\": \"blue\",\"size\": 13}" {
+	if *result.Config != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("Unexpected Config Result")
 	}
 	if isInvalidImpression(client, "user1", "valid", "on") {
@@ -601,7 +1180,7 @@ func TestClient(t *testing.T) {
 	if result.Treatment != "defTreatment" {
 		t.Error("Unexpected Treatment Result")
 	}
-	if result.Config != "{\"color\": \"orange\",\"size\": 15}" {
+	if *result.Config != "{\"color\": \"orange\",\"size\": 15}" {
 		t.Error("Unexpected Config Result")
 	}
 	if isInvalidImpression(client, "invalid", "killed", result.Treatment) {

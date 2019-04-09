@@ -7,6 +7,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
@@ -17,17 +18,19 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey       string
-	cfg          *conf.SplitSdkConfig
-	logger       logging.LoggerInterface
-	loggerConfig logging.LoggerOptions
-	evaluator    evaluator.Interface
-	sync         *sdkSync
-	impressions  storage.ImpressionStorageProducer
-	metrics      storage.MetricsStorageProducer
-	events       storage.EventStorageProducer
-	validator    inputValidation
-	factory      *SplitFactory
+	apikey             string
+	cfg                *conf.SplitSdkConfig
+	logger             logging.LoggerInterface
+	loggerConfig       logging.LoggerOptions
+	evaluator          evaluator.Interface
+	sync               *sdkSync
+	impressions        storage.ImpressionStorageProducer
+	metrics            storage.MetricsStorageProducer
+	events             storage.EventStorageProducer
+	validator          inputValidation
+	factory            *SplitFactory
+	impressionListener *impressionlistener.WrapperImpressionListener
+	metadata           dtos.QueueStoredMachineMetadataDTO
 }
 
 type sdkSync struct {
@@ -43,7 +46,7 @@ type sdkSync struct {
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
 type TreatmentResult struct {
 	Treatment string
-	Config    interface{}
+	Config    *string
 }
 
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
@@ -99,6 +102,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		if c.cfg.LabelsEnabled {
 			label = evaluationResult.Label
 		}
+
 		var impression = dtos.ImpressionDTO{
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
@@ -107,12 +111,21 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 			Treatment:    evaluationResult.Treatment,
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
+
 		keyImpressions := []dtos.ImpressionDTO{impression}
 		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
+
 		c.impressions.LogImpressions(toStore)
+
+		// Custom Impression Listener
+		if c.impressionListener != nil {
+			for _, dataToSend := range toStore {
+				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+			}
+		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}
@@ -198,6 +211,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 		treatments[feature] = evaluationResult.Treatment
 	}
 
+	// Custom Impression Listener
+	if c.impressionListener != nil {
+		for _, dataToSend := range bulkImpressions {
+			c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+		}
+	}
+
 	// Store latency
 	bucket := metrics.Bucket(time.Now().Sub(before).Nanoseconds())
 	c.metrics.IncLatency("sdk.getTreatments", bucket)
@@ -209,17 +229,13 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 // IsDestroyed returns true if tbe client has been destroyed
 func (c *SplitClient) IsDestroyed() bool {
-	if c.factory != nil {
-		return c.factory.IsDestroyed()
-	}
-	return false
+	return c.factory.IsDestroyed()
+
 }
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
-	if c.factory != nil {
-		c.factory.Destroy()
-	}
+	c.factory.Destroy()
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
 		return
@@ -287,4 +303,9 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 	}
 
 	return nil
+}
+
+// BlockUntilReady Calls BlockUntilReady on factory to block client on readiness
+func (c *SplitClient) BlockUntilReady(timer int) error {
+	return c.factory.BlockUntilReady(timer)
 }

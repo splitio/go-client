@@ -1199,13 +1199,13 @@ func TestClient(t *testing.T) {
 	if treatmentsWithConfigs["killed"].Treatment != "defTreatment" {
 		t.Error("Unexpected treatment result")
 	}
-	if treatmentsWithConfigs["killed"].Config != "{\"color\": \"orange\",\"size\": 15}" {
+	if *treatmentsWithConfigs["killed"].Config != "{\"color\": \"orange\",\"size\": 15}" {
 		t.Error("Unexpected Config Result")
 	}
 	if treatmentsWithConfigs["valid"].Treatment != "on" {
 		t.Error("Unexpected treatment result")
 	}
-	if treatmentsWithConfigs["valid"].Config != "{\"color\": \"blue\",\"size\": 13}" {
+	if *treatmentsWithConfigs["valid"].Config != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("Unexpected Config Result")
 	}
 }

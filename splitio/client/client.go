@@ -142,7 +142,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
+func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
 	return c.doTreatmentCall(key, feature, attributes, "Treatment", "sdk.getTreatment").Treatment
 }
 
@@ -152,14 +152,42 @@ func (c *SplitClient) TreatmentWithConfig(key interface{}, feature string, attri
 	return c.doTreatmentCall(key, feature, attributes, "TreatmentWithConfig", "sdk.getTreatmentWithConfig")
 }
 
+// Generates control treatments
+func (c *SplitClient) generateControlTreatments(features []string, operation string) map[string]TreatmentResult {
+	treatments := make(map[string]TreatmentResult)
+	filtered, err := c.validator.ValidateFeatureNames(features, operation)
+	if err != nil {
+		return treatments
+	}
+	for _, feature := range filtered {
+		treatments[feature] = TreatmentResult{
+			Treatment: evaluator.Control,
+			Config:    nil,
+		}
+	}
+	return treatments
+}
+
 // doTreatmentsCall retrieves treatments of an specific array of features with configurations object if it is present
 // for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attributes map[string]interface{}, operation string, metricsLabel string) map[string]TreatmentResult {
+func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
+
+	// Set up a guard deferred function to recover if the SDK starts panicking
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n")
+			t = treatments
+		}
+	}()
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return c.validator.GenerateControlTreatments(features, operation)
+		return c.generateControlTreatments(features, operation)
 	}
 
 	before := time.Now()
@@ -168,7 +196,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return c.validator.GenerateControlTreatments(features, operation)
+		return c.generateControlTreatments(features, operation)
 	}
 
 	filteredFeatures, err := c.validator.ValidateFeatureNames(features, operation)

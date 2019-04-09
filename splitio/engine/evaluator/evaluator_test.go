@@ -248,7 +248,7 @@ func TestSplitWithtConfigurations(t *testing.T) {
 		t.Error("Wrong treatment result")
 	}
 
-	if result.Config == nil && result.Config != "{\"color\": \"blue\",\"size\": 13}" {
+	if result.Config == nil && *result.Config != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("Unexpected configs")
 	}
 }
@@ -294,7 +294,7 @@ func TestSplitWithConfigurationsButKilledWithConfigsOnDefault(t *testing.T) {
 		t.Error("Wrong treatment result")
 	}
 
-	if result.Config == nil && result.Config != "{\"color\": \"orange\",\"size\": 13}" {
+	if result.Config == nil && *result.Config != "{\"color\": \"orange\",\"size\": 13}" {
 		t.Error("Unexpected configs")
 	}
 }

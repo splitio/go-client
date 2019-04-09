@@ -25,7 +25,7 @@ type Result struct {
 	Label             string
 	EvaluationTimeNs  int64
 	SplitChangeNumber int64
-	Config            interface{}
+	Config            *string
 }
 
 // Evaluator struct is the main evaluator
@@ -54,7 +54,7 @@ func NewEvaluator(
 // Evaluate returns a struct with the resulting treatment and extra information for the impression
 func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	splitDto := e.splitStorage.Get(feature)
-	var config interface{}
+	var config *string
 	if splitDto == nil {
 		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
 		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
@@ -74,8 +74,9 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 			split.DefaultTreatment(),
 		))
 
-		if currentConfig, ok := split.Configurations()[split.DefaultTreatment()]; ok {
-			config = currentConfig
+		if _, ok := split.Configurations()[split.DefaultTreatment()]; ok {
+			treatmentConfig := split.Configurations()[split.DefaultTreatment()]
+			config = &treatmentConfig
 		}
 
 		return &Result{
@@ -100,8 +101,9 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 		label = impressionlabels.NoConditionMatched
 	}
 
-	if currentConfig, ok := split.Configurations()[*treatment]; ok {
-		config = currentConfig
+	if _, ok := split.Configurations()[*treatment]; ok {
+		treatmentConfig := split.Configurations()[*treatment]
+		config = &treatmentConfig
 	}
 
 	return &Result{

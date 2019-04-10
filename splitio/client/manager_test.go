@@ -91,6 +91,13 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 
 	manager := SplitManager{splitStorage: splitStorage}
 
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
 	splitNames := manager.SplitNames()
 	splitNameSet := set.NewSet(splitNames[0], splitNames[1], splitNames[2])
 	if !splitNameSet.IsEqual(set.NewSet("valid", "killed", "noConfig")) {

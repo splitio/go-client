@@ -10,8 +10,6 @@ import (
 
 	"github.com/splitio/go-toolkit/datastructures/set"
 
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -235,19 +233,4 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 		}
 	}
 	return f, nil
-}
-
-func (i *inputValidation) GenerateControlTreatments(features []string, operation string) map[string]TreatmentResult {
-	treatments := make(map[string]TreatmentResult)
-	filtered, err := i.ValidateFeatureNames(features, operation)
-	if err != nil {
-		return treatments
-	}
-	for _, feature := range filtered {
-		treatments[feature] = TreatmentResult{
-			Treatment: evaluator.Control,
-			Config:    nil,
-		}
-	}
-	return treatments
 }

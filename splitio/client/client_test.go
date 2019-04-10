@@ -1187,4 +1187,25 @@ func TestClient(t *testing.T) {
 	if isInvalidImpression(client, "invalid", "killed", result.Treatment) {
 		t.Error("Wrong impression saved")
 	}
+
+	// Assertion TreatmentsWithConfig
+	treatmentsWithConfigs := client.TreatmentsWithConfig("user1", []string{"valid", "invalid", "killed"}, nil)
+	if treatmentsWithConfigs["invalid"].Treatment != "control" {
+		t.Error("Unexpected treatment result")
+	}
+	if treatmentsWithConfigs["invalid"].Config != nil {
+		t.Error("Unexpected Config Result")
+	}
+	if treatmentsWithConfigs["killed"].Treatment != "defTreatment" {
+		t.Error("Unexpected treatment result")
+	}
+	if *treatmentsWithConfigs["killed"].Config != "{\"color\": \"orange\",\"size\": 15}" {
+		t.Error("Unexpected Config Result")
+	}
+	if treatmentsWithConfigs["valid"].Treatment != "on" {
+		t.Error("Unexpected treatment result")
+	}
+	if *treatmentsWithConfigs["valid"].Config != "{\"color\": \"blue\",\"size\": 13}" {
+		t.Error("Unexpected Config Result")
+	}
 }

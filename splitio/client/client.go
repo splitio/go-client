@@ -142,7 +142,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) (ret string) {
+func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
 	return c.doTreatmentCall(key, feature, attributes, "Treatment", "sdk.getTreatment").Treatment
 }
 
@@ -152,28 +152,57 @@ func (c *SplitClient) TreatmentWithConfig(key interface{}, feature string, attri
 	return c.doTreatmentCall(key, feature, attributes, "TreatmentWithConfig", "sdk.getTreatmentWithConfig")
 }
 
-// Treatments evaluates multiple featers for a single user and set of attributes at once
-func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
-	treatments := make(map[string]string)
+// Generates control treatments
+func (c *SplitClient) generateControlTreatments(features []string, operation string) map[string]TreatmentResult {
+	treatments := make(map[string]TreatmentResult)
+	filtered, err := c.validator.ValidateFeatureNames(features, operation)
+	if err != nil {
+		return treatments
+	}
+	for _, feature := range filtered {
+		treatments[feature] = TreatmentResult{
+			Treatment: evaluator.Control,
+			Config:    nil,
+		}
+	}
+	return treatments
+}
+
+// doTreatmentsCall retrieves treatments of an specific array of features with configurations object if it is present
+// for a certain key and set of attributes
+func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+	treatments := make(map[string]TreatmentResult)
+
+	// Set up a guard deferred function to recover if the SDK starts panicking
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n")
+			t = treatments
+		}
+	}()
 
 	if c.IsDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return c.validator.GenerateControlTreatments(features)
+		return c.generateControlTreatments(features, operation)
 	}
 
 	before := time.Now()
 	var bulkImpressions []dtos.ImpressionsDTO
 
-	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, "Treatments")
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return c.validator.GenerateControlTreatments(features)
+		return c.generateControlTreatments(features, operation)
 	}
 
-	filteredFeatures, err := c.validator.ValidateFeatureNames(features)
+	filteredFeatures, err := c.validator.ValidateFeatureNames(features, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return map[string]string{}
+		return map[string]TreatmentResult{}
 	}
 
 	for _, feature := range filteredFeatures {
@@ -208,7 +237,10 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 			c.logger.Warning("No impression storage set in client. Not sending impressions!")
 		}
 
-		treatments[feature] = evaluationResult.Treatment
+		treatments[feature] = TreatmentResult{
+			Treatment: evaluationResult.Treatment,
+			Config:    evaluationResult.Config,
+		}
 	}
 
 	// Custom Impression Listener
@@ -220,11 +252,26 @@ func (c *SplitClient) Treatments(key interface{}, features []string, attributes 
 
 	// Store latency
 	bucket := metrics.Bucket(time.Now().Sub(before).Nanoseconds())
-	c.metrics.IncLatency("sdk.getTreatments", bucket)
+	c.metrics.IncLatency(metricsLabel, bucket)
 
 	c.impressions.LogImpressions(bulkImpressions)
 
 	return treatments
+}
+
+// Treatments evaluates multiple featers for a single user and set of attributes at once
+func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
+	treatments := map[string]string{}
+	result := c.doTreatmentsCall(key, features, attributes, "Treatments", "sdk.getTreatments")
+	for feature, treatmentResult := range result {
+		treatments[feature] = treatmentResult.Treatment
+	}
+	return treatments
+}
+
+// TreatmentsWithConfig evaluates multiple featers for a single user and set of attributes at once and returns configurations
+func (c *SplitClient) TreatmentsWithConfig(key interface{}, features []string, attributes map[string]interface{}) map[string]TreatmentResult {
+	return c.doTreatmentsCall(key, features, attributes, "TreatmentsWithConfig", "sdk.getTreatmentsWithConfig")
 }
 
 // IsDestroyed returns true if tbe client has been destroyed

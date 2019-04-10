@@ -1259,6 +1259,8 @@ func TestLocalhostModeYAML(t *testing.T) {
 	client := factory.Client()
 	manager := factory.Manager()
 
+	client.BlockUntilReady(1)
+
 	if client.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
@@ -1306,7 +1308,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 	if resultWithConfigs.Treatment != "off" {
 		t.Error("Treatment retrieved incorrectly")
 	}
-	if resultWithConfigs.Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
+	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
 		t.Error("Wronf config returned")
 	}
 
@@ -1314,7 +1316,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 	if resultWithConfigs.Treatment != "on" {
 		t.Error("Treatment retrieved incorrectly")
 	}
-	if resultWithConfigs.Config != "{\"desc\" : \"this applies only to ON treatment\"}" {
+	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to ON treatment\"}" {
 		t.Error("Wronf config returned")
 	}
 
@@ -1338,7 +1340,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 	if resultTreatmentsWithConfig["my_feature"].Treatment != "off" {
 		t.Error("Wrong Treatment result")
 	}
-	if resultTreatmentsWithConfig["my_feature"].Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
+	if *resultTreatmentsWithConfig["my_feature"].Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
 		t.Error("Wrong Config result")
 	}
 	if resultTreatmentsWithConfig["other_feature"].Treatment != "control" {

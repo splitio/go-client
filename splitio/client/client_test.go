@@ -1034,6 +1034,48 @@ var killed = &dtos.SplitDTO{
 	},
 }
 
+var noConfig = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "defTreatment",
+	Killed:                false,
+	Name:                  "noConfig",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   nil,
+						},
+						MatcherType: "IN_SEGMENT",
+						Whitelist:   nil,
+						Negate:      false,
+						UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+							SegmentName: "employees",
+						},
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "off",
+				},
+			},
+		},
+	},
+}
+
 type mockStorage struct{}
 
 func (s *mockStorage) Get(

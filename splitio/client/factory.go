@@ -249,7 +249,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	switch cfg.OperationMode {
 	case "localhost":
-		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile)
+		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 		splitPeriod := cfg.TaskPeriods.SplitSync
 		readyChannel := make(chan string)
 		syncTasks = &sdkSync{

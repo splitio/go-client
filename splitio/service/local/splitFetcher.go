@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-toolkit/logging"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	yaml "gopkg.in/yaml.v2"
@@ -31,7 +32,7 @@ type FileSplitFetcher struct {
 }
 
 // NewFileSplitFetcher returns a new instance of LocalFileSplitFetcher
-func NewFileSplitFetcher(splitFile string) *FileSplitFetcher {
+func NewFileSplitFetcher(splitFile string, logger logging.LoggerInterface) *FileSplitFetcher {
 	var r = regexp.MustCompile("(.yml$|.yaml$)")
 	if r.MatchString(splitFile) {
 		return &FileSplitFetcher{
@@ -39,6 +40,7 @@ func NewFileSplitFetcher(splitFile string) *FileSplitFetcher {
 			fileFormat: SplitFileFormatYAML,
 		}
 	}
+	logger.Warning("Localhost mode: .split mocks will be deprecated soon in favor of YAML files, which provide more targeting power. Take a look in our documentation.")
 	return &FileSplitFetcher{
 		splitFile:  splitFile,
 		fileFormat: SplitFileFormatClassic,

@@ -3,6 +3,7 @@
  - BlockUntilReady refactor.
  - Added getTreatmentWithConfig and getTreatmentsWithConfig methods.
  - Added support to YAML file for Localhost mode.
+ - Added validation when split does not exist in treatments and manager calls.
 3.0.1 (March 8, 2019)
  - Updated Splits refreshing rate.
 3.0.0 (Feb 19, 2019)

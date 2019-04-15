@@ -96,6 +96,10 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
 	}
 
+	if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
+		return controlTreatment
+	}
+
 	// Store impression
 	if c.impressions != nil {
 		var label string
@@ -214,32 +218,40 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 		} else {
 			evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
 		}
-		// Store impression
-		if c.impressions != nil {
-			var label string
-			if c.cfg.LabelsEnabled {
-				label = evaluationResult.Label
-			}
-			var impression = dtos.ImpressionDTO{
-				BucketingKey: impressionBucketingKey,
-				ChangeNumber: evaluationResult.SplitChangeNumber,
-				KeyName:      matchingKey,
-				Label:        label,
-				Treatment:    evaluationResult.Treatment,
-				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-			}
-			keyImpressions := []dtos.ImpressionDTO{impression}
-			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-				TestName:       feature,
-				KeyImpressions: keyImpressions,
-			})
-		} else {
-			c.logger.Warning("No impression storage set in client. Not sending impressions!")
-		}
 
-		treatments[feature] = TreatmentResult{
-			Treatment: evaluationResult.Treatment,
-			Config:    evaluationResult.Config,
+		if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
+			treatments[feature] = TreatmentResult{
+				Treatment: evaluator.Control,
+				Config:    nil,
+			}
+		} else {
+			// Store impression
+			if c.impressions != nil {
+				var label string
+				if c.cfg.LabelsEnabled {
+					label = evaluationResult.Label
+				}
+				var impression = dtos.ImpressionDTO{
+					BucketingKey: impressionBucketingKey,
+					ChangeNumber: evaluationResult.SplitChangeNumber,
+					KeyName:      matchingKey,
+					Label:        label,
+					Treatment:    evaluationResult.Treatment,
+					Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+				}
+				keyImpressions := []dtos.ImpressionDTO{impression}
+				bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+					TestName:       feature,
+					KeyImpressions: keyImpressions,
+				})
+			} else {
+				c.logger.Warning("No impression storage set in client. Not sending impressions!")
+			}
+
+			treatments[feature] = TreatmentResult{
+				Treatment: evaluationResult.Treatment,
+				Config:    evaluationResult.Config,
+			}
 		}
 	}
 

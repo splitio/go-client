@@ -56,7 +56,6 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 	splitDto := e.splitStorage.Get(feature)
 	var config *string
 	if splitDto == nil {
-		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
 		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
 	}
 

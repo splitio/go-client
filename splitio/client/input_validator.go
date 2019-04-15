@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-toolkit/datastructures/set"
 
 	"github.com/splitio/go-toolkit/logging"
@@ -233,4 +234,12 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 		}
 	}
 	return f, nil
+}
+
+func (i *inputValidation) IsSplitFound(label string, feature string, operation string) bool {
+	if label == impressionlabels.SplitNotFound {
+		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+		return false
+	}
+	return true
 }

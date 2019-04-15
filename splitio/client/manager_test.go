@@ -6,6 +6,7 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestSplitManager(t *testing.T) {
@@ -43,7 +44,12 @@ func TestSplitManager(t *testing.T) {
 		},
 	}, 123)
 
-	manager := SplitManager{splitStorage: splitStorage}
+	logger := logging.NewLogger(nil)
+	manager := SplitManager{
+		splitStorage: splitStorage,
+		validator:    inputValidation{logger: logger},
+		logger:       logger,
+	}
 
 	factory := SplitFactory{
 		manager: &manager,
@@ -89,7 +95,12 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{*valid, *killed, *noConfig}, 123)
 
-	manager := SplitManager{splitStorage: splitStorage}
+	logger := logging.NewLogger(nil)
+	manager := SplitManager{
+		splitStorage: splitStorage,
+		logger:       logger,
+		validator:    inputValidation{logger: logger},
+	}
 
 	factory := SplitFactory{
 		manager: &manager,

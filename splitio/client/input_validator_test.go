@@ -394,6 +394,38 @@ func TestTreatmentValidatorWhitespacesFeatureName(t *testing.T) {
 	strMsg = ""
 }
 
+func TestTreatmentValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.Treatment("key", "feature_non_existant", nil)
+
+	if result != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "Treatment: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentConfigValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.TreatmentWithConfig("key", "feature_non_existant", nil)
+
+	if result.Treatment != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "TreatmentWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
 func TestTreatmentClientDestroyed(t *testing.T) {
 
 	var client2 = SplitClient{
@@ -507,6 +539,37 @@ func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 	}
 
 	expected := "Treatments: split name ' some_feature  ' has extra whitespace, trimming"
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentsValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.Treatments("key", []string{"feature_non_existant"}, nil)
+
+	if result["feature_non_existant"] != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "Treatments: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+func TestTreatmentsConfigValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.TreatmentsWithConfig("key", []string{"feature_non_existant"}, nil)
+
+	if result["feature_non_existant"].Treatment != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "TreatmentsWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
 	if strMsg != expected {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)
@@ -748,6 +811,35 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	result := manager.Split("")
 
 	expected := "Split: you passed an empty split name, split name must be a non-empty string"
+	if result != nil {
+		t.Error("Wrong result")
+	}
+
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestManagerWithNonExistantSplit(t *testing.T) {
+	splitStorage := mutexmap.NewMMSplitStorage()
+	manager := SplitManager{
+		splitStorage: splitStorage,
+		logger:       logger,
+		validator:    inputValidation{logger: logger},
+	}
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
+	result := manager.Split("non_existant")
+
+	expected := "Split: you passed non_existant that does not exist in this environment, please double check what Splits exist in the web console."
 	if result != nil {
 		t.Error("Wrong result")
 	}

@@ -474,3 +474,17 @@ func TestMetricsStorage(t *testing.T) {
 		t.Error("Counter keys should have been removed after PopAll()")
 	}
 }
+
+func TestTrafficTypeStorage(t *testing.T) {
+	logger := NewMockedLogger()
+	ttStorage := NewRedisTrafficTypeStorage("localhost", 6379, 0, "", "testPrefix", logger)
+
+	ttStorage.client.client.Del("testPrefix.SPLITIO.trafficType.mytraffictype")
+	ttStorage.client.client.Incr("testPrefix.SPLITIO.trafficType.mytraffictype")
+
+	if ttStorage.Get("mytraffictype") != 1 {
+		t.Error("Incorrect number of impressions fetched")
+	}
+
+	ttStorage.client.client.Del("testPrefix.SPLITIO.trafficType.mytraffictype")
+}

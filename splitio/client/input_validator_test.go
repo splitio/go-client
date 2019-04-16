@@ -33,6 +33,18 @@ var options = &logging.LoggerOptions{
 	VerboseWriter: &mW,
 }
 
+type mockTrafficStorage struct {
+}
+
+func (tt *mockTrafficStorage) Get(trafficType string) int64 {
+	switch trafficType {
+	case "trafictype":
+		return 3
+	default:
+		return 0
+	}
+}
+
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
 var client = SplitClient{
@@ -41,8 +53,11 @@ var client = SplitClient{
 	impressions: mutexmap.NewMMImpressionStorage(),
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
-	validator:   inputValidation{logger: logger},
-	events:      &mockEvents{},
+	validator: inputValidation{
+		logger:             logger,
+		trafficTypeStorage: &mockTrafficStorage{},
+	},
+	events: &mockEvents{},
 }
 
 var factory = SplitFactory{
@@ -666,6 +681,22 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 	strMsg = ""
 }
 
+func TestTrackValidatorReturning0Occurrences(t *testing.T) {
+	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil)
+
+	expected := " Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	if err != nil {
+		t.Error("Should not be error")
+	}
+
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
 func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 	err := client.Track("key", "traffic", "eventType", true)
 
@@ -686,7 +717,7 @@ func TestTrackValidator(t *testing.T) {
 	err := client.Track("key", "traffic", "eventType", 1)
 
 	if err != nil {
-		t.Error("Shoueld not return error")
+		t.Error("Should not return error")
 	}
 }
 

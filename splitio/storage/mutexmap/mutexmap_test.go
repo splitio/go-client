@@ -279,3 +279,21 @@ func TestMetricsStorage(t *testing.T) {
 	}
 
 }
+
+func TestMMTrafficTypeStorage(t *testing.T) {
+	ttStorage := NewMMTrafficTypeStorage()
+
+	if ttStorage.Get("mytest") != 0 {
+		t.Error("It should be 0")
+	}
+
+	ttStorage.Increase("mytest")
+	if ttStorage.Get("mytest") != 1 {
+		t.Error("It should be 1")
+	}
+
+	ttStorage.Decrease("mytest")
+	if ttStorage.Get("mytest") != 0 {
+		t.Error("It should be 0")
+	}
+}

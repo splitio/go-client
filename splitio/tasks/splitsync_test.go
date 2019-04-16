@@ -2,22 +2,23 @@ package tasks
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/logging"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 )
 
 func TestSplitSyncTask(t *testing.T) {
 
-	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE"}
-	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
-	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
+	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE", TrafficTypeName: "one"}
+	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE", TrafficTypeName: "two"}
+	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE", TrafficTypeName: "one"}
 	reqestReceived := false
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/splits" && r.Method != "GET" {
@@ -56,6 +57,8 @@ func TestSplitSyncTask(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{{Name: "split3", Killed: true, Status: "ACTIVE"}}, 123)
 
+	trafficTypeStorage := mutexmap.NewMMTrafficTypeStorage()
+
 	readyChannel := make(chan string)
 	splitTask := NewFetchSplitsTask(
 		splitStorage,
@@ -63,6 +66,7 @@ func TestSplitSyncTask(t *testing.T) {
 		3,
 		logger,
 		readyChannel,
+		trafficTypeStorage,
 	)
 
 	splitTask.Start()
@@ -97,6 +101,10 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error(s1)
 	}
 
+	if trafficTypeStorage.Get("one") != 0 {
+		t.Error("It should be 0")
+	}
+
 	s2 := splitStorage.Get("split2")
 	if s2 == nil || s2.Name != "split2" || !s2.Killed {
 		t.Error("split2 stored/retrieved incorrectly")
@@ -108,7 +116,130 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error("split3 should have been removed")
 	}
 
+	if trafficTypeStorage.Get("two") != 2 {
+		t.Error("It should be 1")
+	}
+
 	if splitTask.IsRunning() {
 		t.Error("Task should be stopped")
+	}
+}
+
+func TestSplitSyncTaskStatus(t *testing.T) {
+	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE", TrafficTypeName: "one"}
+	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE", TrafficTypeName: "two"}
+	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE", TrafficTypeName: "one"}
+	mockedSplit4 := dtos.SplitDTO{Name: "split1", Killed: true, Status: "INACTIVE", TrafficTypeName: "one"}
+	mockedSplit5 := dtos.SplitDTO{Name: "split4", Killed: false, Status: "ACTIVE", TrafficTypeName: "two"}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/splits" && r.Method != "GET" {
+			t.Error("Invalid request. Should be GET to /splits")
+		}
+
+		splitChanges := dtos.SplitChangesDTO{
+			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+			Since:  3,
+			Till:   3,
+		}
+
+		raw, err := json.Marshal(splitChanges)
+		if err != nil {
+			t.Error("Error building json")
+			return
+		}
+
+		w.Write(raw)
+	}))
+	defer ts.Close()
+
+	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/splits" && r.Method != "GET" {
+			t.Error("Invalid request. Should be GET to /splits")
+		}
+
+		splitChanges := dtos.SplitChangesDTO{
+			Splits: []dtos.SplitDTO{mockedSplit4, mockedSplit5},
+			Since:  4,
+			Till:   4,
+		}
+
+		raw, err := json.Marshal(splitChanges)
+		if err != nil {
+			t.Error("Error building json")
+			return
+		}
+
+		w.Write(raw)
+	}))
+	defer ts2.Close()
+
+	logger := logging.NewLogger(&logging.LoggerOptions{})
+	splitFetcher := api.NewHTTPSplitFetcher(
+		"",
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
+				EventsURL: ts.URL,
+				SdkURL:    ts.URL,
+			},
+		},
+		logger,
+	)
+
+	splitStorage := mutexmap.NewMMSplitStorage()
+	splitStorage.PutMany([]dtos.SplitDTO{{}}, -1)
+	trafficTypeStorage := mutexmap.NewMMTrafficTypeStorage()
+
+	updateSplits(splitStorage, splitFetcher, trafficTypeStorage)
+
+	if trafficTypeStorage.Get("one") != 1 {
+		t.Error("It should be 1", trafficTypeStorage.Get("one"))
+	}
+
+	if trafficTypeStorage.Get("two") != 1 {
+		t.Error("It should be 1", trafficTypeStorage.Get("two"))
+	}
+
+	splitFetcher2 := api.NewHTTPSplitFetcher(
+		"",
+		&conf.SplitSdkConfig{
+			Advanced: conf.AdvancedConfig{
+				EventsURL: ts2.URL,
+				SdkURL:    ts2.URL,
+			},
+		},
+		logger,
+	)
+
+	updateSplits(splitStorage, splitFetcher2, trafficTypeStorage)
+
+	s1 := splitStorage.Get("split1")
+	if s1 != nil {
+		t.Error("split1 should have been removed")
+	}
+
+	s2 := splitStorage.Get("split2")
+	if s2 == nil || s2.Name != "split2" || !s2.Killed {
+		t.Error("split2 stored/retrieved incorrectly")
+		t.Error(s2)
+	}
+
+	s4 := splitStorage.Get("split4")
+	if s4 == nil || s4.Name != "split4" || s4.Killed {
+		t.Error("split4 stored/retrieved incorrectly")
+		t.Error(s4)
+	}
+
+	s3 := splitStorage.Get("split3")
+	if s3 != nil {
+		t.Error("split3 should have been removed")
+	}
+
+	if trafficTypeStorage.Get("one") != 0 {
+		t.Error("It should be 0")
+	}
+
+	if trafficTypeStorage.Get("two") != 2 {
+		t.Error("It should be 1")
 	}
 }

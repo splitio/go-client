@@ -351,3 +351,48 @@ func (m *MMMetricsStorage) PopLatencies() []dtos.LatenciesDTO {
 	}
 	return latencies
 }
+
+// ** TRAFFIC TYPE STORAGE **
+
+// MMTrafficTypeStorage contains is an in-memory implementation of traffic type storage
+type MMTrafficTypeStorage struct {
+	data  map[string]int64
+	mutex *sync.Mutex
+}
+
+// NewMMTrafficTypeStorage instantiates an MMTrafficTypeStorage
+func NewMMTrafficTypeStorage() *MMTrafficTypeStorage {
+	return &MMTrafficTypeStorage{
+		data:  make(map[string]int64),
+		mutex: &sync.Mutex{},
+	}
+}
+
+// Increase increases value for a traffic type
+func (m *MMTrafficTypeStorage) Increase(trafficType string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	_, exists := m.data[trafficType]
+	if !exists {
+		m.data[trafficType] = 1
+	} else {
+		m.data[trafficType]++
+	}
+}
+
+// Decrease decreases value for a traffic type
+func (m *MMTrafficTypeStorage) Decrease(trafficType string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	value, exists := m.data[trafficType]
+	if exists && value > 0 {
+		m.data[trafficType]--
+	}
+}
+
+// Get gets value for a traffic type
+func (m *MMTrafficTypeStorage) Get(trafficType string) int64 {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	return m.data[trafficType]
+}

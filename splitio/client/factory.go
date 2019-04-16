@@ -141,6 +141,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var impressionStorage storage.ImpressionStorage
 	var metricsStorage storage.MetricsStorage
 	var eventsStorage storage.EventsStorage
+	var trafficTypeStorage storage.TrafficTypeStorage
 
 	if cfg.OperationMode == "inmemory-standalone" {
 		err = api.ValidateApikey(apikey, cfg.Advanced)
@@ -156,6 +157,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		impressionStorage = mutexmap.NewMMImpressionStorage()
 		metricsStorage = mutexmap.NewMMMetricsStorage()
 		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChan)
+		trafficTypeStorage = mutexmap.NewMMTrafficTypeStorage()
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port
@@ -196,6 +198,14 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 			fmt.Sprintf("go-%s", splitio.Version),
 			logger,
 		)
+		trafficTypeStorage = redisdb.NewRedisTrafficTypeStorage(
+			host,
+			port,
+			db,
+			password,
+			prefix,
+			logger,
+		)
 	default:
 		return nil, fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
@@ -223,8 +233,11 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		sync:        syncTasks,
 		cfg:         cfg,
 		events:      eventsStorage,
-		validator:   inputValidation{logger: logger},
-		metadata:    metadata,
+		validator: inputValidation{
+			logger:             logger,
+			trafficTypeStorage: trafficTypeStorage,
+		},
+		metadata: metadata,
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {
@@ -253,7 +266,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		splitPeriod := cfg.TaskPeriods.SplitSync
 		readyChannel := make(chan string)
 		syncTasks = &sdkSync{
-			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
+			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel, trafficTypeStorage),
 		}
 		// Call fetching tasks as goroutine
 		go splitFactory.initializationLocalhost(readyChannel, syncTasks)
@@ -279,7 +292,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		readyChannel := make(chan string)
 		// Sync tasks
 		syncTasks = &sdkSync{
-			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
+			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel, trafficTypeStorage),
 			segmentSync: tasks.NewFetchSegmentsTask(
 				splitStorage,
 				segmentStorage,

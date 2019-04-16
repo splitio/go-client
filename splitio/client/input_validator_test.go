@@ -684,7 +684,7 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 func TestTrackValidatorReturning0Occurrences(t *testing.T) {
 	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil)
 
-	expected := " Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	expected := "Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
 	if err != nil {
 		t.Error("Should not be error")
 	}

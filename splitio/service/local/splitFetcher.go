@@ -33,7 +33,7 @@ type FileSplitFetcher struct {
 
 // NewFileSplitFetcher returns a new instance of LocalFileSplitFetcher
 func NewFileSplitFetcher(splitFile string, logger logging.LoggerInterface) *FileSplitFetcher {
-	var r = regexp.MustCompile("(.yml$|.yaml$)")
+	var r = regexp.MustCompile("(?i)(.yml$|.yaml$)")
 	if r.MatchString(splitFile) {
 		return &FileSplitFetcher{
 			splitFile:  splitFile,

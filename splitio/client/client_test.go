@@ -572,7 +572,7 @@ func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
 	}
 }
 
-func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
+func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
 		t.Error("Couldn't create temporary file for localhost client tests: ", err)
@@ -656,7 +656,7 @@ func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
 	}
 }
 
-func TestBlockUntilReadyStatusLoclahostOnDestroy(t *testing.T) {
+func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
 		t.Error("Couldn't create temporary file for localhost client tests: ", err)

@@ -282,6 +282,9 @@ func (c *SplitClient) IsDestroyed() bool {
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
+	if !c.factory.IsDestroyed() {
+		RemoveInstanceFromTracker(c.apikey)
+	}
 	c.factory.Destroy()
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {

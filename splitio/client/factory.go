@@ -120,21 +120,9 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTask
 	}
 }
 
-// NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
+// NewFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, error) {
-	if cfg == nil {
-		cfg = conf.Default()
-	}
-
-	logger := setupLogger(cfg)
-
-	err := conf.Normalize(apikey, cfg)
-	if err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
-
+func NewFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	// Set up storages
 	var splitStorage storage.SplitStorage
 	var segmentStorage storage.SegmentStorage
@@ -143,7 +131,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var eventsStorage storage.EventsStorage
 
 	if cfg.OperationMode == "inmemory-standalone" {
-		err = api.ValidateApikey(apikey, cfg.Advanced)
+		err := api.ValidateApikey(apikey, cfg.Advanced)
 		if err != nil {
 			return nil, err
 		}

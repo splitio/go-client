@@ -7,10 +7,14 @@ import (
 	"testing"
 )
 
-func TestFactoryManagerMultiple(t *testing.T) {
+func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.Logger = logging.NewLogger(options)
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
+
+	delete(FactoryTrackerInstantiation, "localhost")
+	delete(FactoryTrackerInstantiation, "something")
+
 	factory, _ := NewSplitFactory("localhost", sdkConf)
 	client := factory.Client()
 
@@ -84,4 +88,7 @@ func TestFactoryManagerMultiple(t *testing.T) {
 	if FactoryTrackerInstantiation["localhost"] != 3 {
 		t.Error("It should be 3")
 	}
+
+	delete(FactoryTrackerInstantiation, "localhost")
+	delete(FactoryTrackerInstantiation, "asdadd")
 }

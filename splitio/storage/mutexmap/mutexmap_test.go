@@ -280,7 +280,7 @@ func TestMetricsStorage(t *testing.T) {
 
 }
 
-func TestMMTrafficTypeStorage(t *testing.T) {
+func TestTrafficTypes(t *testing.T) {
 	ttStorage := NewMMSplitStorage()
 
 	if ttStorage.TrafficTypeExists("mytest") {

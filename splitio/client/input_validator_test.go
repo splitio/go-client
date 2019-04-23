@@ -34,10 +34,10 @@ var options = &logging.LoggerOptions{
 	VerboseWriter: &mW,
 }
 
-type mockTrafficStorage struct {
+type mockSplitStorage struct {
 }
 
-func (tt *mockTrafficStorage) TrafficTypeExists(trafficType string) bool {
+func (tt *mockSplitStorage) TrafficTypeExists(trafficType string) bool {
 	switch trafficType {
 	case "trafictype":
 		return true
@@ -45,10 +45,10 @@ func (tt *mockTrafficStorage) TrafficTypeExists(trafficType string) bool {
 		return false
 	}
 }
-func (tt *mockTrafficStorage) Get(splitName string) *dtos.SplitDTO { return nil }
-func (tt *mockTrafficStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
-func (tt *mockTrafficStorage) SplitNames() []string                { return []string{} }
-func (tt *mockTrafficStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
+func (tt *mockSplitStorage) Get(splitName string) *dtos.SplitDTO { return nil }
+func (tt *mockSplitStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
+func (tt *mockSplitStorage) SplitNames() []string                { return []string{} }
+func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
 
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
@@ -60,7 +60,7 @@ var client = SplitClient{
 	logger:      logger,
 	validator: inputValidation{
 		logger:       logger,
-		splitStorage: &mockTrafficStorage{},
+		splitStorage: &mockSplitStorage{},
 	},
 	events: &mockEvents{},
 }

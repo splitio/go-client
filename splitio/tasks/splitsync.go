@@ -8,7 +8,7 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher service.SplitFetcher, trafficTypeStorage storage.TrafficTypeStorageProducer) (bool, error) {
+func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher service.SplitFetcher) (bool, error) {
 	till := splitStorage.Till()
 	if till == 0 {
 		till = -1
@@ -44,11 +44,11 @@ func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher servic
 	}
 
 	for _, trafficType := range trafficTypesToAdd {
-		trafficTypeStorage.Increase(trafficType)
+		splitStorage.Increase(trafficType)
 	}
 
 	for _, trafficType := range trafficTypesToRemove {
-		trafficTypeStorage.Decrease(trafficType)
+		splitStorage.Decrease(trafficType)
 	}
 
 	if splits.Since == splits.Till {
@@ -64,13 +64,12 @@ func NewFetchSplitsTask(
 	period int,
 	logger logging.LoggerInterface,
 	readyChannel chan string,
-	trafficTypeStorage storage.TrafficTypeStorageProducer,
 ) *asynctask.AsyncTask {
 	init := func(logger logging.LoggerInterface) error {
 		ready := false
 		var err error
 		for !ready {
-			ready, err = updateSplits(splitStorage, splitFetcher, trafficTypeStorage)
+			ready, err = updateSplits(splitStorage, splitFetcher)
 			if err != nil {
 				readyChannel <- "SPLITS_ERROR"
 				return err
@@ -81,7 +80,7 @@ func NewFetchSplitsTask(
 	}
 
 	update := func(logger logging.LoggerInterface) error {
-		_, err := updateSplits(splitStorage, splitFetcher, trafficTypeStorage)
+		_, err := updateSplits(splitStorage, splitFetcher)
 		return err
 	}
 

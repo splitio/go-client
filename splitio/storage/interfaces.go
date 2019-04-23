@@ -11,6 +11,8 @@ type SplitStorageProducer interface {
 	Remove(splitname string)
 	Till() int64
 	Clear()
+	Increase(trafficType string)
+	Decrease(trafficType string)
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
@@ -19,6 +21,7 @@ type SplitStorageConsumer interface {
 	SplitNames() []string
 	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO
+	TrafficTypeExists(trafficType string) bool
 }
 
 // SegmentStorageProducer interface should be implemented by all structs that offer writing segments
@@ -70,17 +73,6 @@ type EventStorageConsumer interface {
 	Count() int64
 }
 
-// TrafficTypeStorageProducer interface should be implemented by all structs that ofer reading traffic types
-type TrafficTypeStorageProducer interface {
-	Increase(trafficType string)
-	Decrease(trafficType string)
-}
-
-// TrafficTypeStorageConsumer interface should be implemented by all structs that ofer reading traffic types
-type TrafficTypeStorageConsumer interface {
-	Get(trafficType string) int64
-}
-
 // --- Wide Interfaces
 
 // SplitStorage wraps consumer & producer interfaces
@@ -111,10 +103,4 @@ type MetricsStorage interface {
 type EventsStorage interface {
 	EventStorageConsumer
 	EventStorageProducer
-}
-
-// TrafficTypeStorage wraps consumer and producer interfaces
-type TrafficTypeStorage interface {
-	TrafficTypeStorageProducer
-	TrafficTypeStorageConsumer
 }

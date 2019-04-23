@@ -21,7 +21,7 @@ type SplitView struct {
 	Killed       bool              `json:"killed"`
 	Treatments   []string          `json:"treatments"`
 	ChangeNumber int64             `json:"changeNumber"`
-	Configs      map[string]string `json:"confgis"`
+	Configs      map[string]string `json:"configs"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {

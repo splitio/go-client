@@ -57,8 +57,6 @@ func TestSplitSyncTask(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{{Name: "split3", Killed: true, Status: "ACTIVE"}}, 123)
 
-	trafficTypeStorage := mutexmap.NewMMTrafficTypeStorage()
-
 	readyChannel := make(chan string)
 	splitTask := NewFetchSplitsTask(
 		splitStorage,
@@ -66,7 +64,6 @@ func TestSplitSyncTask(t *testing.T) {
 		3,
 		logger,
 		readyChannel,
-		trafficTypeStorage,
 	)
 
 	splitTask.Start()
@@ -101,8 +98,8 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error(s1)
 	}
 
-	if trafficTypeStorage.Get("one") != 0 {
-		t.Error("It should be 0")
+	if splitStorage.TrafficTypeExists("one") {
+		t.Error("It should not exists")
 	}
 
 	s2 := splitStorage.Get("split2")
@@ -116,8 +113,8 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error("split3 should have been removed")
 	}
 
-	if trafficTypeStorage.Get("two") != 2 {
-		t.Error("It should be 1")
+	if !splitStorage.TrafficTypeExists("two") {
+		t.Error("It should exists")
 	}
 
 	if splitTask.IsRunning() {
@@ -188,16 +185,15 @@ func TestSplitSyncTaskStatus(t *testing.T) {
 
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{{}}, -1)
-	trafficTypeStorage := mutexmap.NewMMTrafficTypeStorage()
 
-	updateSplits(splitStorage, splitFetcher, trafficTypeStorage)
+	updateSplits(splitStorage, splitFetcher)
 
-	if trafficTypeStorage.Get("one") != 1 {
-		t.Error("It should be 1", trafficTypeStorage.Get("one"))
+	if !splitStorage.TrafficTypeExists("one") {
+		t.Error("It should exists")
 	}
 
-	if trafficTypeStorage.Get("two") != 1 {
-		t.Error("It should be 1", trafficTypeStorage.Get("two"))
+	if !splitStorage.TrafficTypeExists("two") {
+		t.Error("It should exists")
 	}
 
 	splitFetcher2 := api.NewHTTPSplitFetcher(
@@ -211,7 +207,7 @@ func TestSplitSyncTaskStatus(t *testing.T) {
 		logger,
 	)
 
-	updateSplits(splitStorage, splitFetcher2, trafficTypeStorage)
+	updateSplits(splitStorage, splitFetcher2)
 
 	s1 := splitStorage.Get("split1")
 	if s1 != nil {
@@ -235,11 +231,11 @@ func TestSplitSyncTaskStatus(t *testing.T) {
 		t.Error("split3 should have been removed")
 	}
 
-	if trafficTypeStorage.Get("one") != 0 {
-		t.Error("It should be 0")
+	if splitStorage.TrafficTypeExists("one") {
+		t.Error("It should not exists")
 	}
 
-	if trafficTypeStorage.Get("two") != 2 {
-		t.Error("It should be 1")
+	if !splitStorage.TrafficTypeExists("two") {
+		t.Error("It should exists")
 	}
 }

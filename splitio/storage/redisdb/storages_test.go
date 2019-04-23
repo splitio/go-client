@@ -477,13 +477,13 @@ func TestMetricsStorage(t *testing.T) {
 
 func TestTrafficTypeStorage(t *testing.T) {
 	logger := NewMockedLogger()
-	ttStorage := NewRedisTrafficTypeStorage("localhost", 6379, 0, "", "testPrefix", logger)
+	ttStorage := NewRedisSplitStorage("localhost", 6379, 0, "", "testPrefix", logger)
 
 	ttStorage.client.client.Del("testPrefix.SPLITIO.trafficType.mytraffictype")
 	ttStorage.client.client.Incr("testPrefix.SPLITIO.trafficType.mytraffictype")
 
-	if ttStorage.Get("mytraffictype") != 1 {
-		t.Error("Incorrect number of impressions fetched")
+	if !ttStorage.TrafficTypeExists("mytraffictype") {
+		t.Error("Traffic type should exists")
 	}
 
 	ttStorage.client.client.Del("testPrefix.SPLITIO.trafficType.mytraffictype")

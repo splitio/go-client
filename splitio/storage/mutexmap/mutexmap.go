@@ -12,19 +12,21 @@ import (
 
 // MMSplitStorage struct contains is an in-memory implementation of split storage
 type MMSplitStorage struct {
-	data      map[string]dtos.SplitDTO
-	mutex     *sync.RWMutex
-	till      int64
-	tillMutex *sync.Mutex
+	data        map[string]dtos.SplitDTO
+	trafficType map[string]int64
+	mutex       *sync.RWMutex
+	till        int64
+	tillMutex   *sync.Mutex
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
 func NewMMSplitStorage() *MMSplitStorage {
 	return &MMSplitStorage{
-		data:      make(map[string]dtos.SplitDTO),
-		mutex:     &sync.RWMutex{},
-		till:      0,
-		tillMutex: &sync.Mutex{},
+		data:        make(map[string]dtos.SplitDTO),
+		trafficType: make(map[string]int64),
+		mutex:       &sync.RWMutex{},
+		till:        0,
+		tillMutex:   &sync.Mutex{},
 	}
 
 }
@@ -118,6 +120,37 @@ func (m *MMSplitStorage) Clear() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data = make(map[string]dtos.SplitDTO)
+}
+
+// Increase increases value for a traffic type
+func (m *MMSplitStorage) Increase(trafficType string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	_, exists := m.trafficType[trafficType]
+	if !exists {
+		m.trafficType[trafficType] = 1
+	} else {
+		m.trafficType[trafficType]++
+	}
+}
+
+// Decrease decreases value for a traffic type
+func (m *MMSplitStorage) Decrease(trafficType string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	value, exists := m.trafficType[trafficType]
+	if exists && value > 0 {
+		m.trafficType[trafficType]--
+	}
+}
+
+// TrafficTypeExists returns true or false depending on existance and counter
+// of trafficType
+func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	value, exists := m.trafficType[trafficType]
+	return exists && value > 0
 }
 
 // ** SEGMENT STORAGE **
@@ -350,49 +383,4 @@ func (m *MMMetricsStorage) PopLatencies() []dtos.LatenciesDTO {
 		})
 	}
 	return latencies
-}
-
-// ** TRAFFIC TYPE STORAGE **
-
-// MMTrafficTypeStorage contains is an in-memory implementation of traffic type storage
-type MMTrafficTypeStorage struct {
-	data  map[string]int64
-	mutex *sync.Mutex
-}
-
-// NewMMTrafficTypeStorage instantiates an MMTrafficTypeStorage
-func NewMMTrafficTypeStorage() *MMTrafficTypeStorage {
-	return &MMTrafficTypeStorage{
-		data:  make(map[string]int64),
-		mutex: &sync.Mutex{},
-	}
-}
-
-// Increase increases value for a traffic type
-func (m *MMTrafficTypeStorage) Increase(trafficType string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	_, exists := m.data[trafficType]
-	if !exists {
-		m.data[trafficType] = 1
-	} else {
-		m.data[trafficType]++
-	}
-}
-
-// Decrease decreases value for a traffic type
-func (m *MMTrafficTypeStorage) Decrease(trafficType string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	value, exists := m.data[trafficType]
-	if exists && value > 0 {
-		m.data[trafficType]--
-	}
-}
-
-// Get gets value for a traffic type
-func (m *MMTrafficTypeStorage) Get(trafficType string) int64 {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	return m.data[trafficType]
 }

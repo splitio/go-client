@@ -1090,9 +1090,10 @@ func (s *mockStorage) Get(
 	}
 	return nil
 }
-func (s *mockStorage) GetAll() []dtos.SplitDTO            { return make([]dtos.SplitDTO, 0) }
-func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet { return nil }
-func (s *mockStorage) SplitNames() []string               { return make([]string, 0) }
+func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([]dtos.SplitDTO, 0) }
+func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
+func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
+func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }
 
 type mockSegmentStorage struct{}
 
@@ -1249,5 +1250,104 @@ func TestClient(t *testing.T) {
 	}
 	if *treatmentsWithConfigs["valid"].Config != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("Unexpected Config Result")
+	}
+}
+
+func TestLocalhostModeYAML(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = "../../testdata/splits.yaml"
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+	client := factory.Client()
+	manager := factory.Manager()
+
+	client.BlockUntilReady(1)
+
+	if client.cfg.OperationMode != "localhost" {
+		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
+	}
+
+	if len(manager.Splits()) != 4 {
+		t.Error("Error grabbing splits for localhost mode")
+	}
+
+	result := client.Treatment("only_key", "my_feature", nil)
+	if result != "off" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	result = client.Treatment("invalid_key", "my_feature", nil)
+	if result != "control" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	result = client.Treatment("key", "my_feature", nil)
+	if result != "on" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	result = client.Treatment("key2", "other_feature", nil)
+	if result != "on" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	result = client.Treatment("test", "other_feature_2", nil)
+	if result != "on" {
+		t.Error("Treatment retrieved incorrectly", result)
+	}
+
+	result = client.Treatment("key", "other_feature_3", nil)
+	if result != "off" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	result = client.Treatment("key_whitelist", "other_feature_3", nil)
+	if result != "on" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+
+	resultWithConfigs := client.TreatmentWithConfig("only_key", "my_feature", nil)
+	if resultWithConfigs.Treatment != "off" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
+		t.Error("Wronf config returned")
+	}
+
+	resultWithConfigs = client.TreatmentWithConfig("key", "my_feature", nil)
+	if resultWithConfigs.Treatment != "on" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to ON treatment\"}" {
+		t.Error("Wronf config returned")
+	}
+
+	resultWithConfigs = client.TreatmentWithConfig("key3", "other_feature", nil)
+	if resultWithConfigs.Treatment != "on" {
+		t.Error("Treatment retrieved incorrectly")
+	}
+	if resultWithConfigs.Config != nil {
+		t.Error("Config should be nil")
+	}
+
+	resultTreatments := client.Treatments("only_key", []string{"my_feature", "other_feature"}, nil)
+	if resultTreatments["my_feature"] != "off" {
+		t.Error("Wrong Treatment result")
+	}
+	if resultTreatments["other_feature"] != "control" {
+		t.Error("Wrong Treatment result")
+	}
+
+	resultTreatmentsWithConfig := client.TreatmentsWithConfig("only_key", []string{"my_feature", "other_feature"}, nil)
+	if resultTreatmentsWithConfig["my_feature"].Treatment != "off" {
+		t.Error("Wrong Treatment result")
+	}
+	if *resultTreatmentsWithConfig["my_feature"].Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
+		t.Error("Wrong Config result")
+	}
+	if resultTreatmentsWithConfig["other_feature"].Treatment != "control" {
+		t.Error("Wrong Treatment result")
+	}
+	if resultTreatmentsWithConfig["other_feature"].Config != nil {
+		t.Error("Config should be nil")
 	}
 }

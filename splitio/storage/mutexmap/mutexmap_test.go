@@ -281,19 +281,19 @@ func TestMetricsStorage(t *testing.T) {
 }
 
 func TestMMTrafficTypeStorage(t *testing.T) {
-	ttStorage := NewMMTrafficTypeStorage()
+	ttStorage := NewMMSplitStorage()
 
-	if ttStorage.Get("mytest") != 0 {
-		t.Error("It should be 0")
+	if ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should not exist")
 	}
 
 	ttStorage.Increase("mytest")
-	if ttStorage.Get("mytest") != 1 {
-		t.Error("It should be 1")
+	if !ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should exist")
 	}
 
 	ttStorage.Decrease("mytest")
-	if ttStorage.Get("mytest") != 0 {
-		t.Error("It should be 0")
+	if ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should not exist")
 	}
 }

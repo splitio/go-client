@@ -45,8 +45,8 @@ type sdkSync struct {
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
 type TreatmentResult struct {
-	Treatment string
-	Config    *string
+	Treatment string  `json:"treatment"`
+	Config    *string `json:"config"`
 }
 
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present

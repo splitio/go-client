@@ -25,8 +25,8 @@ const MaxLength = 250
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
-	logger             logging.LoggerInterface
-	trafficTypeStorage storage.TrafficTypeStorageConsumer
+	logger       logging.LoggerInterface
+	splitStorage storage.SplitStorageConsumer
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -162,7 +162,7 @@ func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
-	if i.trafficTypeStorage.Get(toLower) <= 0 {
+	if !i.splitStorage.TrafficTypeExists(toLower) {
 		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
 			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
 	}

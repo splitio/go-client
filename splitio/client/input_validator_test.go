@@ -5,10 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/splitio/go-client/splitio/service/dtos"
+
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -36,14 +39,18 @@ var options = &logging.LoggerOptions{
 type mockTrafficStorage struct {
 }
 
-func (tt *mockTrafficStorage) Get(trafficType string) int64 {
+func (tt *mockTrafficStorage) TrafficTypeExists(trafficType string) bool {
 	switch trafficType {
 	case "trafictype":
-		return 3
+		return true
 	default:
-		return 0
+		return false
 	}
 }
+func (tt *mockTrafficStorage) Get(splitName string) *dtos.SplitDTO { return nil }
+func (tt *mockTrafficStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
+func (tt *mockTrafficStorage) SplitNames() []string                { return []string{} }
+func (tt *mockTrafficStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
 
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
@@ -54,8 +61,8 @@ var client = SplitClient{
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
 	validator: inputValidation{
-		logger:             logger,
-		trafficTypeStorage: &mockTrafficStorage{},
+		logger:       logger,
+		splitStorage: &mockTrafficStorage{},
 	},
 	events: &mockEvents{},
 }

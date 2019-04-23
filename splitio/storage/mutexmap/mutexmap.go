@@ -12,21 +12,21 @@ import (
 
 // MMSplitStorage struct contains is an in-memory implementation of split storage
 type MMSplitStorage struct {
-	data        map[string]dtos.SplitDTO
-	trafficType map[string]int64
-	mutex       *sync.RWMutex
-	till        int64
-	tillMutex   *sync.Mutex
+	data         map[string]dtos.SplitDTO
+	trafficTypes map[string]int64
+	mutex        *sync.RWMutex
+	till         int64
+	tillMutex    *sync.Mutex
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
 func NewMMSplitStorage() *MMSplitStorage {
 	return &MMSplitStorage{
-		data:        make(map[string]dtos.SplitDTO),
-		trafficType: make(map[string]int64),
-		mutex:       &sync.RWMutex{},
-		till:        0,
-		tillMutex:   &sync.Mutex{},
+		data:         make(map[string]dtos.SplitDTO),
+		trafficTypes: make(map[string]int64),
+		mutex:        &sync.RWMutex{},
+		till:         0,
+		tillMutex:    &sync.Mutex{},
 	}
 
 }
@@ -126,11 +126,11 @@ func (m *MMSplitStorage) Clear() {
 func (m *MMSplitStorage) Increase(trafficType string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	_, exists := m.trafficType[trafficType]
+	_, exists := m.trafficTypes[trafficType]
 	if !exists {
-		m.trafficType[trafficType] = 1
+		m.trafficTypes[trafficType] = 1
 	} else {
-		m.trafficType[trafficType]++
+		m.trafficTypes[trafficType]++
 	}
 }
 
@@ -138,9 +138,9 @@ func (m *MMSplitStorage) Increase(trafficType string) {
 func (m *MMSplitStorage) Decrease(trafficType string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	value, exists := m.trafficType[trafficType]
+	value, exists := m.trafficTypes[trafficType]
 	if exists && value > 0 {
-		m.trafficType[trafficType]--
+		m.trafficTypes[trafficType]--
 	}
 }
 
@@ -149,7 +149,7 @@ func (m *MMSplitStorage) Decrease(trafficType string) {
 func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	value, exists := m.trafficType[trafficType]
+	value, exists := m.trafficTypes[trafficType]
 	return exists && value > 0
 }
 

@@ -5,11 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
-
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"

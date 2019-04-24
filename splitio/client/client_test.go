@@ -619,12 +619,6 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 		t.Error("Wrong evaluation")
 	}
 
-	expectedVersion := "go-" + splitio.Version
-	if !compareListener(ilResult["something"].(map[string]interface{}), "something", "something", "definition not found", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
-		t.Error("Impression should match")
-	}
-	ilResult = make(map[string]interface{})
-
 	if client.Treatment("something", "something", nil) != evaluator.Control {
 		t.Error("Wrong evaluation")
 	}

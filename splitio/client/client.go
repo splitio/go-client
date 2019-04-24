@@ -7,6 +7,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
@@ -49,54 +50,35 @@ type TreatmentResult struct {
 	Config    *string `json:"config"`
 }
 
-// doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
-// for a certain key and set of attributes
-func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attributes map[string]interface{}, operation string, metricsLabel string) (t TreatmentResult) {
-	controlTreatment := TreatmentResult{
-		Treatment: evaluator.Control,
-		Config:    nil,
-	}
-
-	// Set up a guard deferred function to recover if the SDK starts panicking
-	defer func() {
-		if r := recover(); r != nil {
-			// At this point we'll only trust that the logger isn't panicking trust
-			// that the logger isn't panicking
-			c.logger.Error(
-				"SDK is panicking with the following error", r, "\n",
-				string(debug.Stack()), "\n",
-				"Returning CONTROL", "\n")
-			t = controlTreatment
-		}
-	}()
-
-	if c.IsDestroyed() {
-		c.logger.Error("Client has already been destroyed - no calls possible")
-		return controlTreatment
-	}
-
-	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
-	if err != nil {
-		c.logger.Error(err.Error())
-		return controlTreatment
-	}
-
-	feature, err = c.validator.ValidateFeatureName(feature, operation)
-	if err != nil {
-		c.logger.Error(err.Error())
-		return controlTreatment
-	}
-
-	var evaluationResult *evaluator.Result
-	var impressionBucketingKey = ""
+func (c *SplitClient) getEvaluationResult(
+	matchingKey string,
+	bucketingKey *string,
+	feature string,
+	attributes map[string]interface{},
+	operation string,
+) (*evaluator.Result, string) {
+	impressionBucketingKey := ""
 	if bucketingKey != nil {
-		evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
 		impressionBucketingKey = *bucketingKey
-	} else {
-		evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
 	}
+	if c.isReady() {
+		return c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes), impressionBucketingKey
+	}
+	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+	return &evaluator.Result{
+		Treatment: evaluator.Control,
+		Label:     impressionlabels.ClientNotReady,
+		Config:    nil,
+	}, impressionBucketingKey
+}
 
-	// Store impression
+func (c *SplitClient) storeImpression(
+	matchingKey string,
+	bucketingKey string,
+	feature string,
+	attributes map[string]interface{},
+	evaluationResult evaluator.Result,
+) {
 	if c.impressions != nil {
 		var label string
 		if c.cfg.LabelsEnabled {
@@ -104,7 +86,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		}
 
 		var impression = dtos.ImpressionDTO{
-			BucketingKey: impressionBucketingKey,
+			BucketingKey: bucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
 			Label:        label,
@@ -129,6 +111,56 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
 	}
+}
+
+// doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
+// for a certain key and set of attributes
+func (c *SplitClient) doTreatmentCall(
+	key interface{},
+	feature string,
+	attributes map[string]interface{},
+	operation string,
+	metricsLabel string,
+) (t TreatmentResult) {
+	controlTreatment := TreatmentResult{
+		Treatment: evaluator.Control,
+		Config:    nil,
+	}
+
+	// Set up a guard deferred function to recover if the SDK starts panicking
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n",
+				"Returning CONTROL", "\n")
+			t = controlTreatment
+		}
+	}()
+
+	if c.isDestroyed() {
+		c.logger.Error("Client has already been destroyed - no calls possible")
+		return controlTreatment
+	}
+
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return controlTreatment
+	}
+
+	feature, err = c.validator.ValidateFeatureName(feature, operation)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return controlTreatment
+	}
+
+	evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
+
+	// Store impression
+	c.storeImpression(matchingKey, impressionBucketingKey, feature, attributes, *evaluationResult)
 
 	// Store latency
 	bucket := metrics.Bucket(evaluationResult.EvaluationTimeNs)
@@ -170,7 +202,13 @@ func (c *SplitClient) generateControlTreatments(features []string, operation str
 
 // doTreatmentsCall retrieves treatments of an specific array of features with configurations object if it is present
 // for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+func (c *SplitClient) doTreatmentsCall(
+	key interface{},
+	features []string,
+	attributes map[string]interface{},
+	operation string,
+	metricsLabel string,
+) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
 
 	// Set up a guard deferred function to recover if the SDK starts panicking
@@ -185,7 +223,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 		}
 	}()
 
-	if c.IsDestroyed() {
+	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
 		return c.generateControlTreatments(features, operation)
 	}
@@ -206,36 +244,10 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 	}
 
 	for _, feature := range filteredFeatures {
-		var evaluationResult *evaluator.Result
-		var impressionBucketingKey = ""
-		if bucketingKey != nil {
-			evaluationResult = c.evaluator.Evaluate(matchingKey, bucketingKey, feature, attributes)
-			impressionBucketingKey = *bucketingKey
-		} else {
-			evaluationResult = c.evaluator.Evaluate(matchingKey, &matchingKey, feature, attributes)
-		}
+		evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
+
 		// Store impression
-		if c.impressions != nil {
-			var label string
-			if c.cfg.LabelsEnabled {
-				label = evaluationResult.Label
-			}
-			var impression = dtos.ImpressionDTO{
-				BucketingKey: impressionBucketingKey,
-				ChangeNumber: evaluationResult.SplitChangeNumber,
-				KeyName:      matchingKey,
-				Label:        label,
-				Treatment:    evaluationResult.Treatment,
-				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-			}
-			keyImpressions := []dtos.ImpressionDTO{impression}
-			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-				TestName:       feature,
-				KeyImpressions: keyImpressions,
-			})
-		} else {
-			c.logger.Warning("No impression storage set in client. Not sending impressions!")
-		}
+		c.storeImpression(matchingKey, impressionBucketingKey, feature, attributes, *evaluationResult)
 
 		treatments[feature] = TreatmentResult{
 			Treatment: evaluationResult.Treatment,
@@ -274,10 +286,14 @@ func (c *SplitClient) TreatmentsWithConfig(key interface{}, features []string, a
 	return c.doTreatmentsCall(key, features, attributes, "TreatmentsWithConfig", "sdk.getTreatmentsWithConfig")
 }
 
-// IsDestroyed returns true if tbe client has been destroyed
-func (c *SplitClient) IsDestroyed() bool {
+// isDestroyed returns true if tbe client has been destroyed
+func (c *SplitClient) isDestroyed() bool {
 	return c.factory.IsDestroyed()
+}
 
+// isReady returns true if tbe client has been destroyed
+func (c *SplitClient) isReady() bool {
+	return c.factory.IsReady()
 }
 
 // Destroy stops all async tasks and clears all storages
@@ -325,9 +341,13 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		return
 	}()
 
-	if c.IsDestroyed() {
+	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
 		return errors.New("Client has already been destroyed - no calls possible")
+	}
+
+	if !c.isReady() {
+		c.logger.Warning("track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	}
 
 	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(key, trafficType, eventType, value)

@@ -45,6 +45,15 @@ var client = SplitClient{
 	events:      &mockEvents{},
 }
 
+var factory = SplitFactory{
+	client: &client,
+}
+
+func init() {
+	factory.status.Store(SdkReady)
+	client.factory = &factory
+}
+
 func TestFactoryWithNilApiKey(t *testing.T) {
 	cfg := conf.Default()
 	cfg.Logger = logger
@@ -497,7 +506,7 @@ func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	expected := "Treatment: split name ' some_feature  ' has extra whitespace, trimming"
+	expected := "Treatments: split name ' some_feature  ' has extra whitespace, trimming"
 	if strMsg != expected {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)
@@ -729,6 +738,13 @@ func TestManagerWithEmptySplit(t *testing.T) {
 		splitStorage: splitStorage,
 		logger:       logger,
 	}
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
 	result := manager.Split("")
 
 	expected := "Split: you passed an empty split name, split name must be a non-empty string"

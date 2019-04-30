@@ -87,3 +87,8 @@ func (s *Split) Conditions() []*Condition {
 func (s *Split) ChangeNumber() int64 {
 	return s.splitData.ChangeNumber
 }
+
+// Configurations returns the configurations for this split
+func (s *Split) Configurations() map[string]string {
+	return s.splitData.Configurations
+}

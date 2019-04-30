@@ -1,3 +1,8 @@
+4.0.0 (April 30, 2019)
+ - Added custom Impression Listener.
+ - BlockUntilReady refactor.
+ - Added getTreatmentWithConfig and getTreatmentsWithConfig methods.
+ - Added support for YAML file for Localhost mode.
 3.0.1 (March 8, 2019)
  - Updated Splits refreshing rate.
 3.0.0 (Feb 19, 2019)

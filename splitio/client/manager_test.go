@@ -1,10 +1,11 @@
 package client
 
 import (
+	"testing"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
-	"testing"
 )
 
 func TestSplitManager(t *testing.T) {
@@ -44,6 +45,13 @@ func TestSplitManager(t *testing.T) {
 
 	manager := SplitManager{splitStorage: splitStorage}
 
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
 	splitNames := manager.SplitNames()
 	splitNameSet := set.NewSet(splitNames[0], splitNames[1])
 	if !splitNameSet.IsEqual(set.NewSet("split1", "split2")) {
@@ -68,6 +76,75 @@ func TestSplitManager(t *testing.T) {
 
 	all := manager.Splits()
 	if len(all) != 2 {
+		t.Error("Incorrect number of splits returned")
+	}
+
+	sx := manager.Split("split3492042")
+	if sx != nil {
+		t.Error("Nonexistant split should return nil")
+	}
+}
+
+func TestSplitManagerWithConfigs(t *testing.T) {
+	splitStorage := mutexmap.NewMMSplitStorage()
+	splitStorage.PutMany([]dtos.SplitDTO{*valid, *killed, *noConfig}, 123)
+
+	manager := SplitManager{splitStorage: splitStorage}
+
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
+	splitNames := manager.SplitNames()
+	splitNameSet := set.NewSet(splitNames[0], splitNames[1], splitNames[2])
+	if !splitNameSet.IsEqual(set.NewSet("valid", "killed", "noConfig")) {
+		t.Error("Incorrect split names returned")
+	}
+
+	s1 := manager.Split("valid")
+	if s1.Name != "valid" || s1.Killed || s1.TrafficType != "user" || s1.ChangeNumber != 1494593336752 {
+		t.Error("Split 1 stored incorrectly")
+	}
+	if s1.Treatments[0] != "on" {
+		t.Error("Incorrect treatments for split 1")
+	}
+	if s1.Configs == nil {
+		t.Error("It should have configs")
+	}
+	if s1.Configs["on"] != "{\"color\": \"blue\",\"size\": 13}" {
+		t.Error("It should have configs")
+	}
+
+	s2 := manager.Split("killed")
+	if s2.Name != "killed" || !s2.Killed || s2.TrafficType != "user" || s2.ChangeNumber != 1494593336752 {
+		t.Error("Split 2 stored incorrectly")
+	}
+	if s2.Treatments[0] != "off" {
+		t.Error("Incorrect treatments for split 2")
+	}
+	if s2.Configs == nil {
+		t.Error("It should have configs")
+	}
+	if s2.Configs["defTreatment"] != "{\"color\": \"orange\",\"size\": 15}" {
+		t.Error("It should have configs")
+	}
+
+	s3 := manager.Split("noConfig")
+	if s3.Name != "noConfig" || s3.Killed || s3.TrafficType != "user" || s3.ChangeNumber != 1494593336752 {
+		t.Error("Split 3 stored incorrectly")
+	}
+	if s3.Treatments[0] != "off" {
+		t.Error("Incorrect treatments for split 3")
+	}
+	if s3.Configs != nil {
+		t.Error("It should not have configs")
+	}
+
+	all := manager.Splits()
+	if len(all) != 3 {
 		t.Error("Incorrect number of splits returned")
 	}
 

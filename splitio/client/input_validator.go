@@ -10,8 +10,6 @@ import (
 
 	"github.com/splitio/go-toolkit/datastructures/set"
 
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -119,7 +117,7 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 		}
 		i.logger.Warning(fmt.Sprintf(operation+": key %s is not of type string, converting", key))
 	}
-	err = checkIsValidString(sMatchingKey, "key", "Treatment")
+	err = checkIsValidString(sMatchingKey, "key", operation)
 	if err != nil {
 		return "", nil, err
 	}
@@ -128,12 +126,12 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 }
 
 // ValidateFeatureName implements the validation for FetureName
-func (i *inputValidation) ValidateFeatureName(featureName string) (string, error) {
-	err := checkIsEmptyString(featureName, "featureName", "Treatment")
+func (i *inputValidation) ValidateFeatureName(featureName string, operation string) (string, error) {
+	err := checkIsEmptyString(featureName, "featureName", operation)
 	if err != nil {
 		return "", err
 	}
-	return i.checkWhitespaces(featureName, "Treatment"), nil
+	return i.checkWhitespaces(featureName, operation), nil
 }
 
 func checkEventType(eventType string) error {
@@ -211,13 +209,13 @@ func (i *inputValidation) ValidateManagerInputs(feature string) error {
 }
 
 // ValidateFeatureNames implements the validation for Treatments call
-func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, error) {
+func (i *inputValidation) ValidateFeatureNames(features []string, operation string) ([]string, error) {
 	var featuresSet = set.NewSet()
 	if len(features) == 0 {
-		return []string{}, errors.New("Treatments: features must be a non-empty array")
+		return []string{}, errors.New(operation + ": features must be a non-empty array")
 	}
 	for _, feature := range features {
-		f, err := i.ValidateFeatureName(feature)
+		f, err := i.ValidateFeatureName(feature, operation)
 		if err != nil {
 			i.logger.Error(err.Error())
 		} else {
@@ -225,7 +223,7 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		}
 	}
 	if featuresSet.IsEmpty() {
-		return []string{}, errors.New("Treatments: features must be a non-empty array")
+		return []string{}, errors.New(operation + ": features must be a non-empty array")
 	}
 	f := make([]string, featuresSet.Size())
 	for i, v := range featuresSet.List() {
@@ -235,16 +233,4 @@ func (i *inputValidation) ValidateFeatureNames(features []string) ([]string, err
 		}
 	}
 	return f, nil
-}
-
-func (i *inputValidation) GenerateControlTreatments(features []string) map[string]string {
-	treatments := make(map[string]string)
-	filtered, err := i.ValidateFeatureNames(features)
-	if err != nil {
-		return treatments
-	}
-	for _, feature := range filtered {
-		treatments[feature] = evaluator.Control
-	}
-	return treatments
 }

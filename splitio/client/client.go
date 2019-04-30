@@ -104,6 +104,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		}
 
 		var impression = dtos.ImpressionDTO{
+			FeatureName:  feature,
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
@@ -112,12 +113,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
 
-		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
-			TestName:       feature,
-			KeyImpressions: keyImpressions,
-		}}
-
+		toStore := []dtos.ImpressionDTO{impression}
 		c.impressions.LogImpressions(toStore)
 
 		// Custom Impression Listener
@@ -191,7 +187,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 	}
 
 	before := time.Now()
-	var bulkImpressions []dtos.ImpressionsDTO
+	var bulkImpressions []dtos.ImpressionDTO
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
@@ -221,6 +217,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 				label = evaluationResult.Label
 			}
 			var impression = dtos.ImpressionDTO{
+				FeatureName:  feature,
 				BucketingKey: impressionBucketingKey,
 				ChangeNumber: evaluationResult.SplitChangeNumber,
 				KeyName:      matchingKey,
@@ -228,11 +225,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 				Treatment:    evaluationResult.Treatment,
 				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 			}
-			keyImpressions := []dtos.ImpressionDTO{impression}
-			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-				TestName:       feature,
-				KeyImpressions: keyImpressions,
-			})
+			bulkImpressions = append(bulkImpressions, impression)
 		} else {
 			c.logger.Warning("No impression storage set in client. Not sending impressions!")
 		}

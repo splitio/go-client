@@ -37,7 +37,8 @@ const SdkReady = 2
 // SdkError flag
 const SdkError = -1
 
-var inMemoryFullQueueChan = make(chan bool, 1)
+var inMemoryFullQueueChanEvents = make(chan bool, 1)
+var inMemoryFullQueueChanImpressions = make(chan bool, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
@@ -153,9 +154,9 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
-		impressionStorage = mutexmap.NewMMImpressionStorage()
+		impressionStorage = mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMemoryFullQueueChanImpressions)
 		metricsStorage = mutexmap.NewMMMetricsStorage()
-		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChan)
+		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChanEvents)
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port
@@ -298,6 +299,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				ip,
 				instance,
 				logger,
+				cfg.Advanced.ImpressionsBulkSize,
 			),
 			countersSync: tasks.NewRecordCountersTask(
 				metricsStorage, metricsRecorder, countersPeriod, version, ip, instance, logger,
@@ -326,10 +328,18 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		if cfg.OperationMode == "inmemory-standalone" {
 			go func() {
 				for true {
-					isFull := <-inMemoryFullQueueChan
-					if isFull {
+					isFullEventsQueue := <-inMemoryFullQueueChanEvents
+					if isFullEventsQueue {
 						logger.Debug("FLUSHING storage queue")
 						errWakeUp := syncTasks.eventsSync.WakeUp()
+						if errWakeUp != nil {
+							logger.Error("Error flushing storage queue", errWakeUp)
+						}
+					}
+					isFullImpressionsQueue := <-inMemoryFullQueueChanEvents
+					if isFullImpressionsQueue {
+						logger.Debug("FLUSHING storage queue")
+						errWakeUp := syncTasks.impressionSync.WakeUp()
 						if errWakeUp != nil {
 							logger.Error("Error flushing storage queue", errWakeUp)
 						}

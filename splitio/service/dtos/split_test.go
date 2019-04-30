@@ -62,24 +62,3 @@ func TestSplitDTO(t *testing.T) {
 		}
 	}
 }
-
-func TestImpressionDTO(t *testing.T) {
-	impressionTXT := `{"keyName":"some_key","treatment":"off","time":1234567890,"changeNumber":55555555,"label":"some label","bucketingKey":"some_bucket_key"}`
-	impressionDTO := &ImpressionDTO{
-		KeyName:      "some_key",
-		Treatment:    "off",
-		Time:         1234567890,
-		ChangeNumber: 55555555,
-		Label:        "some label",
-		BucketingKey: "some_bucket_key"}
-
-	marshalImpression, err := impressionDTO.MarshalBinary()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if string(marshalImpression) != impressionTXT {
-		t.Error("Error marshaling impression")
-	}
-
-}

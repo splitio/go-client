@@ -13,6 +13,7 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
@@ -77,7 +78,7 @@ func TestClientGetTreatment(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
@@ -90,8 +91,9 @@ func TestClientGetTreatment(t *testing.T) {
 
 	client.Treatment("key", "feature", nil)
 
-	impressions := client.impressions.(storage.ImpressionStorage)
-	impression := impressions.PopAll()[0].KeyImpressions[0]
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	impression := impressions[0]
 	if impression.Label != "aLabel" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
@@ -99,7 +101,8 @@ func TestClientGetTreatment(t *testing.T) {
 	client.cfg.LabelsEnabled = false
 	client.Treatment("key", "feature2", nil)
 
-	impression = impressions.PopAll()[0].KeyImpressions[0]
+	impressions, _ = impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	impression = impressions[0]
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
@@ -113,7 +116,7 @@ func TestTreatments(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
@@ -180,7 +183,7 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
@@ -232,7 +235,7 @@ func TestClientPanicking(t *testing.T) {
 		cfg:         cfg,
 		evaluator:   &mockEventsPanic{},
 		events:      &mockEvents{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
@@ -455,7 +458,7 @@ func TestImpressionListener(t *testing.T) {
 	client := SplitClient{
 		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
-		impressions:        mutexmap.NewMMImpressionStorage(),
+		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
@@ -499,7 +502,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	client := SplitClient{
 		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
-		impressions:        mutexmap.NewMMImpressionStorage(),
+		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
@@ -1106,12 +1109,11 @@ func (i *mockSegmentStorage) Get(feature string) *set.ThreadUnsafeSet {
 }
 
 func isInvalidImpression(client SplitClient, key string, feature string, treatment string) bool {
-	impressions := client.impressions.(storage.ImpressionStorage)
-	impression := impressions.PopAll()[0]
-	name := impression.TestName
-	i := impression.KeyImpressions[0]
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	i := impressions[0]
 
-	if name != feature || i.KeyName != key || treatment != i.Treatment {
+	if i.FeatureName != feature || i.KeyName != key || treatment != i.Treatment {
 		return true
 	}
 	return false
@@ -1132,7 +1134,7 @@ func TestClient(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   evaluator,
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 	}
@@ -1183,7 +1185,7 @@ func TestClient(t *testing.T) {
 	if treatments["valid"] != "on" {
 		t.Error("Unexpected treatment result")
 	}
-	client.impressions.(storage.ImpressionStorage).PopAll()
+	client.impressions.(storage.ImpressionStorage).PopN(cfg.Advanced.ImpressionsBulkSize)
 
 	// Assertion TreatmentWithConfig
 	result := client.TreatmentWithConfig("user1", "valid", nil)

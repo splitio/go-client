@@ -14,7 +14,7 @@ type SegmentFetcher interface {
 
 // ImpressionsRecorder interface to be implemented by Impressions loggers
 type ImpressionsRecorder interface {
-	Record(impressions []dtos.ImpressionsDTO, sdkVersion string, machineIP string, machineName string) error
+	Record(impressions []dtos.ImpressionDTO, sdkVersion string, machineIP string, machineName string) error
 }
 
 // MetricsRecorder interface to be implemented by Metrics loggers

@@ -2,14 +2,15 @@ package mutexqueue
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 )
 
-// NewMQEventsStorage returns an instance of MQEventsStorage
-func NewMQEventsStorage(queueSize int, isFull chan<- bool) *MQEventsStorage {
-	return &MQEventsStorage{
+// NewMQImpressionsStorage returns an instance of MQEventsStorage
+func NewMQImpressionsStorage(queueSize int, isFull chan<- bool) *MQImpressionsStorage {
+	return &MQImpressionsStorage{
 		queue:      list.New(),
 		size:       queueSize,
 		mutexQueue: &sync.Mutex{},
@@ -17,15 +18,15 @@ func NewMQEventsStorage(queueSize int, isFull chan<- bool) *MQEventsStorage {
 	}
 }
 
-// MQEventsStorage in memory events storage
-type MQEventsStorage struct {
+// MQImpressionsStorage in memory events storage
+type MQImpressionsStorage struct {
 	queue      *list.List
 	size       int
 	mutexQueue *sync.Mutex
 	fullChan   chan<- bool //only write channel
 }
 
-func (s *MQEventsStorage) sendSignalIsFull() {
+func (s *MQImpressionsStorage) sendSignalIsFull() {
 	// Nom blocking select
 	select {
 	case s.fullChan <- true:
@@ -36,18 +37,28 @@ func (s *MQEventsStorage) sendSignalIsFull() {
 	}
 }
 
-// Push an event into slice
-func (s *MQEventsStorage) Push(event dtos.EventDTO) error {
+// LogImpressions inserts impressions into the queue
+func (s *MQImpressionsStorage) LogImpressions(impressions []dtos.ImpressionDTO) error {
 	s.mutexQueue.Lock()
 	defer s.mutexQueue.Unlock()
 
+	for _, impression := range impressions {
+		s.Push(impression)
+	}
+
+	return nil
+}
+
+// Push an event into slice
+func (s *MQImpressionsStorage) Push(impression dtos.ImpressionDTO) error {
+	fmt.Println("IS Push")
 	if s.queue.Len()+1 > s.size {
 		s.sendSignalIsFull()
 		return ErrorMaxSizeReached
 	}
 
 	// Add element
-	s.queue.PushBack(event)
+	s.queue.PushBack(impression)
 
 	if s.queue.Len() == s.size {
 		s.sendSignalIsFull()
@@ -57,8 +68,8 @@ func (s *MQEventsStorage) Push(event dtos.EventDTO) error {
 }
 
 // PopN pop N elements from queue
-func (s *MQEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
-	var toReturn []dtos.EventDTO
+func (s *MQImpressionsStorage) PopN(n int64) ([]dtos.ImpressionDTO, error) {
+	var toReturn []dtos.ImpressionDTO
 	var totalItems int
 
 	// Mutexing queue
@@ -71,16 +82,16 @@ func (s *MQEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 		totalItems = s.queue.Len()
 	}
 
-	toReturn = make([]dtos.EventDTO, 0)
+	toReturn = make([]dtos.ImpressionDTO, 0)
 	for i := 0; i < totalItems; i++ {
-		toReturn = append(toReturn, s.queue.Remove(s.queue.Front()).(dtos.EventDTO))
+		toReturn = append(toReturn, s.queue.Remove(s.queue.Front()).(dtos.ImpressionDTO))
 	}
 
 	return toReturn, nil
 }
 
 // Empty returns if slice len if zero
-func (s *MQEventsStorage) Empty() bool {
+func (s *MQImpressionsStorage) Empty() bool {
 	s.mutexQueue.Lock()
 	defer s.mutexQueue.Unlock()
 
@@ -88,7 +99,7 @@ func (s *MQEventsStorage) Empty() bool {
 }
 
 // Count returns the number of events into slice
-func (s *MQEventsStorage) Count() int64 {
+func (s *MQImpressionsStorage) Count() int64 {
 	s.mutexQueue.Lock()
 	defer s.mutexQueue.Unlock()
 

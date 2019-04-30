@@ -11,9 +11,23 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-toolkit/logging"
 )
+
+type impressionRecord struct {
+	KeyName      string `json:"keyName"`
+	Treatment    string `json:"treatment"`
+	Time         int64  `json:"time"`
+	ChangeNumber int64  `json:"changeNumber"`
+	Label        string `json:"label"`
+	BucketingKey string `json:"bucketingKey,omitempty"`
+}
+
+type impressionsRecord struct {
+	TestName       string             `json:"testName"`
+	KeyImpressions []impressionRecord `json:"keyImpressions"`
+}
 
 func TestImpressionSyncTask(t *testing.T) {
 	reqestReceived := false
@@ -30,7 +44,7 @@ func TestImpressionSyncTask(t *testing.T) {
 			return
 		}
 
-		var impressions []dtos.ImpressionsDTO
+		var impressions []impressionsRecord
 		err = json.Unmarshal(body, &impressions)
 		if err != nil {
 			t.Errorf("Error parsing json: %s", err)
@@ -61,7 +75,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		logger,
 	)
 
-	impressionStorage := mutexmap.NewMMImpressionStorage()
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan bool, 1))
 
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
@@ -71,6 +85,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		"192.168.0.123",
 		"machine1",
 		logger,
+		100,
 	)
 
 	impressionTask.Start()
@@ -79,21 +94,27 @@ func TestImpressionSyncTask(t *testing.T) {
 		t.Error("Impression recording task should be running")
 	}
 
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
+	imp1 := dtos.ImpressionDTO{
+		FeatureName:  "feature1",
 		BucketingKey: "123",
 		ChangeNumber: 456,
 		KeyName:      "key1",
 		Time:         123,
 		Treatment:    "on",
-	})
+	}
 
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+
+	imp2 := dtos.ImpressionDTO{
+		FeatureName:  "feature1",
 		BucketingKey: "123",
 		ChangeNumber: 456,
 		KeyName:      "key2",
 		Time:         124,
 		Treatment:    "off",
-	})
+	}
+
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
 
 	time.Sleep(time.Second * 10)
 
@@ -112,7 +133,7 @@ func TestImpressionSyncTask(t *testing.T) {
 
 type mockRecorder struct{}
 
-func (r *mockRecorder) Record(i []dtos.ImpressionsDTO, s string, m string, m2 string) error {
+func (r *mockRecorder) Record(i []dtos.ImpressionDTO, s string, m string, m2 string) error {
 	return nil
 }
 
@@ -121,7 +142,7 @@ type impressionRecorderMock struct {
 }
 
 func (i *impressionRecorderMock) Record(
-	impressions []dtos.ImpressionsDTO,
+	impressions []dtos.ImpressionDTO,
 	sdkVersion string,
 	machineIP string,
 	machineName string,
@@ -132,11 +153,19 @@ func (i *impressionRecorderMock) Record(
 
 func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	logger := logging.NewLogger(nil)
-	impressionStorage := mutexmap.NewMMImpressionStorage()
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature1", &dtos.ImpressionDTO{})
+	imp1 := dtos.ImpressionDTO{
+		FeatureName:  "feature1",
+		BucketingKey: "123",
+		ChangeNumber: 456,
+		KeyName:      "key1",
+		Time:         123,
+		Treatment:    "on",
+	}
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan bool, 1))
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
 	impressionRecorder := &impressionRecorderMock{}
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
@@ -146,6 +175,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 		"123.123.123.123",
 		"123-123-123-123",
 		logger,
+		100,
 	)
 
 	impressionTask.Start()
@@ -156,10 +186,18 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	}
 
 	// Add more impressions so that they can be flushed when Stop() is called
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
-	impressionStorage.Put("feature2", &dtos.ImpressionDTO{})
+	imp2 := dtos.ImpressionDTO{
+		FeatureName:  "feature2",
+		BucketingKey: "123",
+		ChangeNumber: 456,
+		KeyName:      "key1",
+		Time:         123,
+		Treatment:    "on",
+	}
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
 	impressionTask.Stop()
 	time.Sleep(time.Second * 2)
 	if impressionRecorder.iterations != 2 {

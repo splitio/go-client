@@ -36,25 +36,23 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener) *Wrappe
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionsDTO, attributes map[string]interface{}, metadata dtos.QueueStoredMachineMetadataDTO) {
-	if len(impression.KeyImpressions) > 0 {
-		impressionData := ImpressionData{
-			KeyName:      impression.KeyImpressions[0].KeyName,
-			Feature:      impression.TestName,
-			BucketingKey: impression.KeyImpressions[0].BucketingKey,
-			ChangeNumber: impression.KeyImpressions[0].ChangeNumber,
-			Label:        impression.KeyImpressions[0].Label,
-			Time:         impression.KeyImpressions[0].Time,
-			Treatment:    impression.KeyImpressions[0].Treatment,
-		}
-
-		datToSend := ILObject{
-			Impression:         impressionData,
-			Attributes:         attributes,
-			InstanceID:         metadata.MachineName,
-			SDKLanguageVersion: "go-" + metadata.SDKVersion,
-		}
-
-		i.ImpressionListener.LogImpression(datToSend)
+func (i *WrapperImpressionListener) SendDataToClient(impression dtos.ImpressionDTO, attributes map[string]interface{}, metadata dtos.QueueStoredMachineMetadataDTO) {
+	impressionData := ImpressionData{
+		KeyName:      impression.KeyName,
+		Feature:      impression.FeatureName,
+		BucketingKey: impression.BucketingKey,
+		ChangeNumber: impression.ChangeNumber,
+		Label:        impression.Label,
+		Time:         impression.Time,
+		Treatment:    impression.Treatment,
 	}
+
+	datToSend := ILObject{
+		Impression:         impressionData,
+		Attributes:         attributes,
+		InstanceID:         metadata.MachineName,
+		SDKLanguageVersion: "go-" + metadata.SDKVersion,
+	}
+
+	i.ImpressionListener.LogImpression(datToSend)
 }

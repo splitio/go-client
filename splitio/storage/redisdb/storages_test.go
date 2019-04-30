@@ -277,18 +277,16 @@ func TestImpressionStorage(t *testing.T) {
 	logger := NewMockedLogger()
 	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "instanceName123", "go-test", logger)
 
-	var impression1 = dtos.ImpressionsDTO{
-		TestName: "feature1",
-		KeyImpressions: []dtos.ImpressionDTO{dtos.ImpressionDTO{
-			BucketingKey: "abc",
-			ChangeNumber: 123,
-			KeyName:      "key1",
-			Label:        "label1",
-			Time:         111,
-			Treatment:    "on",
-		}},
+	var impression1 = dtos.ImpressionDTO{
+		FeatureName:  "feature1",
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key1",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "on",
 	}
-	impressionStorage.LogImpressions([]dtos.ImpressionsDTO{impression1})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{impression1})
 
 	impressionStorage.client.client.Del(impressionStorage.redisKey)
 
@@ -298,18 +296,16 @@ func TestImpressionStorage(t *testing.T) {
 		t.Error("TTL should be less than or equal to default")
 	}
 
-	var impression2 = dtos.ImpressionsDTO{
-		TestName: "feature2",
-		KeyImpressions: []dtos.ImpressionDTO{dtos.ImpressionDTO{
-			BucketingKey: "abc",
-			ChangeNumber: 123,
-			KeyName:      "key1",
-			Label:        "label1",
-			Time:         111,
-			Treatment:    "off",
-		}},
+	var impression2 = dtos.ImpressionDTO{
+		FeatureName:  "feature2",
+		BucketingKey: "abc",
+		ChangeNumber: 123,
+		KeyName:      "key1",
+		Label:        "label1",
+		Time:         111,
+		Treatment:    "off",
 	}
-	impressionStorage.LogImpressions([]dtos.ImpressionsDTO{impression2})
+	impressionStorage.LogImpressions([]dtos.ImpressionDTO{impression2})
 
 	impressions, _ := impressionStorage.PopN(2)
 
@@ -324,13 +320,13 @@ func TestImpressionStorage(t *testing.T) {
 	}
 
 	var i1 = impressions[0]
-	if i1.FeatureName != impression1.TestName {
-		t.Error("Wrong Impression Stored, actual:", i1.FeatureName, " expected: ", impression1.TestName)
+	if i1.FeatureName != impression1.FeatureName {
+		t.Error("Wrong Impression Stored, actual:", i1.FeatureName, " expected: ", impression1.FeatureName)
 	}
 
 	var i2 = impressions[1]
-	if i2.FeatureName != impression2.TestName {
-		t.Error("Wrong Impression Stored, actual:", i2.FeatureName, " expected: ", impression2.TestName)
+	if i2.FeatureName != impression2.FeatureName {
+		t.Error("Wrong Impression Stored, actual:", i2.FeatureName, " expected: ", impression2.FeatureName)
 	}
 }
 

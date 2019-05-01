@@ -2,7 +2,6 @@ package mutexqueue
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -43,27 +42,17 @@ func (s *MQImpressionsStorage) LogImpressions(impressions []dtos.ImpressionDTO) 
 	defer s.mutexQueue.Unlock()
 
 	for _, impression := range impressions {
-		s.Push(impression)
+		if s.queue.Len()+1 > s.size {
+			s.sendSignalIsFull()
+			return ErrorMaxSizeReached
+		}
+		// Add element
+		s.queue.PushBack(impression)
+
+		if s.queue.Len() == s.size {
+			s.sendSignalIsFull()
+		}
 	}
-
-	return nil
-}
-
-// Push an event into slice
-func (s *MQImpressionsStorage) Push(impression dtos.ImpressionDTO) error {
-	fmt.Println("IS Push")
-	if s.queue.Len()+1 > s.size {
-		s.sendSignalIsFull()
-		return ErrorMaxSizeReached
-	}
-
-	// Add element
-	s.queue.PushBack(impression)
-
-	if s.queue.Len() == s.size {
-		s.sendSignalIsFull()
-	}
-
 	return nil
 }
 

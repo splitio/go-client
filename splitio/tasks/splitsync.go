@@ -21,17 +21,11 @@ func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher servic
 
 	inactiveSplits := make([]dtos.SplitDTO, 0)
 	activeSplits := make([]dtos.SplitDTO, 0)
-	trafficTypesToAdd := make([]string, 0)
-	trafficTypesToRemove := make([]string, 0)
 	for _, split := range splits.Splits {
 		if split.Status == "ACTIVE" {
 			activeSplits = append(activeSplits, split)
-			trafficTypesToAdd = append(trafficTypesToAdd, split.TrafficTypeName)
 		} else {
 			inactiveSplits = append(inactiveSplits, split)
-			if till != -1 {
-				trafficTypesToRemove = append(trafficTypesToRemove, split.TrafficTypeName)
-			}
 		}
 	}
 
@@ -41,14 +35,6 @@ func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher servic
 	// Remove inactive splits
 	for _, split := range inactiveSplits {
 		splitStorage.Remove(split.Name)
-	}
-
-	for _, trafficType := range trafficTypesToAdd {
-		splitStorage.Increase(trafficType)
-	}
-
-	for _, trafficType := range trafficTypesToRemove {
-		splitStorage.Decrease(trafficType)
 	}
 
 	if splits.Since == splits.Till {

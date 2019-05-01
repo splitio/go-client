@@ -15,7 +15,6 @@ import (
 )
 
 func TestSplitSyncTask(t *testing.T) {
-
 	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE", TrafficTypeName: "one"}
 	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE", TrafficTypeName: "two"}
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE", TrafficTypeName: "one"}
@@ -55,7 +54,7 @@ func TestSplitSyncTask(t *testing.T) {
 	)
 
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitStorage.PutMany([]dtos.SplitDTO{{Name: "split3", Killed: true, Status: "ACTIVE"}}, 123)
+	splitStorage.PutMany([]dtos.SplitDTO{}, -1)
 
 	readyChannel := make(chan string)
 	splitTask := NewFetchSplitsTask(
@@ -98,8 +97,8 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error(s1)
 	}
 
-	if splitStorage.TrafficTypeExists("one") {
-		t.Error("It should not exists")
+	if !splitStorage.TrafficTypeExists("one") {
+		t.Error("It should exists")
 	}
 
 	s2 := splitStorage.Get("split2")

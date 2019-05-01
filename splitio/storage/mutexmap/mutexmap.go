@@ -47,21 +47,26 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 
 // PutMany bulk inserts splits into the in-memory storage
 func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
-	m.mutex.Lock()
-	m.tillMutex.Lock()
-	defer m.mutex.Unlock()
-	defer m.tillMutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	for _, split := range splits {
 		m.data[split.Name] = split
+		m.Increase(split.TrafficTypeName)
 	}
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
 	m.till = till
 }
 
 // Remove deletes a split from the in-memory storage
 func (m *MMSplitStorage) Remove(splitName string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	delete(m.data, splitName)
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	split := m.Get(splitName)
+	if split != nil {
+		delete(m.data, splitName)
+		m.Decrease(split.TrafficTypeName)
+	}
 }
 
 // Till returns the last timestamp the split was fetched
@@ -73,9 +78,9 @@ func (m *MMSplitStorage) Till() int64 {
 
 // SplitNames returns a slice with the names of all the current splits
 func (m *MMSplitStorage) SplitNames() []string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	splitNames := make([]string, 0)
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 	for key := range m.data {
 		splitNames = append(splitNames, key)
 	}
@@ -85,8 +90,8 @@ func (m *MMSplitStorage) SplitNames() []string {
 // SegmentNames returns a slice with the names of all segments referenced in splits
 func (m *MMSplitStorage) SegmentNames() *set.ThreadUnsafeSet {
 	segments := set.NewSet()
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	for _, split := range m.data {
 		for _, condition := range split.Conditions {
 			for _, matcher := range condition.MatcherGroup.Matchers {
@@ -103,8 +108,8 @@ func (m *MMSplitStorage) SegmentNames() *set.ThreadUnsafeSet {
 // GetAll returns a list with a copy of each split.
 // NOTE: This method will block any further operations regarding splits. Use with caution
 func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	splitList := make([]dtos.SplitDTO, 0)
 	for _, split := range m.data {
 		splitCopy, ok := deepcopy.Copy(split).(dtos.SplitDTO)
@@ -117,15 +122,15 @@ func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
 
 // Clear replaces the split storage with an empty one.
 func (m *MMSplitStorage) Clear() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	m.data = make(map[string]dtos.SplitDTO)
 }
 
 // Increase increases value for a traffic type
 func (m *MMSplitStorage) Increase(trafficType string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	_, exists := m.trafficTypes[trafficType]
 	if !exists {
 		m.trafficTypes[trafficType] = 1
@@ -136,19 +141,23 @@ func (m *MMSplitStorage) Increase(trafficType string) {
 
 // Decrease decreases value for a traffic type
 func (m *MMSplitStorage) Decrease(trafficType string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	value, exists := m.trafficTypes[trafficType]
-	if exists && value > 0 {
-		m.trafficTypes[trafficType]--
+	if exists {
+		if value > 0 {
+			m.trafficTypes[trafficType]--
+		} else {
+			delete(m.trafficTypes, trafficType)
+		}
 	}
 }
 
 // TrafficTypeExists returns true or false depending on existance and counter
 // of trafficType
 func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	value, exists := m.trafficTypes[trafficType]
 	return exists && value > 0
 }

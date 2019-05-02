@@ -72,47 +72,6 @@ func (c *SplitClient) getEvaluationResult(
 	}, impressionBucketingKey
 }
 
-func (c *SplitClient) storeImpression(
-	matchingKey string,
-	bucketingKey string,
-	feature string,
-	attributes map[string]interface{},
-	evaluationResult evaluator.Result,
-) {
-	if c.impressions != nil {
-		var label string
-		if c.cfg.LabelsEnabled {
-			label = evaluationResult.Label
-		}
-
-		var impression = dtos.ImpressionDTO{
-			BucketingKey: bucketingKey,
-			ChangeNumber: evaluationResult.SplitChangeNumber,
-			KeyName:      matchingKey,
-			Label:        label,
-			Treatment:    evaluationResult.Treatment,
-			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-		}
-
-		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
-			TestName:       feature,
-			KeyImpressions: keyImpressions,
-		}}
-
-		c.impressions.LogImpressions(toStore)
-
-		// Custom Impression Listener
-		if c.impressionListener != nil {
-			for _, dataToSend := range toStore {
-				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
-			}
-		}
-	} else {
-		c.logger.Warning("No impression storage set in client. Not sending impressions!")
-	}
-}
-
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
 // for a certain key and set of attributes
 func (c *SplitClient) doTreatmentCall(
@@ -159,8 +118,38 @@ func (c *SplitClient) doTreatmentCall(
 
 	evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
 
-	// Store impression
-	c.storeImpression(matchingKey, impressionBucketingKey, feature, attributes, *evaluationResult)
+	if c.impressions != nil {
+		var label string
+		if c.cfg.LabelsEnabled {
+			label = evaluationResult.Label
+		}
+
+		var impression = dtos.ImpressionDTO{
+			BucketingKey: impressionBucketingKey,
+			ChangeNumber: evaluationResult.SplitChangeNumber,
+			KeyName:      matchingKey,
+			Label:        label,
+			Treatment:    evaluationResult.Treatment,
+			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+		}
+
+		keyImpressions := []dtos.ImpressionDTO{impression}
+		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
+			TestName:       feature,
+			KeyImpressions: keyImpressions,
+		}}
+
+		c.impressions.LogImpressions(toStore)
+
+		// Custom Impression Listener
+		if c.impressionListener != nil {
+			for _, dataToSend := range toStore {
+				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+			}
+		}
+	} else {
+		c.logger.Warning("No impression storage set in client. Not sending impressions!")
+	}
 
 	// Store latency
 	bucket := metrics.Bucket(evaluationResult.EvaluationTimeNs)
@@ -246,8 +235,27 @@ func (c *SplitClient) doTreatmentsCall(
 	for _, feature := range filteredFeatures {
 		evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
 
-		// Store impression
-		c.storeImpression(matchingKey, impressionBucketingKey, feature, attributes, *evaluationResult)
+		if c.impressions != nil {
+			var label string
+			if c.cfg.LabelsEnabled {
+				label = evaluationResult.Label
+			}
+			var impression = dtos.ImpressionDTO{
+				BucketingKey: impressionBucketingKey,
+				ChangeNumber: evaluationResult.SplitChangeNumber,
+				KeyName:      matchingKey,
+				Label:        label,
+				Treatment:    evaluationResult.Treatment,
+				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+			}
+			keyImpressions := []dtos.ImpressionDTO{impression}
+			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+				TestName:       feature,
+				KeyImpressions: keyImpressions,
+			})
+		} else {
+			c.logger.Warning("No impression storage set in client. Not sending impressions!")
+		}
 
 		treatments[feature] = TreatmentResult{
 			Treatment: evaluationResult.Treatment,

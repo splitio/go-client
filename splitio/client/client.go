@@ -294,12 +294,12 @@ func (c *SplitClient) TreatmentsWithConfig(key interface{}, features []string, a
 	return c.doTreatmentsCall(key, features, attributes, "TreatmentsWithConfig", "sdk.getTreatmentsWithConfig")
 }
 
-// isDestroyed returns true if tbe client has been destroyed
+// isDestroyed returns true if the client has been destroyed
 func (c *SplitClient) isDestroyed() bool {
 	return c.factory.IsDestroyed()
 }
 
-// isReady returns true if tbe client has been destroyed
+// isReady returns true if the client is ready
 func (c *SplitClient) isReady() bool {
 	return c.factory.IsReady()
 }

@@ -12,20 +12,20 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	sdkConf.Logger = logging.NewLogger(options)
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
 
-	delete(FactoryTrackerInstantiation, "localhost")
-	delete(FactoryTrackerInstantiation, "something")
+	delete(factoryInstances, "localhost")
+	delete(factoryInstances, "something")
 
 	factory, _ := NewSplitFactory("localhost", sdkConf)
 	client := factory.Client()
 
-	if FactoryTrackerInstantiation["localhost"] != 1 {
+	if factoryInstances["localhost"] != 1 {
 		t.Error("It should be 1")
 	}
 
 	factory2, _ := NewSplitFactory("localhost", sdkConf)
 	_ = factory2.Client()
 
-	if FactoryTrackerInstantiation["localhost"] != 2 {
+	if factoryInstances["localhost"] != 2 {
 		t.Error("It should be 2")
 	}
 	expected := "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
@@ -45,23 +45,23 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 
 	client.Destroy()
 
-	if FactoryTrackerInstantiation["localhost"] != 1 {
+	if factoryInstances["localhost"] != 1 {
 		t.Error("It should be 1")
 	}
 
-	if FactoryTrackerInstantiation["asdadd"] != 1 {
+	if factoryInstances["asdadd"] != 1 {
 		t.Error("It should be 1")
 	}
 
 	client.Destroy()
 
-	if FactoryTrackerInstantiation["localhost"] != 1 {
+	if factoryInstances["localhost"] != 1 {
 		t.Error("It should be 1")
 	}
 
 	client2.Destroy()
 
-	_, exist := FactoryTrackerInstantiation["asdadd"]
+	_, exist := factoryInstances["asdadd"]
 	if exist {
 		t.Error("It should not exist")
 	}
@@ -74,7 +74,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 		t.Error("Wrong logger message")
 	}
 
-	if FactoryTrackerInstantiation["localhost"] != 2 {
+	if factoryInstances["localhost"] != 2 {
 		t.Error("It should be 2")
 	}
 
@@ -85,10 +85,10 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	if strMsg != expected {
 		t.Error("Wrong logger message", strMsg)
 	}
-	if FactoryTrackerInstantiation["localhost"] != 3 {
+	if factoryInstances["localhost"] != 3 {
 		t.Error("It should be 3")
 	}
 
-	delete(FactoryTrackerInstantiation, "localhost")
-	delete(FactoryTrackerInstantiation, "asdadd")
+	delete(factoryInstances, "localhost")
+	delete(factoryInstances, "asdadd")
 }

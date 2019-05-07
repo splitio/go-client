@@ -8,22 +8,22 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-// FactoryTrackerInstantiation factory tracker instantiations
-var FactoryTrackerInstantiation = make(map[string]int64)
+// factoryInstances factory tracker instantiations
+var factoryInstances = make(map[string]int64)
 var mutex = &sync.Mutex{}
 
 func setFactory(apikey string, logger logging.LoggerInterface) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	counter, exists := FactoryTrackerInstantiation[apikey]
+	counter, exists := factoryInstances[apikey]
 	if !exists {
-		if len(FactoryTrackerInstantiation) > 0 {
+		if len(factoryInstances) > 0 {
 			logger.Warning("Factory Instantiation: You already have an instance of the Split factory. Make sure you definitely want " +
 				"this additional instance. We recommend keeping only one instance of the factory at all times (Singleton pattern) and " +
 				"reusing it throughout your application.")
 		}
-		FactoryTrackerInstantiation[apikey] = 1
+		factoryInstances[apikey] = 1
 	} else {
 		if counter == 1 {
 			logger.Warning("Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one instance of the factory " +
@@ -32,7 +32,7 @@ func setFactory(apikey string, logger logging.LoggerInterface) {
 			logger.Warning(fmt.Sprintf("Factory Instantiation: You already have %d factories with this API Key.", counter) +
 				" We recommend keeping only one instance of the factory at all times (Singleton pattern) and reusing it throughout your application.")
 		}
-		FactoryTrackerInstantiation[apikey]++
+		factoryInstances[apikey]++
 	}
 }
 
@@ -41,12 +41,12 @@ func RemoveInstanceFromTracker(apikey string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	counter, exists := FactoryTrackerInstantiation[apikey]
+	counter, exists := factoryInstances[apikey]
 	if exists {
 		if counter == 1 {
-			delete(FactoryTrackerInstantiation, apikey)
+			delete(factoryInstances, apikey)
 		} else {
-			FactoryTrackerInstantiation[apikey]--
+			factoryInstances[apikey]--
 		}
 	}
 }

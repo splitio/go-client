@@ -36,8 +36,8 @@ func setFactory(apikey string, logger logging.LoggerInterface) {
 	}
 }
 
-// RemoveInstanceFromTracker decrease the instance of factory track
-func RemoveInstanceFromTracker(apikey string) {
+// removeInstanceFromTracker decrease the instance of factory track
+func removeInstanceFromTracker(apikey string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -66,7 +66,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		return nil, err
 	}
 
-	splitFactory, err := NewFactory(apikey, cfg, logger)
+	splitFactory, err := newFactory(apikey, cfg, logger)
 	setFactory(apikey, logger)
 	return splitFactory, err
 }

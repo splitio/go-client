@@ -113,7 +113,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		}
 
 		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
+		toStore := []dtos.ImpressionsDTO{{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
@@ -283,7 +283,7 @@ func (c *SplitClient) IsDestroyed() bool {
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
 	if !c.factory.IsDestroyed() {
-		RemoveInstanceFromTracker(c.apikey)
+		removeInstanceFromTracker(c.apikey)
 	}
 	c.factory.Destroy()
 

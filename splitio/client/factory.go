@@ -120,9 +120,9 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTask
 	}
 }
 
-// NewFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
+// newFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
+func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	// Set up storages
 	var splitStorage storage.SplitStorage
 	var segmentStorage storage.SegmentStorage

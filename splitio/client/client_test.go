@@ -168,6 +168,10 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error("Feature2 retrieved incorrectly")
 	}
 
+	if client.Track("somekey", "somett", "somee", nil) != nil {
+		t.Error("It should be ok")
+	}
+
 	file.Close()
 	os.Remove(file.Name())
 }
@@ -359,7 +363,7 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Latencies should have run once")
 	}
 
-	if !client.IsDestroyed() {
+	if !client.isDestroyed() {
 		t.Error("Client should be destroyed")
 	}
 
@@ -485,6 +489,7 @@ func TestImpressionListener(t *testing.T) {
 	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
+	ilResult = make(map[string]interface{})
 
 	delete(ilResult, "feature")
 }
@@ -537,6 +542,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
+	ilResult = make(map[string]interface{})
 
 	delete(ilResult, "feature")
 	delete(ilResult, "feature2")
@@ -572,7 +578,7 @@ func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
 	}
 }
 
-func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
+func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
 		t.Error("Couldn't create temporary file for localhost client tests: ", err)
@@ -611,11 +617,6 @@ func TestBlockUntilReadyStatusLoclahost(t *testing.T) {
 
 	if client.Treatment("something", "something", attributes) != evaluator.Control {
 		t.Error("Wrong evaluation")
-	}
-
-	expectedVersion := "go-" + splitio.Version
-	if !compareListener(ilResult["something"].(map[string]interface{}), "something", "something", "definition not found", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
-		t.Error("Impression should match")
 	}
 
 	if client.Treatment("something", "something", nil) != evaluator.Control {
@@ -743,6 +744,13 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	sdkConf := conf.Default()
+	impTest := &ImpressionListenerTest{}
+	sdkConf.Advanced.ImpressionListener = impTest
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	expectedVersion := "go-" + splitio.Version
 
 	factory, _ := NewSplitFactory("something", sdkConf)
 
@@ -755,9 +763,13 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Client should not be ready")
 	}
 
-	if client.Treatment("something", "something", nil) != evaluator.Control {
+	if client.Treatment("not_ready", "not_ready", attributes) != evaluator.Control {
 		t.Error("Wrong evaluation")
 	}
+	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
+	}
+	ilResult = make(map[string]interface{})
 
 	if client.Treatment("something", "something", nil) != evaluator.Control {
 		t.Error("Wrong evaluation")
@@ -861,6 +873,13 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.Advanced.EventsURL = tss.URL
 	sdkConf.Advanced.SdkURL = ts.URL
+	impTest := &ImpressionListenerTest{}
+	sdkConf.Advanced.ImpressionListener = impTest
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+
+	expectedVersion := "go-" + splitio.Version
 
 	factory, _ := NewSplitFactory("something", sdkConf)
 
@@ -882,19 +901,21 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 		t.Error("It should not return splits")
 	}
 
-	if client.Treatment("something", "something", nil) != evaluator.Control {
+	if client.Treatment("not_ready2", "not_ready2", attributes) != evaluator.Control {
 		t.Error("Wrong evaluation")
+	}
+	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
 	}
 
-	if client.Treatment("something", "something", nil) != evaluator.Control {
+	result := client.Treatments("not_ready3", []string{"not_ready3"}, attributes)
+	if result["not_ready3"] != evaluator.Control {
 		t.Error("Wrong evaluation")
 	}
-
-	features := []string{"something"}
-	result := client.Treatments("something", features, nil)
-	if result["something"] != evaluator.Control {
-		t.Error("Wrong evaluation")
+	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+		t.Error("Impression should match")
 	}
+	ilResult = make(map[string]interface{})
 
 	err := client.Track("something", "something", "something", nil)
 	if err != nil {

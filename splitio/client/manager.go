@@ -43,9 +43,13 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 
 // SplitNames returns a list with the name of all the currently stored splits
 func (m *SplitManager) SplitNames() []string {
-	if m.factory.IsDestroyed() {
+	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
 		return []string{}
+	}
+
+	if !m.isReady() {
+		m.logger.Warning("splitNames: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	}
 
 	return m.splitStorage.SplitNames()
@@ -53,9 +57,13 @@ func (m *SplitManager) SplitNames() []string {
 
 // Splits returns a list of a partial view of every currently stored split
 func (m *SplitManager) Splits() []SplitView {
-	if m.factory.IsDestroyed() {
+	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
 		return []SplitView{}
+	}
+
+	if !m.isReady() {
+		m.logger.Warning("splits: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	}
 
 	splitViews := make([]SplitView, 0)
@@ -68,9 +76,13 @@ func (m *SplitManager) Splits() []SplitView {
 
 // Split returns a partial view of a particular split
 func (m *SplitManager) Split(feature string) *SplitView {
-	if m.factory.IsDestroyed() {
+	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
 		return nil
+	}
+
+	if !m.isReady() {
+		m.logger.Warning("split: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	}
 
 	err := m.validator.ValidateManagerInputs(feature)
@@ -89,4 +101,12 @@ func (m *SplitManager) Split(feature string) *SplitView {
 // BlockUntilReady Calls BlockUntilReady on factory to block manager on readiness
 func (m *SplitManager) BlockUntilReady(timer int) error {
 	return m.factory.BlockUntilReady(timer)
+}
+
+func (m *SplitManager) isDestroyed() bool {
+	return m.factory.IsDestroyed()
+}
+
+func (m *SplitManager) isReady() bool {
+	return m.factory.IsReady()
 }

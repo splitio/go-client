@@ -11,8 +11,8 @@ type SplitStorageProducer interface {
 	Remove(splitname string)
 	Till() int64
 	Clear()
-	Increase(trafficType string)
-	Decrease(trafficType string)
+	IncreaseTrafficTypeCount(trafficType string)
+	DecreaseTrafficTypeCount(trafficType string)
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage

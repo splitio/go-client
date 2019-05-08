@@ -51,7 +51,7 @@ func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 	defer m.mutex.RUnlock()
 	for _, split := range splits {
 		m.data[split.Name] = split
-		m.Increase(split.TrafficTypeName)
+		m.IncreaseTrafficTypeCount(split.TrafficTypeName)
 	}
 	m.tillMutex.Lock()
 	defer m.tillMutex.Unlock()
@@ -65,7 +65,7 @@ func (m *MMSplitStorage) Remove(splitName string) {
 	split := m.Get(splitName)
 	if split != nil {
 		delete(m.data, splitName)
-		m.Decrease(split.TrafficTypeName)
+		m.DecreaseTrafficTypeCount(split.TrafficTypeName)
 	}
 }
 
@@ -127,8 +127,8 @@ func (m *MMSplitStorage) Clear() {
 	m.data = make(map[string]dtos.SplitDTO)
 }
 
-// Increase increases value for a traffic type
-func (m *MMSplitStorage) Increase(trafficType string) {
+// IncreaseTrafficTypeCount increases value for a traffic type
+func (m *MMSplitStorage) IncreaseTrafficTypeCount(trafficType string) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	_, exists := m.trafficTypes[trafficType]
@@ -139,8 +139,8 @@ func (m *MMSplitStorage) Increase(trafficType string) {
 	}
 }
 
-// Decrease decreases value for a traffic type
-func (m *MMSplitStorage) Decrease(trafficType string) {
+// DecreaseTrafficTypeCount decreases value for a traffic type
+func (m *MMSplitStorage) DecreaseTrafficTypeCount(trafficType string) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	value, exists := m.trafficTypes[trafficType]

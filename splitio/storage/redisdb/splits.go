@@ -188,11 +188,11 @@ func (r *RedisSplitStorage) Clear() {
 	})
 }
 
-// Increase increases value for a traffic type
-func (r *RedisSplitStorage) Increase(trafficType string) {}
+// IncreaseTrafficTypeCount increases value for a traffic type
+func (r *RedisSplitStorage) IncreaseTrafficTypeCount(trafficType string) {}
 
-// Decrease decreases value for a traffic type
-func (r *RedisSplitStorage) Decrease(trafficType string) {}
+// DecreaseTrafficTypeCount decreases value for a traffic type
+func (r *RedisSplitStorage) DecreaseTrafficTypeCount(trafficType string) {}
 
 // TrafficTypeExists returns true or false depending on existance and counter
 // of trafficType

@@ -287,12 +287,12 @@ func TestTrafficTypes(t *testing.T) {
 		t.Error("It should not exist")
 	}
 
-	ttStorage.Increase("mytest")
+	ttStorage.IncreaseTrafficTypeCount("mytest")
 	if !ttStorage.TrafficTypeExists("mytest") {
 		t.Error("It should exist")
 	}
 
-	ttStorage.Decrease("mytest")
+	ttStorage.DecreaseTrafficTypeCount("mytest")
 	if ttStorage.TrafficTypeExists("mytest") {
 		t.Error("It should not exist")
 	}

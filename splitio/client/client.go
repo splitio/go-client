@@ -134,7 +134,7 @@ func (c *SplitClient) doTreatmentCall(
 		}
 
 		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
+		toStore := []dtos.ImpressionsDTO{{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
@@ -306,6 +306,9 @@ func (c *SplitClient) isReady() bool {
 
 // Destroy stops all async tasks and clears all storages
 func (c *SplitClient) Destroy() {
+	if !c.factory.IsDestroyed() {
+		removeInstanceFromTracker(c.apikey)
+	}
 	c.factory.Destroy()
 
 	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {

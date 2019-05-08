@@ -1111,9 +1111,10 @@ func (s *mockStorage) Get(
 	}
 	return nil
 }
-func (s *mockStorage) GetAll() []dtos.SplitDTO            { return make([]dtos.SplitDTO, 0) }
-func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet { return nil }
-func (s *mockStorage) SplitNames() []string               { return make([]string, 0) }
+func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([]dtos.SplitDTO, 0) }
+func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
+func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
+func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }
 
 type mockSegmentStorage struct{}
 

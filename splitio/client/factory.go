@@ -211,8 +211,11 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 		sync:        syncTasks,
 		cfg:         cfg,
 		events:      eventsStorage,
-		validator:   inputValidation{logger: logger},
-		metadata:    metadata,
+		validator: inputValidation{
+			logger:       logger,
+			splitStorage: splitStorage,
+		},
+		metadata: metadata,
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {

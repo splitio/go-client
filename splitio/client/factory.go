@@ -120,21 +120,9 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTask
 	}
 }
 
-// NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
+// newFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, error) {
-	if cfg == nil {
-		cfg = conf.Default()
-	}
-
-	logger := setupLogger(cfg)
-
-	err := conf.Normalize(apikey, cfg)
-	if err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
-
+func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	// Set up storages
 	var splitStorage storage.SplitStorage
 	var segmentStorage storage.SegmentStorage
@@ -143,7 +131,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var eventsStorage storage.EventsStorage
 
 	if cfg.OperationMode == "inmemory-standalone" {
-		err = api.ValidateApikey(apikey, cfg.Advanced)
+		err := api.ValidateApikey(apikey, cfg.Advanced)
 		if err != nil {
 			return nil, err
 		}
@@ -223,8 +211,11 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		sync:        syncTasks,
 		cfg:         cfg,
 		events:      eventsStorage,
-		validator:   inputValidation{logger: logger},
-		metadata:    metadata,
+		validator: inputValidation{
+			logger:       logger,
+			splitStorage: splitStorage,
+		},
+		metadata: metadata,
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {
@@ -249,7 +240,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 
 	switch cfg.OperationMode {
 	case "localhost":
-		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, local.SplitFileFormatClassic)
+		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 		splitPeriod := cfg.TaskPeriods.SplitSync
 		readyChannel := make(chan string)
 		syncTasks = &sdkSync{

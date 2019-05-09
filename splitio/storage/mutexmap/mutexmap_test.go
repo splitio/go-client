@@ -279,3 +279,21 @@ func TestMetricsStorage(t *testing.T) {
 	}
 
 }
+
+func TestTrafficTypes(t *testing.T) {
+	ttStorage := NewMMSplitStorage()
+
+	if ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should not exist")
+	}
+
+	ttStorage.IncreaseTrafficTypeCount("mytest")
+	if !ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should exist")
+	}
+
+	ttStorage.DecreaseTrafficTypeCount("mytest")
+	if ttStorage.TrafficTypeExists("mytest") {
+		t.Error("It should not exist")
+	}
+}

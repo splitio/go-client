@@ -5,10 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -33,6 +34,22 @@ var options = &logging.LoggerOptions{
 	VerboseWriter: &mW,
 }
 
+type mockSplitStorage struct {
+}
+
+func (tt *mockSplitStorage) TrafficTypeExists(trafficType string) bool {
+	switch trafficType {
+	case "trafictype":
+		return true
+	default:
+		return false
+	}
+}
+func (tt *mockSplitStorage) Get(splitName string) *dtos.SplitDTO { return nil }
+func (tt *mockSplitStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
+func (tt *mockSplitStorage) SplitNames() []string                { return []string{} }
+func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
+
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
 var client = SplitClient{
@@ -41,8 +58,11 @@ var client = SplitClient{
 	impressions: mutexmap.NewMMImpressionStorage(),
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
-	validator:   inputValidation{logger: logger},
-	events:      &mockEvents{},
+	validator: inputValidation{
+		logger:       logger,
+		splitStorage: &mockSplitStorage{},
+	},
+	events: &mockEvents{},
 }
 
 var factory = SplitFactory{
@@ -729,6 +749,22 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 	strMsg = ""
 }
 
+func TestTrackValidatorReturning0Occurrences(t *testing.T) {
+	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil)
+
+	expected := "Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	if err != nil {
+		t.Error("Should not be error")
+	}
+
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
 func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 	err := client.Track("key", "traffic", "eventType", true)
 
@@ -749,7 +785,7 @@ func TestTrackValidator(t *testing.T) {
 	err := client.Track("key", "traffic", "eventType", 1)
 
 	if err != nil {
-		t.Error("Shoueld not return error")
+		t.Error("Should not return error")
 	}
 }
 

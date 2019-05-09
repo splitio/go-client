@@ -55,8 +55,12 @@ func NewEvaluator(
 func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	splitDto := e.splitStorage.Get(feature)
 	var config *string
+	if bucketingKey == nil {
+		bucketingKey = &key
+	}
 	if splitDto == nil {
-		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
+		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
+		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config, EvaluationTimeNs: 0}
 	}
 
 	// TODO: Move this to NewEvaluator ?

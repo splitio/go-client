@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -24,7 +24,8 @@ const MaxLength = 250
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
-	logger logging.LoggerInterface
+	logger       logging.LoggerInterface
+	splitStorage storage.SplitStorageConsumer
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -159,6 +160,10 @@ func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
 	toLower := strings.ToLower(trafficType)
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
+	}
+	if !i.splitStorage.TrafficTypeExists(toLower) {
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
+			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
 	}
 	return toLower, nil
 }

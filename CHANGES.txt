@@ -5,6 +5,7 @@
  - Added custom Impression Listener.
  - BlockUntilReady refactor.
  - Added getTreatmentWithConfig and getTreatmentsWithConfig methods.
+ - Added validation when split does not exist in treatments and manager calls.
  - Added multiple factory instantiation check.
  - Added support for YAML file in Localhost mode.
 3.0.1 (March 8, 2019)

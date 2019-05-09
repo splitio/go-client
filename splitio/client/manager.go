@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
@@ -95,6 +97,7 @@ func (m *SplitManager) Split(feature string) *SplitView {
 	if split != nil {
 		return newSplitView(split)
 	}
+	m.logger.Error(fmt.Sprintf("Split: you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
 	return nil
 }
 

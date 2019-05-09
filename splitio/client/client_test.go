@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
@@ -48,10 +50,17 @@ func (e *mockEvaluator) Evaluate(
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentB",
 		}
+	case "some_feature":
+		return &evaluator.Result{
+			EvaluationTimeNs:  0,
+			Label:             "bLabel",
+			SplitChangeNumber: 123,
+			Treatment:         evaluator.Control,
+		}
 	default:
 		return &evaluator.Result{
 			EvaluationTimeNs:  0,
-			Label:             "exception",
+			Label:             impressionlabels.SplitNotFound,
 			SplitChangeNumber: 123,
 			Treatment:         evaluator.Control,
 		}
@@ -80,6 +89,7 @@ func TestClientGetTreatment(t *testing.T) {
 		impressions: mutexmap.NewMMImpressionStorage(),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
 	}
 
 	factory := SplitFactory{
@@ -116,6 +126,7 @@ func TestTreatments(t *testing.T) {
 		impressions: mutexmap.NewMMImpressionStorage(),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
 	}
 
 	factory := SplitFactory{
@@ -239,6 +250,7 @@ func TestClientPanicking(t *testing.T) {
 		impressions: mutexmap.NewMMImpressionStorage(),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
 	}
 
 	treatment := client.Treatment("key", "some", nil)
@@ -1157,6 +1169,7 @@ func TestClient(t *testing.T) {
 		impressions: mutexmap.NewMMImpressionStorage(),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
+		validator:   inputValidation{logger: logger},
 	}
 
 	factory := SplitFactory{
@@ -1182,9 +1195,6 @@ func TestClient(t *testing.T) {
 
 	if client.Treatment("invalid", "invalid", nil) != "control" {
 		t.Error("Unexpected Treatment Result")
-	}
-	if isInvalidImpression(client, "invalid", "invalid", "control") {
-		t.Error("Wrong impression saved")
 	}
 
 	if client.Treatment("invalid", "killed", nil) != "defTreatment" {
@@ -1236,9 +1246,6 @@ func TestClient(t *testing.T) {
 	}
 	if result.Config != nil {
 		t.Error("Unexpected Config Result")
-	}
-	if isInvalidImpression(client, "invalid", "invalid", result.Treatment) {
-		t.Error("Wrong impression saved")
 	}
 
 	result = client.TreatmentWithConfig("invalid", "killed", nil)

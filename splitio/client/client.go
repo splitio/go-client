@@ -240,7 +240,12 @@ func (c *SplitClient) doTreatmentsCall(
 	for _, feature := range filteredFeatures {
 		evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
 
-		if c.impressions != nil {
+		if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
+			treatments[feature] = TreatmentResult{
+				Treatment: evaluator.Control,
+				Config:    nil,
+			}
+		} else {
 			var label string
 			if c.cfg.LabelsEnabled {
 				label = evaluationResult.Label
@@ -253,29 +258,11 @@ func (c *SplitClient) doTreatmentsCall(
 				Treatment:    evaluationResult.Treatment,
 				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 			}
-		} else {
-			// Store impression
-			if c.impressions != nil {
-				var label string
-				if c.cfg.LabelsEnabled {
-					label = evaluationResult.Label
-				}
-				var impression = dtos.ImpressionDTO{
-					BucketingKey: impressionBucketingKey,
-					ChangeNumber: evaluationResult.SplitChangeNumber,
-					KeyName:      matchingKey,
-					Label:        label,
-					Treatment:    evaluationResult.Treatment,
-					Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
-				}
-				keyImpressions := []dtos.ImpressionDTO{impression}
-				bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-					TestName:       feature,
-					KeyImpressions: keyImpressions,
-				})
-			} else {
-				c.logger.Warning("No impression storage set in client. Not sending impressions!")
-			}
+			keyImpressions := []dtos.ImpressionDTO{impression}
+			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
+				TestName:       feature,
+				KeyImpressions: keyImpressions,
+			})
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluationResult.Treatment,
@@ -292,11 +279,19 @@ func (c *SplitClient) doTreatmentsCall(
 	}
 
 	// Store latency
-	bucket := metrics.Bucket(time.Now().Sub(before).Nanoseconds())
-	c.metrics.IncLatency(metricsLabel, bucket)
+	if c.metrics != nil {
+		bucket := metrics.Bucket(time.Now().Sub(before).Nanoseconds())
+		c.metrics.IncLatency(metricsLabel, bucket)
+	} else {
+		c.logger.Warning("No metrics storage set in client. Not sending latencies!")
+	}
 
-	c.impressions.LogImpressions(bulkImpressions)
-
+	// Store impressions
+	if c.impressions != nil {
+		c.impressions.LogImpressions(bulkImpressions)
+	} else {
+		c.logger.Warning("No impression storage set in client. Not sending impressions!")
+	}
 	return treatments
 }
 

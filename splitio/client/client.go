@@ -113,7 +113,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		}
 
 		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{dtos.ImpressionsDTO{
+		toStore := []dtos.ImpressionsDTO{{
 			TestName:       feature,
 			KeyImpressions: keyImpressions,
 		}}
@@ -284,7 +284,7 @@ func (c *SplitClient) IsDestroyed() bool {
 func (c *SplitClient) Destroy() {
 	c.factory.Destroy()
 
-	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
+	if c.cfg.OperationMode == "redis-consumer" {
 		return
 	}
 

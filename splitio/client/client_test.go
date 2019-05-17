@@ -947,6 +947,8 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	if client.Treatment("aaaaaaklmnbv", "split", nil) != "on" {
 		t.Error("Treatment error")
 	}
+
+	client.Destroy()
 }
 
 var valid = &dtos.SplitDTO{

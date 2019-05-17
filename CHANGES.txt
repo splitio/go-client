@@ -1,3 +1,5 @@
+4.0.1 (May 17, 2019)
+ - Fixed bug on client.Destroy() method.
 4.0.0 (April 30, 2019)
  - Added custom Impression Listener.
  - BlockUntilReady refactor.

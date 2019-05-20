@@ -1,5 +1,7 @@
 4.1.0 (May, 2019)
  - Moved Impressions in-memory to single-queue approach and refactored ImpressionDTO.
+4.0.1 (May 17, 2019)
+ - Fixed bug on client.Destroy() method.
 4.0.0 (April 30, 2019)
  - Added custom Impression Listener.
  - BlockUntilReady refactor.

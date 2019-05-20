@@ -171,6 +171,7 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error("Feature2 retrieved incorrectly")
 	}
 
+	client.Destroy()
 	file.Close()
 	os.Remove(file.Name())
 }
@@ -949,6 +950,8 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	if client.Treatment("aaaaaaklmnbv", "split", nil) != "on" {
 		t.Error("Treatment error")
 	}
+
+	client.Destroy()
 }
 
 var valid = &dtos.SplitDTO{

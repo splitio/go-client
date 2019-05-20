@@ -277,7 +277,7 @@ func (c *SplitClient) IsDestroyed() bool {
 func (c *SplitClient) Destroy() {
 	c.factory.Destroy()
 
-	if c.cfg.OperationMode == "redis-consumer" || c.cfg.OperationMode == "localhost" {
+	if c.cfg.OperationMode == "redis-consumer" {
 		return
 	}
 

@@ -234,3 +234,35 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 	}
 	return f, nil
 }
+
+func (i *inputValidation) validateTrackProperties(properties map[string]interface{}) (map[string]interface{}, int, error) {
+	if properties == nil || len(properties) == 0 {
+		return nil, 0, nil
+	}
+
+	if len(properties) > 300 {
+		i.logger.Warning("TODO")
+	}
+
+	processed := make(map[string]interface{})
+	size := 1024 // Average event size is ~750 bytes. Using 1kbyte as a starting point.
+	for name, value := range properties {
+		size += len(name)
+		switch value.(type) {
+		case int, int32, int64, uint, uint32, uint64, float32, float64, bool, nil:
+			processed[name] = value
+		case string:
+			asStr := value.(string)
+			size += len(asStr)
+		default:
+			i.logger.Warning("TODO")
+			processed[name] = nil
+
+			if size > 32768 {
+				i.logger.Error("TODO")
+				return nil, size, fmt.Errorf("TODO %d", size)
+			}
+		}
+	}
+	return processed, size, nil
+}

@@ -60,7 +60,7 @@ type MetricsStorageConsumer interface {
 
 // EventStorageProducer interface should be implemented by structs that accept incoming events
 type EventStorageProducer interface {
-	Push(event dtos.EventDTO) error
+	Push(event dtos.EventDTO, size int) error
 }
 
 // EventStorageConsumer interface should be implemented by structs that offer popping impressions

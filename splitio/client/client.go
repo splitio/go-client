@@ -311,7 +311,13 @@ func (c *SplitClient) Destroy() {
 }
 
 // Track an event and its custom value
-func (c *SplitClient) Track(key string, trafficType string, eventType string, value interface{}) (ret error) {
+func (c *SplitClient) Track(
+	key string,
+	trafficType string,
+	eventType string,
+	value interface{},
+	properties map[string]interface{},
+) (ret error) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -336,13 +342,19 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 		return err
 	}
 
+	properties, size, err := c.validator.validateTrackProperties(properties)
+	if err != nil {
+		// TODO
+		return err
+	}
+
 	err = c.events.Push(dtos.EventDTO{
 		Key:             key,
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,
 		Value:           value,
 		Timestamp:       time.Now().UnixNano() / 1000000,
-	})
+	}, size)
 
 	if err != nil {
 		c.logger.Error("Error tracking event", err.Error())

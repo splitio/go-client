@@ -564,7 +564,7 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyKey(t *testing.T) {
-	err := client.Track("", "trafficType", "eventType", nil)
+	err := client.Track("", "trafficType", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty key, key must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -585,7 +585,7 @@ func TestTrackValidatorWithLengthKey(t *testing.T) {
 		m += "m"
 	}
 
-	err := client.Track(m, "trafficType", "eventType", nil)
+	err := client.Track(m, "trafficType", "eventType", nil, nil)
 
 	expected := "Track: key too long - must be 250 characters or less"
 	if err != nil && err.Error() != expected {
@@ -601,7 +601,7 @@ func TestTrackValidatorWithLengthKey(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "", nil)
+	err := client.Track("key", "trafficType", "", nil, nil)
 
 	expected := "Track: you passed an empty event type, event type must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -617,7 +617,7 @@ func TestTrackValidatorWithEmptyEventName(t *testing.T) {
 }
 
 func TestTrackValidatorWithNotConformEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "//", nil)
+	err := client.Track("key", "trafficType", "//", nil, nil)
 
 	expected := "Track: you passed //, event name must adhere to " +
 		"the regular expression ^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$. This means an event " +
@@ -635,7 +635,7 @@ func TestTrackValidatorWithNotConformEventName(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
-	err := client.Track("key", "", "eventType", nil)
+	err := client.Track("key", "", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty traffic type, traffic type must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -651,7 +651,7 @@ func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
 }
 
 func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
-	err := client.Track("key", "traficTYPE", "eventType", nil)
+	err := client.Track("key", "traficTYPE", "eventType", nil, nil)
 
 	expected := "Track: traffic type should be all lowercase - converting string to lowercase"
 	if err != nil {
@@ -667,7 +667,7 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 }
 
 func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", true)
+	err := client.Track("key", "traffic", "eventType", true, nil)
 
 	expected := "Track: value must be a number"
 	if err != nil && err.Error() != expected {
@@ -683,7 +683,7 @@ func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 }
 
 func TestTrackValidator(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", 1)
+	err := client.Track("key", "traffic", "eventType", 1, nil)
 
 	if err != nil {
 		t.Error("Shoueld not return error")
@@ -717,7 +717,7 @@ func TestTrackClientDestroyed(t *testing.T) {
 
 	client2.Destroy()
 
-	err := client2.Track("key", "trafficType", "eventType", 0)
+	err := client2.Track("key", "trafficType", "eventType", 0, nil)
 
 	expected := "Client has already been destroyed - no calls possible"
 	if err != nil && err.Error() != expected {

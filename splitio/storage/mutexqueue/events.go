@@ -62,7 +62,7 @@ func (s *MQEventsStorage) Push(event dtos.EventDTO, size int) error {
 
 	// Add element
 	s.queue.PushBack(eventWrapper{event: event, size: size})
-
+	s.accumulatedBytes += size
 	if s.queue.Len() == s.size || s.accumulatedBytes >= MaxAccumulatedBytes {
 		s.sendSignalIsFull()
 	}

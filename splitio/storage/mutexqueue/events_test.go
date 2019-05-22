@@ -98,3 +98,35 @@ func TestMSEventsStorageMaxSize(t *testing.T) {
 	}
 
 }
+
+func TestMSEventsStorageMaxSizeInBytes(t *testing.T) {
+	e := dtos.EventDTO{
+		EventTypeID:     "ET0",
+		Key:             "K0",
+		Timestamp:       0,
+		TrafficTypeName: "TTN0",
+		Value:           0.0,
+	}
+
+	isFull := make(chan bool, 1)
+	maxSize := 9999999 // Huge number so that it explodes only because of size in bytes
+	queue := NewMQEventsStorage(maxSize, isFull)
+
+	for i := 0; i < 159; i++ {
+		queue.Push(e, 32768)
+	}
+
+	select {
+	case <-isFull:
+		t.Error("Signal sent when it shouldn't have!")
+	default:
+	}
+
+	queue.Push(e, 32768)
+	queue.Push(e, 32768)
+	select {
+	case <-isFull:
+	default:
+		t.Error("Signal not sent!")
+	}
+}

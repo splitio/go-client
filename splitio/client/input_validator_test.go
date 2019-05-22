@@ -1,7 +1,9 @@
 package client
 
 import (
+	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -672,6 +674,56 @@ func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 	expected := "Track: value must be a number"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
+	}
+
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTrackValidatorWithTooManyProperties(t *testing.T) {
+
+	props := make(map[string]interface{})
+	for i := 0; i < 301; i++ {
+		props[fmt.Sprintf("prop-%d", i)] = "asd"
+	}
+	err := client.Track("key", "traffic", "eventType", 1, props)
+
+	expected := "Track: Event has more than 300 properties. Some of them will be trimmed when processed"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	if strMsg != expected {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func makeBigString(length int) string {
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	asRuneSlice := make([]rune, length)
+	for index := range asRuneSlice {
+		asRuneSlice[index] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(asRuneSlice)
+}
+
+func TestTrackValidatorEventTooBig(t *testing.T) {
+	props := make(map[string]interface{})
+	for i := 0; i < 299; i++ {
+		props[fmt.Sprintf("%s%d", makeBigString(255), i)] = makeBigString(255)
+	}
+	err := client.Track("key", "traffic", "eventType", nil, props)
+
+	expected := "Track: The maximum size allowed for the properties is 32768 bytes"
+	if err == nil {
+		t.Error("Should return an error")
 	}
 
 	if strMsg != expected {

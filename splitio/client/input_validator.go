@@ -241,7 +241,7 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 	}
 
 	if len(properties) > 300 {
-		i.logger.Warning("Event has more than 300 properties. Some of them will be trimmed when processed")
+		i.logger.Warning("Track: Event has more than 300 properties. Some of them will be trimmed when processed")
 	}
 
 	processed := make(map[string]interface{})
@@ -254,17 +254,15 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 		case string:
 			asStr := value.(string)
 			size += len(asStr)
+			processed[name] = value
 		default:
 			i.logger.Warning("Property %s is of invalid type. Setting value to null")
 			processed[name] = nil
 		}
 
 		if size > 32768 {
-			i.logger.Error(fmt.Sprintf(
-				"The maximum size allowed for the properties is 32768 bytes. Current is %d. Event not queued",
-				size,
-			))
-			return nil, size, fmt.Errorf("Event too big (%d bytes)", size)
+			i.logger.Error("Track: The maximum size allowed for the properties is 32768 bytes")
+			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
 		}
 	}
 	return processed, size, nil

@@ -344,7 +344,6 @@ func (c *SplitClient) Track(
 
 	properties, size, err := c.validator.validateTrackProperties(properties)
 	if err != nil {
-		// TODO
 		return err
 	}
 

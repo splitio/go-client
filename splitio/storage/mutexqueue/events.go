@@ -3,6 +3,7 @@ package mutexqueue
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -86,19 +87,25 @@ func (s *MQEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 
 	toReturn = make([]dtos.EventDTO, 0)
 	accumulated := 0
+	errorCount := 0
 	for i := 0; i < totalItems; i++ {
 		bundled, ok := s.queue.Remove(s.queue.Front()).(eventWrapper)
 		if !ok {
-			// TODO
+			errorCount++
 			continue
 		}
-		if accumulated >= MaxAccumulatedBytes {
-			s.accumulatedBytes -= accumulated
-			return toReturn, nil
-		}
 		toReturn = append(toReturn, bundled.event)
+		accumulated += bundled.size
+		if accumulated >= MaxAccumulatedBytes {
+			// If we reached the maximum allowed size, break the loop so that we don't sent huge POST bodies to the BE
+			break
+		}
 	}
+
 	s.accumulatedBytes -= accumulated
+	if errorCount > 0 {
+		return toReturn, fmt.Errorf("%d elements could not be decoded", errorCount)
+	}
 
 	return toReturn, nil
 }

@@ -353,6 +353,7 @@ func (c *SplitClient) Track(
 		EventTypeID:     eventType,
 		Value:           value,
 		Timestamp:       time.Now().UnixNano() / 1000000,
+		Properties:      properties,
 	}, size)
 
 	if err != nil {

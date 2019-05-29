@@ -11,6 +11,8 @@ type SplitStorageProducer interface {
 	Remove(splitname string)
 	Till() int64
 	Clear()
+	IncreaseTrafficTypeCount(trafficType string)
+	DecreaseTrafficTypeCount(trafficType string)
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
@@ -19,6 +21,7 @@ type SplitStorageConsumer interface {
 	SplitNames() []string
 	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO
+	TrafficTypeExists(trafficType string) bool
 }
 
 // SegmentStorageProducer interface should be implemented by all structs that offer writing segments

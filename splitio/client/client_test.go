@@ -1289,7 +1289,11 @@ func TestLocalhostModeYAML(t *testing.T) {
 	client := factory.Client()
 	manager := factory.Manager()
 
-	client.BlockUntilReady(1)
+	_ = client.BlockUntilReady(5)
+
+	if !client.isReady() {
+		t.Error("Localhost should be ready")
+	}
 
 	if client.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")

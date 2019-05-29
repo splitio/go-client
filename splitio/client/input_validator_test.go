@@ -20,7 +20,7 @@ type MockWriter struct {
 
 func (m *MockWriter) Write(p []byte) (n int, err error) {
 	msg := string(p[:])
-	if strings.Index(msg, "[")+1 < strings.Index(msg, "]") {
+	if strings.Index(msg, "[") != -1 && strings.Index(msg, "]") != -1 {
 		strMsg = msg[strings.Index(msg, "[")+1 : strings.Index(msg, "]")]
 	}
 	return 0, nil

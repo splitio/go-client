@@ -1,6 +1,8 @@
 package client
 
 import (
+	"strings"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
 
@@ -30,18 +32,20 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	}
 	expected := "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if strMsg != expected {
-		t.Error("Wrong logger message")
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
+	strMsg = ""
 
 	factory4, _ := NewSplitFactory("asdadd", sdkConf)
 	client2 := factory4.Client()
 	expected = "Factory Instantiation: You already have an instance of the Split factory. Make sure you definitely want " +
 		"this additional instance. We recommend keeping only one instance of the factory at all times (Singleton pattern) and " +
 		"reusing it throughout your application."
-	if strMsg != expected {
-		t.Error("Wrong logger message")
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
+	strMsg = ""
 
 	client.Destroy()
 
@@ -70,9 +74,10 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	_ = factory3.Client()
 	expected = "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if strMsg != expected {
-		t.Error("Wrong logger message")
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
+	strMsg = ""
 
 	if factoryInstances["localhost"] != 2 {
 		t.Error("It should be 2")
@@ -82,9 +87,10 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	_ = factory5.Client()
 	expected = "Factory Instantiation: You already have 2 factories with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if strMsg != expected {
-		t.Error("Wrong logger message", strMsg)
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
+	strMsg = ""
 	if factoryInstances["localhost"] != 3 {
 		t.Error("It should be 3")
 	}

@@ -1,7 +1,13 @@
 language: go
 
 go:
-  - 1.8.3
+  - 1.x
+
+before_install:
+ - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+
+install:
+ - dep ensure
 
 services:
   - redis-server

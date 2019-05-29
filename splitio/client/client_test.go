@@ -3,14 +3,17 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-
-	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"os"
+	"testing"
+	"time"
 
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
@@ -18,11 +21,6 @@ import (
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
-
-	"io/ioutil"
-	"os"
-	"testing"
-	"time"
 )
 
 type mockEvaluator struct{}
@@ -183,6 +181,7 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error("It should be ok")
 	}
 
+	client.Destroy()
 	file.Close()
 	os.Remove(file.Name())
 }
@@ -979,6 +978,8 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	if client.Treatment("aaaaaaklmnbv", "split", nil) != "on" {
 		t.Error("Treatment error")
 	}
+
+	client.Destroy()
 }
 
 var valid = &dtos.SplitDTO{

@@ -336,7 +336,7 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	}
 
 	logger.Info("Sdk initialization complete!")
-
+	splitFactory.client.sync = syncTasks
 	splitFactory.client.factory = splitFactory
 	splitFactory.manager.factory = splitFactory
 

@@ -1,12 +1,14 @@
-4.1.0 (May, 2019)
+4.1.0 (May 30, 2019)
  - Added validation for traffic types in track call.
  - Added new label when the sdk is not ready.
+ - Added multiple factory instantiation check.
+ - Added validation when split does not exist in treatments and manager calls.
+4.0.1 (May 17, 2019)
+ - Fixed bug on client.Destroy() method.
 4.0.0 (April 30, 2019)
  - Added custom Impression Listener.
  - BlockUntilReady refactor.
  - Added getTreatmentWithConfig and getTreatmentsWithConfig methods.
- - Added validation when split does not exist in treatments and manager calls.
- - Added multiple factory instantiation check.
  - Added support for YAML file in Localhost mode.
 3.0.1 (March 8, 2019)
  - Updated Splits refreshing rate.

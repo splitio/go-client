@@ -20,6 +20,9 @@ import (
 // MaxLength constant to check the length of the splits
 const MaxLength = 250
 
+// MaxEventLength constant to limit the event size
+const MaxEventLength = 32768
+
 // RegExpEventType constant that EventType must match
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
@@ -239,6 +242,41 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 		}
 	}
 	return f, nil
+}
+
+func (i *inputValidation) validateTrackProperties(properties map[string]interface{}) (map[string]interface{}, int, error) {
+	if properties == nil || len(properties) == 0 {
+		return nil, 0, nil
+	}
+
+	if len(properties) > 300 {
+		i.logger.Warning("Track: Event has more than 300 properties. Some of them will be trimmed when processed")
+	}
+
+	processed := make(map[string]interface{})
+	size := 1024 // Average event size is ~750 bytes. Using 1kbyte as a starting point.
+	for name, value := range properties {
+		size += len(name)
+		switch value.(type) {
+		case int, int32, int64, uint, uint32, uint64, float32, float64, bool, nil:
+			processed[name] = value
+		case string:
+			asStr := value.(string)
+			size += len(asStr)
+			processed[name] = value
+		default:
+			i.logger.Warning("Property %s is of invalid type. Setting value to nil")
+			processed[name] = nil
+		}
+
+		if size > MaxEventLength {
+			i.logger.Error(
+				"The maximum size allowed for the properties is 32kb. Event not queued",
+			)
+			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
+		}
+	}
+	return processed, size, nil
 }
 
 func (i *inputValidation) IsSplitFound(label string, feature string, operation string) bool {

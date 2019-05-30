@@ -2,10 +2,15 @@ package mutexqueue
 
 import (
 	"container/list"
-	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+
+	"fmt"
+	"sync"
 )
+
+// MaxAccumulatedBytes is the maximum size to accumulate in events before flush (in bytes)
+const MaxAccumulatedBytes = 5 * 1024 * 1024
 
 // NewMQEventsStorage returns an instance of MQEventsStorage
 func NewMQEventsStorage(queueSize int, isFull chan<- bool) *MQEventsStorage {
@@ -17,12 +22,18 @@ func NewMQEventsStorage(queueSize int, isFull chan<- bool) *MQEventsStorage {
 	}
 }
 
+type eventWrapper struct {
+	event dtos.EventDTO
+	size  int
+}
+
 // MQEventsStorage in memory events storage
 type MQEventsStorage struct {
-	queue      *list.List
-	size       int
-	mutexQueue *sync.Mutex
-	fullChan   chan<- bool //only write channel
+	queue            *list.List
+	size             int
+	accumulatedBytes int
+	mutexQueue       *sync.Mutex
+	fullChan         chan<- bool //only write channel
 }
 
 func (s *MQEventsStorage) sendSignalIsFull() {
@@ -37,7 +48,7 @@ func (s *MQEventsStorage) sendSignalIsFull() {
 }
 
 // Push an event into slice
-func (s *MQEventsStorage) Push(event dtos.EventDTO) error {
+func (s *MQEventsStorage) Push(event dtos.EventDTO, size int) error {
 	s.mutexQueue.Lock()
 	defer s.mutexQueue.Unlock()
 
@@ -47,9 +58,9 @@ func (s *MQEventsStorage) Push(event dtos.EventDTO) error {
 	}
 
 	// Add element
-	s.queue.PushBack(event)
-
-	if s.queue.Len() == s.size {
+	s.queue.PushBack(eventWrapper{event: event, size: size})
+	s.accumulatedBytes += size
+	if s.queue.Len() == s.size || s.accumulatedBytes >= MaxAccumulatedBytes {
 		s.sendSignalIsFull()
 	}
 
@@ -72,8 +83,25 @@ func (s *MQEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 	}
 
 	toReturn = make([]dtos.EventDTO, 0)
+	accumulated := 0
+	errorCount := 0
 	for i := 0; i < totalItems; i++ {
-		toReturn = append(toReturn, s.queue.Remove(s.queue.Front()).(dtos.EventDTO))
+		bundled, ok := s.queue.Remove(s.queue.Front()).(eventWrapper)
+		if !ok {
+			errorCount++
+			continue
+		}
+		toReturn = append(toReturn, bundled.event)
+		accumulated += bundled.size
+		if accumulated >= MaxAccumulatedBytes {
+			// If we reached the maximum allowed size, break the loop so that we don't sent huge POST bodies to the BE
+			break
+		}
+	}
+
+	s.accumulatedBytes -= accumulated
+	if errorCount > 0 {
+		return toReturn, fmt.Errorf("%d elements could not be decoded", errorCount)
 	}
 
 	return toReturn, nil

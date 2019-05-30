@@ -17,3 +17,6 @@ const NotInSplit = "not in split"
 
 // Exception label will be returned if something goes wrong during the split evaluation
 const Exception = "exception"
+
+// ClientNotReady label will be returned when the client is not ready
+const ClientNotReady = "not ready"

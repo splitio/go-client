@@ -13,6 +13,7 @@ const (
 	redisEvents           = "SPLITIO.events"                                                     // events LIST key
 	redisImpressionsQueue = "SPLITIO.impressions"                                                // impressions LIST key
 	redisImpressionsTTL   = 60                                                                   // impressions default TTL
+	redisTrafficType      = "SPLITIO.trafficType.{trafficType}"                                  // traffic Type fetch
 )
 
 const (

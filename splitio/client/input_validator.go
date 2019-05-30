@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -26,7 +27,8 @@ const MaxEventLength = 32768
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
-	logger logging.LoggerInterface
+	logger       logging.LoggerInterface
+	splitStorage storage.SplitStorageConsumer
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -162,6 +164,10 @@ func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
+	if !i.splitStorage.TrafficTypeExists(toLower) {
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
+			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
+	}
 	return toLower, nil
 }
 
@@ -271,4 +277,12 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 		}
 	}
 	return processed, size, nil
+}
+
+func (i *inputValidation) IsSplitFound(label string, feature string, operation string) bool {
+	if label == impressionlabels.SplitNotFound {
+		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+		return false
+	}
+	return true
 }

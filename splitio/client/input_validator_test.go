@@ -1,7 +1,9 @@
 package client
 
 import (
+	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -595,7 +597,7 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyKey(t *testing.T) {
-	err := client.Track("", "trafficType", "eventType", nil)
+	err := client.Track("", "trafficType", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty key, key must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -614,7 +616,7 @@ func TestTrackValidatorWithLengthKey(t *testing.T) {
 		m += "m"
 	}
 
-	err := client.Track(m, "trafficType", "eventType", nil)
+	err := client.Track(m, "trafficType", "eventType", nil, nil)
 
 	expected := "Track: key too long - must be 250 characters or less"
 	if err != nil && err.Error() != expected {
@@ -628,7 +630,7 @@ func TestTrackValidatorWithLengthKey(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "", nil)
+	err := client.Track("key", "trafficType", "", nil, nil)
 
 	expected := "Track: you passed an empty event type, event type must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -642,7 +644,7 @@ func TestTrackValidatorWithEmptyEventName(t *testing.T) {
 }
 
 func TestTrackValidatorWithNotConformEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "//", nil)
+	err := client.Track("key", "trafficType", "//", nil, nil)
 
 	expected := "Track: you passed //, event name must adhere to " +
 		"the regular expression ^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$. This means an event " +
@@ -660,7 +662,7 @@ func TestTrackValidatorWithNotConformEventName(t *testing.T) {
 }
 
 func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
-	err := client.Track("key", "", "eventType", nil)
+	err := client.Track("key", "", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty traffic type, traffic type must be a non-empty string"
 	if err != nil && err.Error() != expected {
@@ -674,7 +676,7 @@ func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
 }
 
 func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
-	err := client.Track("key", "traficTYPE", "eventType", nil)
+	err := client.Track("key", "traficTYPE", "eventType", nil, nil)
 
 	expected := "Track: traffic type should be all lowercase - converting string to lowercase"
 	if err != nil {
@@ -688,7 +690,7 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 }
 
 func TestTrackValidatorReturning0Occurrences(t *testing.T) {
-	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil)
+	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil, nil)
 
 	expected := "Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
 	if err != nil {
@@ -702,7 +704,7 @@ func TestTrackValidatorReturning0Occurrences(t *testing.T) {
 }
 
 func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", true)
+	err := client.Track("key", "traffic", "eventType", true, nil)
 
 	expected := "Track: value must be a number"
 	if err != nil && err.Error() != expected {
@@ -715,8 +717,58 @@ func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 	strMsg = ""
 }
 
+func TestTrackValidatorWithTooManyProperties(t *testing.T) {
+
+	props := make(map[string]interface{})
+	for i := 0; i < 301; i++ {
+		props[fmt.Sprintf("prop-%d", i)] = "asd"
+	}
+	err := client.Track("key", "traffic", "eventType", 1, props)
+
+	expected := "Track: Event has more than 300 properties. Some of them will be trimmed when processed"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func makeBigString(length int) string {
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	asRuneSlice := make([]rune, length)
+	for index := range asRuneSlice {
+		asRuneSlice[index] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(asRuneSlice)
+}
+
+func TestTrackValidatorEventTooBig(t *testing.T) {
+	props := make(map[string]interface{})
+	for i := 0; i < 299; i++ {
+		props[fmt.Sprintf("%s%d", makeBigString(255), i)] = makeBigString(255)
+	}
+	err := client.Track("key", "traffic", "eventType", nil, props)
+
+	expected := "The maximum size allowed for the properties is 32kb. Event not queued"
+	if err == nil {
+		t.Error("Should return an error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
 func TestTrackValidator(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", 1)
+	err := client.Track("key", "traffic", "eventType", 1, nil)
 
 	if err != nil {
 		t.Error("Should not return error")
@@ -750,7 +802,7 @@ func TestTrackClientDestroyed(t *testing.T) {
 
 	client2.Destroy()
 
-	err := client2.Track("key", "trafficType", "eventType", 0)
+	err := client2.Track("key", "trafficType", "eventType", 0, nil)
 
 	expected := "Client has already been destroyed - no calls possible"
 	if err != nil && err.Error() != expected {
@@ -817,7 +869,7 @@ func TestManagerWithNonExistantSplit(t *testing.T) {
 }
 
 func TestDestroy(t *testing.T) {
-
+	cfg.OperationMode = "redis-consumer"
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},

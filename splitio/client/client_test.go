@@ -74,7 +74,7 @@ func (e *mockEventsPanic) Evaluate(
 	panic("Testing panicking")
 }
 
-func (s *mockEvents) Push(event dtos.EventDTO) error { return nil }
+func (s *mockEvents) Push(event dtos.EventDTO, size int) error { return nil }
 
 func TestClientGetTreatment(t *testing.T) {
 	cfg := conf.Default()
@@ -177,7 +177,7 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error("Feature2 retrieved incorrectly")
 	}
 
-	if client.Track("somekey", "somett", "somee", nil) != nil {
+	if client.Track("somekey", "somett", "somee", nil, nil) != nil {
 		t.Error("It should be ok")
 	}
 
@@ -618,7 +618,7 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 		t.Error("Client should not be ready")
 	}
 
-	err = client.Track("something", "something", "something", nil)
+	err = client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
 	}
@@ -653,7 +653,7 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 		t.Error("Manager should be ready")
 	}
 
-	err = client.Track("something", "something", "something", nil)
+	err = client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
 	}
@@ -792,7 +792,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Wrong evaluation")
 	}
 
-	err := client.Track("something", "something", "something", nil)
+	err := client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
 	}
@@ -928,7 +928,7 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	}
 	ilResult = make(map[string]interface{})
 
-	err := client.Track("something", "something", "something", nil)
+	err := client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
 	}

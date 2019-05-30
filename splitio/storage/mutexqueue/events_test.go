@@ -32,11 +32,11 @@ func TestMSEventsStorage(t *testing.T) {
 	}
 
 	// Push from back to front
-	queue.Push(e0)
-	queue.Push(e1)
-	queue.Push(e2)
-	queue.Push(e3)
-	queue.Push(e4)
+	queue.Push(e0, 1000)
+	queue.Push(e1, 1000)
+	queue.Push(e2, 1000)
+	queue.Push(e3, 1000)
+	queue.Push(e4, 1000)
 
 	if queue.Count() != 5 {
 		t.Error("Queue count error")
@@ -45,11 +45,11 @@ func TestMSEventsStorage(t *testing.T) {
 		t.Error("Queue empty error")
 	}
 
-	queue.Push(e5)
-	queue.Push(e6)
-	queue.Push(e7)
-	queue.Push(e8)
-	queue.Push(e9)
+	queue.Push(e5, 1000)
+	queue.Push(e6, 1000)
+	queue.Push(e7, 1000)
+	queue.Push(e8, 1000)
+	queue.Push(e9, 1000)
 
 	events, _ := queue.PopN(25)
 
@@ -84,7 +84,7 @@ func TestMSEventsStorageMaxSize(t *testing.T) {
 	queue := NewMQEventsStorage(maxSize, isFull)
 
 	for i := 0; i < maxSize+1; i++ {
-		err := queue.Push(e)
+		err := queue.Push(e, 1000)
 		if int64(i) < queue.Count() {
 			if err != nil {
 				t.Error("Error pushing element into queue")
@@ -97,4 +97,36 @@ func TestMSEventsStorageMaxSize(t *testing.T) {
 
 	}
 
+}
+
+func TestMSEventsStorageMaxSizeInBytes(t *testing.T) {
+	e := dtos.EventDTO{
+		EventTypeID:     "ET0",
+		Key:             "K0",
+		Timestamp:       0,
+		TrafficTypeName: "TTN0",
+		Value:           0.0,
+	}
+
+	isFull := make(chan bool, 1)
+	maxSize := 9999999 // Huge number so that it explodes only because of size in bytes
+	queue := NewMQEventsStorage(maxSize, isFull)
+
+	for i := 0; i < 159; i++ {
+		queue.Push(e, 32768)
+	}
+
+	select {
+	case <-isFull:
+		t.Error("Signal sent when it shouldn't have!")
+	default:
+	}
+
+	queue.Push(e, 32768)
+	queue.Push(e, 32768)
+	select {
+	case <-isFull:
+	default:
+		t.Error("Signal not sent!")
+	}
 }

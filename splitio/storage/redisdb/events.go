@@ -39,7 +39,7 @@ func NewRedisEventsStorage(
 }
 
 // Push events into Redis LIST data type with RPUSH command
-func (r *RedisEventsStorage) Push(event dtos.EventDTO) error {
+func (r *RedisEventsStorage) Push(event dtos.EventDTO, _ int) error {
 
 	var queueMessage = dtos.QueueStoredEventDTO{Metadata: r.metadataMessage, Event: event}
 

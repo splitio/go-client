@@ -14,7 +14,7 @@ type EventDTO struct {
 	EventTypeID     string                 `json:"eventTypeId"`
 	Value           interface{}            `json:"value"`
 	Timestamp       int64                  `json:"timestamp"`
-	Properties      map[string]interface{} `json:"properties"`
+	Properties      map[string]interface{} `json:"properties,omitempty"`
 }
 
 // QueueStoredEventDTO maps the stored JSON object in redis by SDKs

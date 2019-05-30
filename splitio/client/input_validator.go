@@ -19,6 +19,9 @@ import (
 // MaxLength constant to check the length of the splits
 const MaxLength = 250
 
+// MaxEventLength constant to limit the event size
+const MaxEventLength = 32768
+
 // RegExpEventType constant that EventType must match
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
@@ -256,12 +259,14 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 			size += len(asStr)
 			processed[name] = value
 		default:
-			i.logger.Warning("Property %s is of invalid type. Setting value to null")
+			i.logger.Warning("Property %s is of invalid type. Setting value to nil")
 			processed[name] = nil
 		}
 
-		if size > 32768 {
-			i.logger.Error("Track: The maximum size allowed for the properties is 32768 bytes")
+		if size > MaxEventLength {
+			i.logger.Error(
+				"The maximum size allowed for the properties is 32kb. Event not queued",
+			)
 			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
 		}
 	}

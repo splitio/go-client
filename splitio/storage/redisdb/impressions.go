@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -47,10 +48,10 @@ func NewRedisImpressionStorage(
 }
 
 // LogImpressions stores impressions in redis as Queue
-func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionDTO) error {
-	var impressionsToStore []dtos.ImpressionsDTO
+func (r *RedisImpressionStorage) LogImpressions(impressions []storage.Impression) error {
+	var impressionsToStore []storage.ImpressionQueueObject
 	for _, i := range impressions {
-		var impression = dtos.ImpressionsDTO{Metadata: r.metadataMessage, Impression: i}
+		var impression = storage.ImpressionQueueObject{Metadata: r.metadataMessage, Impression: i}
 		impressionsToStore = append(impressionsToStore, impression)
 	}
 
@@ -61,7 +62,7 @@ func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionDTO
 }
 
 // Push stores impressions in redis
-func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsDTO) error {
+func (r *RedisImpressionStorage) Push(impressions []storage.ImpressionQueueObject) error {
 	var impressionsJSON []interface{}
 	for _, impression := range impressions {
 		iJSON, err := json.Marshal(impression)
@@ -93,10 +94,10 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsDTO) error {
 }
 
 // PopN return N elements from 0 to N
-func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionDTO, error) {
+func (r *RedisImpressionStorage) PopN(n int64) ([]storage.Impression, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	toReturn := make([]dtos.ImpressionDTO, 0)
+	toReturn := make([]storage.Impression, 0)
 
 	lrange := r.client.LRange(r.redisKey, 0, n-1)
 	if lrange.Err() != nil {
@@ -121,7 +122,7 @@ func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionDTO, error) {
 	//JSON unmarshal
 	listOfImpressions := lrange.Val()
 	for _, se := range listOfImpressions {
-		storedImpression := dtos.ImpressionsDTO{}
+		storedImpression := storage.ImpressionQueueObject{}
 		err := json.Unmarshal([]byte(se), &storedImpression)
 		if err != nil {
 			r.logger.Error("Error decoding impression JSON", err.Error())

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/storage"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -55,7 +57,7 @@ type impressionsRecord struct {
 
 // Record sends an array (or slice) of impressionsRecord to the backend
 func (i *HTTPImpressionRecorder) Record(
-	impressions []dtos.ImpressionDTO,
+	impressions []storage.Impression,
 	sdkVersion string,
 	machineIP string,
 	machineName string,

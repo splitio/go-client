@@ -85,7 +85,7 @@ func TestClientGetTreatment(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
@@ -124,7 +124,7 @@ func TestTreatments(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
@@ -197,7 +197,7 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
@@ -249,7 +249,7 @@ func TestClientPanicking(t *testing.T) {
 		cfg:         cfg,
 		evaluator:   &mockEventsPanic{},
 		events:      &mockEvents{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
@@ -434,7 +434,7 @@ var ilResult = make(map[string]interface{})
 
 func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject) {
 	ilTest := make(map[string]interface{})
-	ilTest["Feature"] = data.Impression.Feature
+	ilTest["FeatureName"] = data.Impression.FeatureName
 	ilTest["BucketingKey"] = data.Impression.BucketingKey
 	ilTest["ChangeNumber"] = data.Impression.ChangeNumber
 	ilTest["KeyName"] = data.Impression.KeyName
@@ -445,11 +445,11 @@ func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject)
 	ilTest["Version"] = data.SDKLanguageVersion
 	ilTest["InstanceName"] = data.InstanceID
 
-	ilResult[data.Impression.Feature] = ilTest
+	ilResult[data.Impression.FeatureName] = ilTest
 }
 
 func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string) bool {
-	if ilTest["Feature"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
+	if ilTest["FeatureName"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
 		return false
 	}
 	if ilTest["Version"] != v {
@@ -473,7 +473,7 @@ func TestImpressionListener(t *testing.T) {
 	client := SplitClient{
 		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
-		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
@@ -518,7 +518,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	client := SplitClient{
 		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
-		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
@@ -1169,7 +1169,7 @@ func TestClient(t *testing.T) {
 	client := SplitClient{
 		cfg:         cfg,
 		evaluator:   evaluator,
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},

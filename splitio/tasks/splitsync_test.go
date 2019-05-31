@@ -56,7 +56,7 @@ func TestSplitSyncTask(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitStorage.PutMany([]dtos.SplitDTO{}, -1)
 
-	readyChannel := make(chan string)
+	readyChannel := make(chan string, 1)
 	splitTask := NewFetchSplitsTask(
 		splitStorage,
 		splitFetcher,

@@ -129,9 +129,9 @@ func Default() *SplitSdkConfig {
 			ImpressionListener:   nil,
 			SegmentQueueSize:     500,
 			SegmentWorkers:       10,
-			EventsBulkSize:       1000,
-			EventsQueueSize:      500,
-			ImpressionsQueueSize: 500,
+			EventsBulkSize:       5000,
+			EventsQueueSize:      10000,
+			ImpressionsQueueSize: 10000,
 			ImpressionsBulkSize:  5000,
 		},
 	}

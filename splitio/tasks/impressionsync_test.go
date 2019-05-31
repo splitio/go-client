@@ -10,7 +10,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -75,7 +75,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		logger,
 	)
 
-	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan bool, 1))
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan string, 1), logger)
 
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
@@ -94,7 +94,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		t.Error("Impression recording task should be running")
 	}
 
-	imp1 := dtos.ImpressionDTO{
+	imp1 := storage.Impression{
 		FeatureName:  "feature1",
 		BucketingKey: "123",
 		ChangeNumber: 456,
@@ -103,9 +103,9 @@ func TestImpressionSyncTask(t *testing.T) {
 		Treatment:    "on",
 	}
 
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+	impressionStorage.LogImpressions([]storage.Impression{imp1})
 
-	imp2 := dtos.ImpressionDTO{
+	imp2 := storage.Impression{
 		FeatureName:  "feature1",
 		BucketingKey: "123",
 		ChangeNumber: 456,
@@ -114,7 +114,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		Treatment:    "off",
 	}
 
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
+	impressionStorage.LogImpressions([]storage.Impression{imp2})
 
 	time.Sleep(time.Second * 10)
 
@@ -133,7 +133,7 @@ func TestImpressionSyncTask(t *testing.T) {
 
 type mockRecorder struct{}
 
-func (r *mockRecorder) Record(i []dtos.ImpressionDTO, s string, m string, m2 string) error {
+func (r *mockRecorder) Record(i []storage.Impression, s string, m string, m2 string) error {
 	return nil
 }
 
@@ -142,7 +142,7 @@ type impressionRecorderMock struct {
 }
 
 func (i *impressionRecorderMock) Record(
-	impressions []dtos.ImpressionDTO,
+	impressions []storage.Impression,
 	sdkVersion string,
 	machineIP string,
 	machineName string,
@@ -153,7 +153,7 @@ func (i *impressionRecorderMock) Record(
 
 func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	logger := logging.NewLogger(nil)
-	imp1 := dtos.ImpressionDTO{
+	imp1 := storage.Impression{
 		FeatureName:  "feature1",
 		BucketingKey: "123",
 		ChangeNumber: 456,
@@ -161,11 +161,11 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 		Time:         123,
 		Treatment:    "on",
 	}
-	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan bool, 1))
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp1})
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan string, 1), logger)
+	impressionStorage.LogImpressions([]storage.Impression{imp1})
+	impressionStorage.LogImpressions([]storage.Impression{imp1})
+	impressionStorage.LogImpressions([]storage.Impression{imp1})
+	impressionStorage.LogImpressions([]storage.Impression{imp1})
 	impressionRecorder := &impressionRecorderMock{}
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
@@ -186,7 +186,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	}
 
 	// Add more impressions so that they can be flushed when Stop() is called
-	imp2 := dtos.ImpressionDTO{
+	imp2 := storage.Impression{
 		FeatureName:  "feature2",
 		BucketingKey: "123",
 		ChangeNumber: 456,
@@ -194,10 +194,10 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 		Time:         123,
 		Treatment:    "on",
 	}
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{imp2})
+	impressionStorage.LogImpressions([]storage.Impression{imp2})
+	impressionStorage.LogImpressions([]storage.Impression{imp2})
+	impressionStorage.LogImpressions([]storage.Impression{imp2})
+	impressionStorage.LogImpressions([]storage.Impression{imp2})
 	impressionTask.Stop()
 	time.Sleep(time.Second * 2)
 	if impressionRecorder.iterations != 2 {

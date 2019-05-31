@@ -57,7 +57,7 @@ var cfg = conf.Default()
 var client = SplitClient{
 	cfg:         cfg,
 	evaluator:   &mockEvaluator{},
-	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
 	validator: inputValidation{
@@ -417,7 +417,7 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -556,7 +556,7 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -781,7 +781,7 @@ func TestTrackClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -874,7 +874,7 @@ func TestDestroy(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan bool, 1)),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},

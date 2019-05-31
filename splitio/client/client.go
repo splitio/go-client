@@ -128,7 +128,7 @@ func (c *SplitClient) doTreatmentCall(
 			label = evaluationResult.Label
 		}
 
-		var impression = dtos.ImpressionDTO{
+		var impression = storage.Impression{
 			FeatureName:  feature,
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
@@ -138,7 +138,7 @@ func (c *SplitClient) doTreatmentCall(
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
 
-		toStore := []dtos.ImpressionDTO{impression}
+		toStore := []storage.Impression{impression}
 		c.impressions.LogImpressions(toStore)
 
 		// Custom Impression Listener
@@ -218,7 +218,7 @@ func (c *SplitClient) doTreatmentsCall(
 	}
 
 	before := time.Now()
-	var bulkImpressions []dtos.ImpressionDTO
+	var bulkImpressions []storage.Impression
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
@@ -245,7 +245,7 @@ func (c *SplitClient) doTreatmentsCall(
 			if c.cfg.LabelsEnabled {
 				label = evaluationResult.Label
 			}
-			var impression = dtos.ImpressionDTO{
+			var impression = storage.Impression{
 				FeatureName:  feature,
 				BucketingKey: impressionBucketingKey,
 				ChangeNumber: evaluationResult.SplitChangeNumber,

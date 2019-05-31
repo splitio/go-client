@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -277,7 +278,7 @@ func TestImpressionStorage(t *testing.T) {
 	logger := NewMockedLogger()
 	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "instanceName123", "go-test", logger)
 
-	var impression1 = dtos.ImpressionDTO{
+	var impression1 = storage.Impression{
 		FeatureName:  "feature1",
 		BucketingKey: "abc",
 		ChangeNumber: 123,
@@ -286,7 +287,7 @@ func TestImpressionStorage(t *testing.T) {
 		Time:         111,
 		Treatment:    "on",
 	}
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{impression1})
+	impressionStorage.LogImpressions([]storage.Impression{impression1})
 
 	impressionStorage.client.client.Del(impressionStorage.redisKey)
 
@@ -296,7 +297,7 @@ func TestImpressionStorage(t *testing.T) {
 		t.Error("TTL should be less than or equal to default")
 	}
 
-	var impression2 = dtos.ImpressionDTO{
+	var impression2 = storage.Impression{
 		FeatureName:  "feature2",
 		BucketingKey: "abc",
 		ChangeNumber: 123,
@@ -305,7 +306,7 @@ func TestImpressionStorage(t *testing.T) {
 		Time:         111,
 		Treatment:    "off",
 	}
-	impressionStorage.LogImpressions([]dtos.ImpressionDTO{impression2})
+	impressionStorage.LogImpressions([]storage.Impression{impression2})
 
 	impressions, _ := impressionStorage.PopN(2)
 

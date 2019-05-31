@@ -4,16 +4,18 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // NewMQImpressionsStorage returns an instance of MQEventsStorage
-func NewMQImpressionsStorage(queueSize int, isFull chan<- bool) *MQImpressionsStorage {
+func NewMQImpressionsStorage(queueSize int, isFull chan<- string, logger logging.LoggerInterface) *MQImpressionsStorage {
 	return &MQImpressionsStorage{
 		queue:      list.New(),
 		size:       queueSize,
 		mutexQueue: &sync.Mutex{},
 		fullChan:   isFull,
+		logger:     logger,
 	}
 }
 
@@ -22,22 +24,24 @@ type MQImpressionsStorage struct {
 	queue      *list.List
 	size       int
 	mutexQueue *sync.Mutex
-	fullChan   chan<- bool //only write channel
+	fullChan   chan<- string //only write channel
+	logger     logging.LoggerInterface
 }
 
 func (s *MQImpressionsStorage) sendSignalIsFull() {
 	// Nom blocking select
 	select {
-	case s.fullChan <- true:
-		//Send "queue is full" signal
+	case s.fullChan <- "IMPRESSIONS_FULL":
+		// Send "queue is full" signal
 		break
 	default:
+		s.logger.Debug("Some error occurred on sending signal for impressions")
 		break
 	}
 }
 
 // LogImpressions inserts impressions into the queue
-func (s *MQImpressionsStorage) LogImpressions(impressions []dtos.ImpressionDTO) error {
+func (s *MQImpressionsStorage) LogImpressions(impressions []storage.Impression) error {
 	s.mutexQueue.Lock()
 	defer s.mutexQueue.Unlock()
 
@@ -57,8 +61,8 @@ func (s *MQImpressionsStorage) LogImpressions(impressions []dtos.ImpressionDTO) 
 }
 
 // PopN pop N elements from queue
-func (s *MQImpressionsStorage) PopN(n int64) ([]dtos.ImpressionDTO, error) {
-	var toReturn []dtos.ImpressionDTO
+func (s *MQImpressionsStorage) PopN(n int64) ([]storage.Impression, error) {
+	var toReturn []storage.Impression
 	var totalItems int
 
 	// Mutexing queue
@@ -71,9 +75,9 @@ func (s *MQImpressionsStorage) PopN(n int64) ([]dtos.ImpressionDTO, error) {
 		totalItems = s.queue.Len()
 	}
 
-	toReturn = make([]dtos.ImpressionDTO, 0)
+	toReturn = make([]storage.Impression, totalItems)
 	for i := 0; i < totalItems; i++ {
-		toReturn = append(toReturn, s.queue.Remove(s.queue.Front()).(dtos.ImpressionDTO))
+		toReturn[i] = s.queue.Remove(s.queue.Front()).(storage.Impression)
 	}
 
 	return toReturn, nil

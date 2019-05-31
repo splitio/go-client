@@ -37,8 +37,7 @@ const SdkReady = 2
 // SdkError flag
 const SdkError = -1
 
-var inMemoryFullQueueChanEvents = make(chan bool, 1)
-var inMemoryFullQueueChanImpressions = make(chan bool, 1)
+var inMememoryFullQueue = make(chan string, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
@@ -142,9 +141,9 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
-		impressionStorage = mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMemoryFullQueueChanImpressions)
+		impressionStorage = mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger)
 		metricsStorage = mutexmap.NewMMMetricsStorage()
-		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChanEvents)
+		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port
@@ -243,7 +242,7 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	case "localhost":
 		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 		splitPeriod := cfg.TaskPeriods.SplitSync
-		readyChannel := make(chan string)
+		readyChannel := make(chan string, 1)
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 		}
@@ -268,7 +267,7 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 		workers := cfg.Advanced.SegmentWorkers
 		qSize := cfg.Advanced.SegmentQueueSize
 
-		readyChannel := make(chan string)
+		readyChannel := make(chan string, 1)
 		// Sync tasks
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
@@ -319,16 +318,16 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 		if cfg.OperationMode == "inmemory-standalone" {
 			go func() {
 				for true {
-					isFullEventsQueue := <-inMemoryFullQueueChanEvents
-					if isFullEventsQueue {
+					msg := <-inMememoryFullQueue
+					switch msg {
+					case "EVENTS_FULL":
 						logger.Debug("FLUSHING storage queue")
 						errWakeUp := syncTasks.eventsSync.WakeUp()
 						if errWakeUp != nil {
 							logger.Error("Error flushing storage queue", errWakeUp)
 						}
-					}
-					isFullImpressionsQueue := <-inMemoryFullQueueChanEvents
-					if isFullImpressionsQueue {
+						break
+					case "IMPRESSIONS_FULL":
 						logger.Debug("FLUSHING storage queue")
 						errWakeUp := syncTasks.impressionSync.WakeUp()
 						if errWakeUp != nil {

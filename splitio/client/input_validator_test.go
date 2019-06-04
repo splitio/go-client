@@ -11,6 +11,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-client/splitio/storage/mutexqueue"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -56,7 +57,7 @@ var cfg = conf.Default()
 var client = SplitClient{
 	cfg:         cfg,
 	evaluator:   &mockEvaluator{},
-	impressions: mutexmap.NewMMImpressionStorage(),
+	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
 	validator: inputValidation{
@@ -416,7 +417,7 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -555,7 +556,7 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -780,7 +781,7 @@ func TestTrackClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -873,7 +874,7 @@ func TestDestroy(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},

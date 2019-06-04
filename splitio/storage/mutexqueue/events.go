@@ -2,26 +2,24 @@ package mutexqueue
 
 import (
 	"container/list"
-	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // MaxAccumulatedBytes is the maximum size to accumulate in events before flush (in bytes)
 const MaxAccumulatedBytes = 5 * 1024 * 1024
 
-// ErrorMaxSizeReached queue max size error
-var ErrorMaxSizeReached = errors.New("Queue max size has been reached")
-
 // NewMQEventsStorage returns an instance of MQEventsStorage
-func NewMQEventsStorage(queueSize int, isFull chan<- bool) *MQEventsStorage {
+func NewMQEventsStorage(queueSize int, isFull chan string, logger logging.LoggerInterface) *MQEventsStorage {
 	return &MQEventsStorage{
 		queue:      list.New(),
 		size:       queueSize,
 		mutexQueue: &sync.Mutex{},
 		fullChan:   isFull,
+		logger:     logger,
 	}
 }
 
@@ -36,17 +34,18 @@ type MQEventsStorage struct {
 	size             int
 	accumulatedBytes int
 	mutexQueue       *sync.Mutex
-	fullChan         chan<- bool //only write channel
+	fullChan         chan string //only write channel
+	logger           logging.LoggerInterface
 }
 
 func (s *MQEventsStorage) sendSignalIsFull() {
 	// Nom blocking select
 	select {
-	case s.fullChan <- true:
-		//Send "queue is full" signal
+	case s.fullChan <- "EVENTS_FULL":
+		// Send "queue is full" signal
 		break
 	default:
-		break
+		s.logger.Debug("Some error occurred on sending signal for events")
 	}
 }
 

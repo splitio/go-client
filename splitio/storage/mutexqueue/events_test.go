@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestMSEventsStorage(t *testing.T) {
+	logger := logging.NewLogger(nil)
 
 	e0 := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: 0.0}
 	e1 := dtos.EventDTO{EventTypeID: "ET1", Key: "K1", Timestamp: 1, TrafficTypeName: "TTN1", Value: 0.1}
@@ -20,9 +22,9 @@ func TestMSEventsStorage(t *testing.T) {
 	e8 := dtos.EventDTO{EventTypeID: "ET8", Key: "K8", Timestamp: 8, TrafficTypeName: "TTN8", Value: 0.8}
 	e9 := dtos.EventDTO{EventTypeID: "ET9", Key: "K9", Timestamp: 9, TrafficTypeName: "TTN9", Value: 0.9}
 
-	isFull := make(chan bool, 1)
+	isFull := make(chan string, 1)
 	queueSize := 20
-	queue := NewMQEventsStorage(queueSize, isFull)
+	queue := NewMQEventsStorage(queueSize, isFull, logger)
 
 	if queue.Count() != 0 {
 		t.Error("Queue count error")
@@ -76,45 +78,13 @@ func TestMSEventsStorage(t *testing.T) {
 }
 
 func TestMSEventsStorageMaxSize(t *testing.T) {
+	logger := logging.NewLogger(nil)
 
 	e := dtos.EventDTO{EventTypeID: "ET0", Key: "K0", Timestamp: 0, TrafficTypeName: "TTN0", Value: 0.0}
 
-	isFull := make(chan bool, 1)
+	isFull := make(chan string, 1)
 	maxSize := 10
-	queue := NewMQEventsStorage(maxSize, isFull)
-
-	for i := 0; i < maxSize+1; i++ {
-		err := queue.Push(e, 1000)
-		if int64(i) < queue.Count() {
-			if err != nil {
-				t.Error("Error pushing element into queue")
-			}
-		} else {
-			if err != ErrorMaxSizeReached {
-				t.Error("Error reporting max size reached")
-			}
-		}
-
-	}
-
-}
-
-func TestMSEventsStorageMaxSizeInBytes(t *testing.T) {
-	e := dtos.EventDTO{
-		EventTypeID:     "ET0",
-		Key:             "K0",
-		Timestamp:       0,
-		TrafficTypeName: "TTN0",
-		Value:           0.0,
-	}
-
-	isFull := make(chan bool, 1)
-	maxSize := 9999999 // Huge number so that it explodes only because of size in bytes
-	queue := NewMQEventsStorage(maxSize, isFull)
-
-	for i := 0; i < 159; i++ {
-		queue.Push(e, 32768)
-	}
+	queue := NewMQEventsStorage(maxSize, isFull, logger)
 
 	select {
 	case <-isFull:
@@ -122,11 +92,55 @@ func TestMSEventsStorageMaxSizeInBytes(t *testing.T) {
 	default:
 	}
 
-	queue.Push(e, 32768)
-	queue.Push(e, 32768)
+	for i := 0; i < maxSize; i++ {
+		err := queue.Push(e, 1000)
+		if err != nil {
+			t.Error("Error pushing element into queue")
+		}
+	}
+
+	err := queue.Push(e, 1000)
+	if err != ErrorMaxSizeReached {
+		t.Error("Error reporting max size reached")
+	}
+
 	select {
 	case <-isFull:
 	default:
-		t.Error("Signal not sent!")
+		t.Error("Signal sent when it shouldn't have!")
+	}
+}
+
+func TestMSEventsStorageMaxSizeInBytes(t *testing.T) {
+	logger := logging.NewLogger(nil)
+
+	e := dtos.EventDTO{
+		EventTypeID:     "ET0",
+		Key:             "K0",
+		Timestamp:       0,
+		TrafficTypeName: "TTN0",
+		Value:           0.0,
+	}
+	isFull := make(chan string, 1)
+	maxSize := 9999999 // Huge number so that it explodes only because of size in bytes
+	queue := NewMQEventsStorage(maxSize, isFull, logger)
+
+	select {
+	case <-isFull:
+		t.Error("Signal sent when it shouldn't have!")
+	default:
+	}
+
+	for i := 0; i < 159; i++ {
+		queue.Push(e, 32768)
+	}
+
+	queue.Push(e, 32768)
+	queue.Push(e, 32768)
+
+	select {
+	case <-isFull:
+	default:
+		t.Error("Signal sent when it shouldn't have!")
 	}
 }

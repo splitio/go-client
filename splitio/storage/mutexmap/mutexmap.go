@@ -224,61 +224,6 @@ func (m *MMSegmentStorage) Clear() {
 	m.data = make(map[string]*set.ThreadUnsafeSet)
 }
 
-// ** IMPRESSIONS STORAGE **
-
-//MMImpressionStorage contains an in-memory implementation of Impressions storage
-type MMImpressionStorage struct {
-	data  map[string][]dtos.ImpressionDTO
-	mutex *sync.Mutex
-}
-
-// NewMMImpressionStorage instantiates an MMImpressionStorage
-func NewMMImpressionStorage() *MMImpressionStorage {
-	return &MMImpressionStorage{
-		data:  make(map[string][]dtos.ImpressionDTO),
-		mutex: &sync.Mutex{},
-	}
-}
-
-// Put stores an impression for a feature in the in-memory storage
-func (m *MMImpressionStorage) Put(feature string, impression *dtos.ImpressionDTO) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.data[feature] = append(m.data[feature], *impression)
-}
-
-// LogImpressions stores impressions in redis as Queue
-func (m *MMImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
-	if len(impressions) > 0 {
-		for _, i := range impressions {
-			m.Put(i.TestName, &i.KeyImpressions[0])
-		}
-	}
-	return nil
-}
-
-// PopAll Returns and removes all the impressions currently stored
-func (m *MMImpressionStorage) PopAll() []dtos.ImpressionsDTO {
-	m.mutex.Lock()
-
-	// After the function finishes, first replace the map with a fresh empty new one,
-	// and then fully unlock the mutex
-	defer func() {
-		m.data = make(map[string][]dtos.ImpressionDTO)
-		m.mutex.Unlock()
-	}()
-
-	impressions := make([]dtos.ImpressionsDTO, 0)
-	for testName, testImpressions := range m.data {
-		impressions = append(impressions, dtos.ImpressionsDTO{
-			TestName:       testName,
-			KeyImpressions: testImpressions,
-		})
-	}
-
-	return impressions
-}
-
 // ** Metrics Storage
 
 // MMMetricsStorage contains an in-memory implementation of Metrics storage

@@ -2,12 +2,12 @@ package redisdb
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -47,37 +47,22 @@ func NewRedisImpressionStorage(
 	}
 }
 
-func (r *RedisImpressionStorage) pushImpressionsWithLock(impressionsToStore []dtos.ImpressionsQueueDTO) error {
+// LogImpressions stores impressions in redis as Queue
+func (r *RedisImpressionStorage) LogImpressions(impressions []storage.Impression) error {
+	var impressionsToStore []storage.ImpressionQueueObject
+	for _, i := range impressions {
+		var impression = storage.ImpressionQueueObject{Metadata: r.metadataMessage, Impression: i}
+		impressionsToStore = append(impressionsToStore, impression)
+	}
+
 	if len(impressionsToStore) > 0 {
 		return r.Push(impressionsToStore)
 	}
 	return nil
 }
 
-// LogImpressions stores impressions in redis as Queue
-func (r *RedisImpressionStorage) LogImpressions(impressions []dtos.ImpressionsDTO) error {
-	var impressionsToStore []dtos.ImpressionsQueueDTO
-	for _, i := range impressions {
-		if len(i.KeyImpressions) == 0 {
-			continue
-		}
-		var impression = dtos.ImpressionsQueueDTO{Metadata: r.metadataMessage, Impression: dtos.ImpressionQueueDTO{
-			KeyName:      i.KeyImpressions[0].KeyName,
-			BucketingKey: i.KeyImpressions[0].BucketingKey,
-			FeatureName:  i.TestName,
-			Treatment:    i.KeyImpressions[0].Treatment,
-			Label:        i.KeyImpressions[0].Label,
-			ChangeNumber: i.KeyImpressions[0].ChangeNumber,
-			Time:         i.KeyImpressions[0].Time,
-		}}
-		impressionsToStore = append(impressionsToStore, impression)
-	}
-
-	return r.pushImpressionsWithLock(impressionsToStore)
-}
-
 // Push stores impressions in redis
-func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) error {
+func (r *RedisImpressionStorage) Push(impressions []storage.ImpressionQueueObject) error {
 	var impressionsJSON []interface{}
 	for _, impression := range impressions {
 		iJSON, err := json.Marshal(impression)
@@ -109,10 +94,10 @@ func (r *RedisImpressionStorage) Push(impressions []dtos.ImpressionsQueueDTO) er
 }
 
 // PopN return N elements from 0 to N
-func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionQueueDTO, error) {
+func (r *RedisImpressionStorage) PopN(n int64) ([]storage.Impression, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	toReturn := make([]dtos.ImpressionQueueDTO, 0)
+	toReturn := make([]storage.Impression, 0)
 
 	lrange := r.client.LRange(r.redisKey, 0, n-1)
 	if lrange.Err() != nil {
@@ -137,66 +122,18 @@ func (r *RedisImpressionStorage) PopN(n int64) ([]dtos.ImpressionQueueDTO, error
 	//JSON unmarshal
 	listOfImpressions := lrange.Val()
 	for _, se := range listOfImpressions {
-		storedImpressionDTO := dtos.ImpressionsQueueDTO{}
-		err := json.Unmarshal([]byte(se), &storedImpressionDTO)
+		storedImpression := storage.ImpressionQueueObject{}
+		err := json.Unmarshal([]byte(se), &storedImpression)
 		if err != nil {
 			r.logger.Error("Error decoding impression JSON", err.Error())
 			continue
 		}
-		if storedImpressionDTO.Metadata.MachineIP == r.metadataMessage.MachineIP &&
-			storedImpressionDTO.Metadata.MachineName == r.metadataMessage.MachineName &&
-			storedImpressionDTO.Metadata.SDKVersion == r.metadataMessage.SDKVersion {
-			toReturn = append(toReturn, storedImpressionDTO.Impression)
+		if storedImpression.Metadata.MachineIP == r.metadataMessage.MachineIP &&
+			storedImpression.Metadata.MachineName == r.metadataMessage.MachineName &&
+			storedImpression.Metadata.SDKVersion == r.metadataMessage.SDKVersion {
+			toReturn = append(toReturn, storedImpression.Impression)
 		}
 	}
 
 	return toReturn, nil
-}
-
-// PopAll returns and clears all impressions in redis.
-func (r *RedisImpressionStorage) PopAll() []dtos.ImpressionsDTO {
-	toRemove := strings.Replace(r.impTemplate, "{feature}", "", 1) // String that will be removed from every key
-	rawImpressions := make(map[string][]string)
-	err := r.client.WrapTransaction(func(t *prefixedTx) error {
-		keys, err := t.Keys(strings.Replace(r.impTemplate, "{feature}", "*", 1))
-		if err != nil {
-			r.logger.Error("Could not retrieve impression keys from redis")
-			return err
-		}
-
-		for _, key := range keys {
-			members, err := t.Smembers(key)
-			if err != nil {
-				r.logger.Error(fmt.Sprintf("Could not retrieve impressions for key %s", key))
-				r.logger.Error(err)
-				continue
-			}
-			rawImpressions[strings.Replace(key, toRemove, "", 1)] = members
-			t.Del(key)
-		}
-		return nil
-	})
-	if err != nil {
-		r.logger.Error(err)
-		return nil
-	}
-
-	all := make([]dtos.ImpressionsDTO, len(rawImpressions))
-	allIndex := 0
-	for feature, impressions := range rawImpressions {
-		featureImpressions := make([]dtos.ImpressionDTO, len(impressions))
-		for impressionIndex, impression := range impressions {
-			var impDto dtos.ImpressionDTO
-			err := json.Unmarshal([]byte(impression), &impDto)
-			if err != nil {
-				r.logger.Error("Could not decode json-stored impression")
-				r.logger.Error(err)
-				continue
-			}
-			featureImpressions[impressionIndex] = impDto
-		}
-		all[allIndex] = dtos.ImpressionsDTO{TestName: feature, KeyImpressions: featureImpressions}
-		allIndex++
-	}
-	return all
 }

@@ -3,6 +3,7 @@
  - Added new label when the sdk is not ready.
  - Added multiple factory instantiation check.
  - Added validation when split does not exist in treatments and manager calls.
+ - Moved Impressions in-memory to single-queue approach and refactored ImpressionDTO.
 4.0.1 (May 17, 2019)
  - Fixed bug on client.Destroy() method.
 4.0.0 (April 30, 2019)

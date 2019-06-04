@@ -109,68 +109,6 @@ func TestMMSegmentStorage(t *testing.T) {
 	}
 }
 
-func TestImpressionStorage(t *testing.T) {
-	impressionStorage := NewMMImpressionStorage()
-	impressionStorage.Put("feature_a", &dtos.ImpressionDTO{
-		KeyName:   "testKey1",
-		Treatment: "on",
-		Time:      123,
-	})
-	impressionStorage.Put("feature_a", &dtos.ImpressionDTO{
-		KeyName:   "testKey2",
-		Treatment: "off",
-		Time:      124,
-	})
-	impressionStorage.Put("feature_b", &dtos.ImpressionDTO{
-		KeyName:   "testKey1",
-		Treatment: "off",
-		Time:      125,
-	})
-	impressionStorage.Put("feature_b", &dtos.ImpressionDTO{
-		KeyName:   "testKey2",
-		Treatment: "off",
-		Time:      126,
-	})
-
-	if len(impressionStorage.data) != 2 {
-		t.Error("Incorrect number of features in impression storage")
-	}
-
-	impressionsForFeatureA := impressionStorage.data["feature_a"]
-	if len(impressionsForFeatureA) != 2 {
-		t.Error("Incorrect number of impressions for feature_a")
-	}
-
-	impressionsForFeatureB := impressionStorage.data["feature_b"]
-	if len(impressionsForFeatureB) != 2 {
-		t.Error("Incorrect number of impressions for feature_b")
-	}
-
-	impressionsBak := impressionStorage.data // Keep a copy of impressions in storage before calling PopAll()
-	impressions := impressionStorage.PopAll()
-	if len(impressionStorage.data) > 0 {
-		t.Error("Impressions not removed correctly from storage")
-	}
-
-	for key := range impressionsBak {
-		// Find the index of the impression in the struct returned by PopAll()
-		index, found := indexOf(impressions, func(i interface{}) bool {
-			imps, ok := i.(dtos.ImpressionsDTO)
-			if ok && imps.TestName == key {
-				return true
-			}
-			return false
-		})
-		if !found {
-			t.Errorf("%s not should be in storage and isn't", key)
-		} else {
-			if len(impressions[index].KeyImpressions) != len(impressionsBak[key]) {
-				t.Errorf("Incorrect number of impressions for %s", key)
-			}
-		}
-	}
-}
-
 func TestMetricsStorage(t *testing.T) {
 	metricsStorage := NewMMMetricsStorage()
 

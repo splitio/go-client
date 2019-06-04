@@ -39,12 +39,12 @@ type SegmentStorageConsumer interface {
 
 // ImpressionStorageProducer interface should be impemented by structs that accept incoming impressions
 type ImpressionStorageProducer interface {
-	LogImpressions(impressions []dtos.ImpressionsDTO) error
+	LogImpressions(impressions []Impression) error
 }
 
 // ImpressionStorageConsumer interface should be implemented by structs that offer popping impressions
 type ImpressionStorageConsumer interface {
-	PopAll() []dtos.ImpressionsDTO
+	PopN(n int64) ([]Impression, error)
 }
 
 // MetricsStorageProducer interface should be impemented by structs that accept incoming metrics

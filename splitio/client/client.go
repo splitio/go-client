@@ -12,7 +12,6 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
-
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -129,7 +128,8 @@ func (c *SplitClient) doTreatmentCall(
 			label = evaluationResult.Label
 		}
 
-		var impression = dtos.ImpressionDTO{
+		var impression = storage.Impression{
+			FeatureName:  feature,
 			BucketingKey: impressionBucketingKey,
 			ChangeNumber: evaluationResult.SplitChangeNumber,
 			KeyName:      matchingKey,
@@ -138,12 +138,7 @@ func (c *SplitClient) doTreatmentCall(
 			Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 		}
 
-		keyImpressions := []dtos.ImpressionDTO{impression}
-		toStore := []dtos.ImpressionsDTO{{
-			TestName:       feature,
-			KeyImpressions: keyImpressions,
-		}}
-
+		toStore := []storage.Impression{impression}
 		c.impressions.LogImpressions(toStore)
 
 		// Custom Impression Listener
@@ -223,7 +218,7 @@ func (c *SplitClient) doTreatmentsCall(
 	}
 
 	before := time.Now()
-	var bulkImpressions []dtos.ImpressionsDTO
+	var bulkImpressions []storage.Impression
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
@@ -250,7 +245,8 @@ func (c *SplitClient) doTreatmentsCall(
 			if c.cfg.LabelsEnabled {
 				label = evaluationResult.Label
 			}
-			var impression = dtos.ImpressionDTO{
+			var impression = storage.Impression{
+				FeatureName:  feature,
 				BucketingKey: impressionBucketingKey,
 				ChangeNumber: evaluationResult.SplitChangeNumber,
 				KeyName:      matchingKey,
@@ -258,11 +254,7 @@ func (c *SplitClient) doTreatmentsCall(
 				Treatment:    evaluationResult.Treatment,
 				Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
 			}
-			keyImpressions := []dtos.ImpressionDTO{impression}
-			bulkImpressions = append(bulkImpressions, dtos.ImpressionsDTO{
-				TestName:       feature,
-				KeyImpressions: keyImpressions,
-			})
+			bulkImpressions = append(bulkImpressions, impression)
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluationResult.Treatment,

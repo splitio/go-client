@@ -207,7 +207,6 @@ func (r *RedisSplitStorage) TrafficTypeExists(trafficType string) bool {
 
 	val, err := strconv.ParseInt(res, 10, 64)
 	if err != nil {
-		fmt.Println(err)
 		r.logger.Error("TrafficType could not be converted")
 		return false
 	}

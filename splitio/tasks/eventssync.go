@@ -18,7 +18,6 @@ func submitEvents(
 	machineName string,
 	logger logging.LoggerInterface,
 ) error {
-
 	queuedEvents, err := eventStorage.PopN(bulkSize)
 	if err != nil {
 		logger.Error("Error reading events queue", err)

@@ -167,6 +167,7 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	return fmt.Errorf("POST method: Status Code: %d - %s", resp.StatusCode, resp.Status)
 }
 
+// ValidateApikey validates apikey
 func ValidateApikey(apikey string, config conf.AdvancedConfig) error {
 	sdkURL, _ := getUrls(&config)
 	client := &http.Client{}

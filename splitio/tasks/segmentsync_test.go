@@ -2,15 +2,16 @@ package tasks
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/logging"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 )
 
 func TestSegmentSyncTask(t *testing.T) {
@@ -110,7 +111,7 @@ func TestSegmentSyncTask(t *testing.T) {
 
 	segmentStorage := mutexmap.NewMMSegmentStorage()
 
-	readyChannel := make(chan string)
+	readyChannel := make(chan string, 1)
 	segmentTask := NewFetchSegmentsTask(
 		splitStorage,
 		segmentStorage,

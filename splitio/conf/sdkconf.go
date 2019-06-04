@@ -70,14 +70,16 @@ type RedisConfig struct {
 // - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
 // - SegmentWorkers - How many workers will be used when performing segments sync.
 type AdvancedConfig struct {
-	ImpressionListener impressionlistener.ImpressionListener
-	HTTPTimeout        int
-	SegmentQueueSize   int
-	SegmentWorkers     int
-	SdkURL             string
-	EventsURL          string
-	EventsBulkSize     int64
-	EventsQueueSize    int
+	ImpressionListener   impressionlistener.ImpressionListener
+	HTTPTimeout          int
+	SegmentQueueSize     int
+	SegmentWorkers       int
+	SdkURL               string
+	EventsURL            string
+	EventsBulkSize       int64
+	EventsQueueSize      int
+	ImpressionsQueueSize int
+	ImpressionsBulkSize  int64
 }
 
 // Default returns a config struct with all the default values
@@ -121,14 +123,16 @@ func Default() *SplitSdkConfig {
 			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{
-			EventsURL:          "",
-			SdkURL:             "",
-			HTTPTimeout:        0,
-			ImpressionListener: nil,
-			SegmentQueueSize:   500,
-			SegmentWorkers:     10,
-			EventsBulkSize:     1000,
-			EventsQueueSize:    500,
+			EventsURL:            "",
+			SdkURL:               "",
+			HTTPTimeout:          0,
+			ImpressionListener:   nil,
+			SegmentQueueSize:     500,
+			SegmentWorkers:       10,
+			EventsBulkSize:       5000,
+			EventsQueueSize:      10000,
+			ImpressionsQueueSize: 10000,
+			ImpressionsBulkSize:  5000,
 		},
 	}
 }
@@ -138,7 +142,7 @@ func Default() *SplitSdkConfig {
 func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != "localhost" {
-		return errors.New("Factory instantiation: you passed and empty apikey, apikey must be a non-empty string")
+		return errors.New("Factory instantiation: you passed an empty apikey, apikey must be a non-empty string")
 	}
 
 	// To keep the interface consistent with other sdks we accept "localhost" as an apikey,

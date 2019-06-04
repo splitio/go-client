@@ -1,14 +1,18 @@
 package client
 
 import (
+	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-client/splitio/storage/mutexqueue"
+	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -18,8 +22,7 @@ type MockWriter struct {
 }
 
 func (m *MockWriter) Write(p []byte) (n int, err error) {
-	msg := string(p[:])
-	strMsg = msg[strings.Index(msg, "[")+1 : strings.Index(msg, "]")]
+	strMsg = string(p[:])
 	return 0, nil
 }
 
@@ -33,16 +36,35 @@ var options = &logging.LoggerOptions{
 	VerboseWriter: &mW,
 }
 
+type mockSplitStorage struct {
+}
+
+func (tt *mockSplitStorage) TrafficTypeExists(trafficType string) bool {
+	switch trafficType {
+	case "trafictype":
+		return true
+	default:
+		return false
+	}
+}
+func (tt *mockSplitStorage) Get(splitName string) *dtos.SplitDTO { return nil }
+func (tt *mockSplitStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
+func (tt *mockSplitStorage) SplitNames() []string                { return []string{} }
+func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
+
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
 var client = SplitClient{
 	cfg:         cfg,
 	evaluator:   &mockEvaluator{},
-	impressions: mutexmap.NewMMImpressionStorage(),
+	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 	metrics:     mutexmap.NewMMMetricsStorage(),
 	logger:      logger,
-	validator:   inputValidation{logger: logger},
-	events:      &mockEvents{},
+	validator: inputValidation{
+		logger:       logger,
+		splitStorage: &mockSplitStorage{},
+	},
+	events: &mockEvents{},
 }
 
 var factory = SplitFactory{
@@ -63,11 +85,9 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 		t.Error("Should be error")
 	}
 
-	expected := "Factory instantiation: you passed and empty apikey, apikey must be a non-empty string"
-	if strMsg != expected {
+	expected := "Factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -80,10 +100,8 @@ func TestTreatmentValidatorWithNilKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed a nil key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -96,10 +114,8 @@ func TestTreatmentValidatorWithBooleanKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an invalid key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -112,10 +128,8 @@ func TestTreatmentValidatorWitWhitespaceKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an empty key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -133,10 +147,8 @@ func TestTreatmentValidatorWithLengthKey(t *testing.T) {
 	}
 
 	expected := "Treatment: key too long - must be 250 characters or less"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -149,11 +161,10 @@ func TestTreatmentValidatorWithStringKey(t *testing.T) {
 	}
 
 	expected := ""
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWithIntKey(t *testing.T) {
@@ -164,11 +175,10 @@ func TestTreatmentValidatorWithIntKey(t *testing.T) {
 	}
 
 	expected := "Treatment: key %!s(int=123) is not of type string, converting"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWithInt32Key(t *testing.T) {
@@ -179,11 +189,10 @@ func TestTreatmentValidatorWithInt32Key(t *testing.T) {
 	}
 
 	expected := "Treatment: key %!s(int32=123) is not of type string, converting"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWithInt64Key(t *testing.T) {
@@ -194,11 +203,10 @@ func TestTreatmentValidatorWithInt64Key(t *testing.T) {
 	}
 
 	expected := "Treatment: key %!s(int64=123) is not of type string, converting"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWitFloatKey(t *testing.T) {
@@ -209,11 +217,10 @@ func TestTreatmentValidatorWitFloatKey(t *testing.T) {
 	}
 
 	expected := "Treatment: key %!s(float64=1.3) is not of type string, converting"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorWitFloatNaNKey(t *testing.T) {
@@ -224,10 +231,8 @@ func TestTreatmentValidatorWitFloatNaNKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an invalid key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -240,10 +245,8 @@ func TestTreatmentValidatorWitFloatInfKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an invalid key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -261,10 +264,8 @@ func TestTreatmentValidatorWithEmptyMatchingKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -287,10 +288,8 @@ func TestTreatmentValidatorWithLengthMatchingKey(t *testing.T) {
 	}
 
 	expected := "Treatment: matchingKey too long - must be 250 characters or less"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -308,10 +307,8 @@ func TestTreatmentValidatorWithEmptyBuckeitngKey(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an empty bucketingKey, bucketingKey must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -334,10 +331,8 @@ func TestTreatmentValidatorWithLengthBucketingKey(t *testing.T) {
 	}
 
 	expected := "Treatment: bucketingKey too long - must be 250 characters or less"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -355,11 +350,10 @@ func TestTreatmentValidatorWithKeyObject(t *testing.T) {
 	}
 
 	expected := ""
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentValidatorEmptyFeatureName(t *testing.T) {
@@ -370,10 +364,8 @@ func TestTreatmentValidatorEmptyFeatureName(t *testing.T) {
 	}
 
 	expected := "Treatment: you passed an empty featureName, featureName must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -386,10 +378,36 @@ func TestTreatmentValidatorWhitespacesFeatureName(t *testing.T) {
 	}
 
 	expected := "Treatment: split name '  feature   ' has extra whitespace, trimming"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.Treatment("key", "feature_non_existant", nil)
+
+	if result != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "Treatment: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+	}
+	strMsg = ""
+}
+
+func TestTreatmentConfigValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.TreatmentWithConfig("key", "feature_non_existant", nil)
+
+	if result.Treatment != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "TreatmentWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
@@ -399,7 +417,7 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -428,10 +446,8 @@ func TestTreatmentClientDestroyed(t *testing.T) {
 	}
 
 	expected := "Client has already been destroyed - no calls possible"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -446,10 +462,8 @@ func TestTreatmentsEmptyFeatures(t *testing.T) {
 	}
 
 	expected := "Treatments: features must be a non-empty array"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -468,10 +482,8 @@ func TestTreatmentsValidatorWitFloatInfKey(t *testing.T) {
 	}
 
 	expected := "Treatments: you passed an invalid key, key must be a non-empty string"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -490,11 +502,10 @@ func TestTreatmenstValidatorWitFloatKey(t *testing.T) {
 	}
 
 	expected := "Treatments: key %!s(float64=1.3) is not of type string, converting"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
+	strMsg = ""
 }
 
 func TestTreatmentsWhitespaceFeatures(t *testing.T) {
@@ -507,10 +518,35 @@ func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 	}
 
 	expected := "Treatments: split name ' some_feature  ' has extra whitespace, trimming"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestTreatmentsValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.Treatments("key", []string{"feature_non_existant"}, nil)
+
+	if result["feature_non_existant"] != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "Treatments: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+	}
+	strMsg = ""
+}
+func TestTreatmentsConfigValidatorWithFeatureNonExistant(t *testing.T) {
+	result := client.TreatmentsWithConfig("key", []string{"feature_non_existant"}, nil)
+
+	if result["feature_non_existant"].Treatment != "control" {
+		t.Error("Should be control")
+	}
+
+	expected := "TreatmentsWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
@@ -520,7 +556,7 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -555,26 +591,22 @@ func TestTreatmentsClientDestroyed(t *testing.T) {
 	}
 
 	expected := "Client has already been destroyed - no calls possible"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
 
 func TestTrackValidatorWithEmptyKey(t *testing.T) {
-	err := client.Track("", "trafficType", "eventType", nil)
+	err := client.Track("", "trafficType", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty key, key must be a non-empty string"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -585,39 +617,35 @@ func TestTrackValidatorWithLengthKey(t *testing.T) {
 		m += "m"
 	}
 
-	err := client.Track(m, "trafficType", "eventType", nil)
+	err := client.Track(m, "trafficType", "eventType", nil, nil)
 
 	expected := "Track: key too long - must be 250 characters or less"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
 
 func TestTrackValidatorWithEmptyEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "", nil)
+	err := client.Track("key", "trafficType", "", nil, nil)
 
 	expected := "Track: you passed an empty event type, event type must be a non-empty string"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
 
 func TestTrackValidatorWithNotConformEventName(t *testing.T) {
-	err := client.Track("key", "trafficType", "//", nil)
+	err := client.Track("key", "trafficType", "//", nil, nil)
 
 	expected := "Track: you passed //, event name must adhere to " +
 		"the regular expression ^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$. This means an event " +
@@ -628,37 +656,82 @@ func TestTrackValidatorWithNotConformEventName(t *testing.T) {
 		t.Error("Wrong error")
 	}
 
-	if !strings.Contains(expected, strMsg) {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
 
 func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
-	err := client.Track("key", "", "eventType", nil)
+	err := client.Track("key", "", "eventType", nil, nil)
 
 	expected := "Track: you passed an empty traffic type, traffic type must be a non-empty string"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
 
 func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
-	err := client.Track("key", "traficTYPE", "eventType", nil)
+	err := client.Track("key", "traficTYPE", "eventType", nil, nil)
 
 	expected := "Track: traffic type should be all lowercase - converting string to lowercase"
 	if err != nil {
 		t.Error("Should not be error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+	}
+	strMsg = ""
+}
+
+func TestTrackValidatorReturning0Occurrences(t *testing.T) {
+	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil, nil)
+
+	expected := "Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	if err != nil {
+		t.Error("Should not be error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+	}
+	strMsg = ""
+}
+
+func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
+	err := client.Track("key", "traffic", "eventType", true, nil)
+
+	expected := "Track: value must be a number"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+	}
+	strMsg = ""
+}
+
+func TestTrackValidatorWithTooManyProperties(t *testing.T) {
+
+	props := make(map[string]interface{})
+	for i := 0; i < 301; i++ {
+		props[fmt.Sprintf("prop-%d", i)] = "asd"
+	}
+	err := client.Track("key", "traffic", "eventType", 1, props)
+
+	expected := "Track: Event has more than 300 properties. Some of them will be trimmed when processed"
+	if err != nil && err.Error() != expected {
+		t.Error("Wrong error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)
 		t.Error("Expected -> ", expected)
@@ -666,15 +739,28 @@ func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 	strMsg = ""
 }
 
-func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", true)
+func makeBigString(length int) string {
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	asRuneSlice := make([]rune, length)
+	for index := range asRuneSlice {
+		asRuneSlice[index] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(asRuneSlice)
+}
 
-	expected := "Track: value must be a number"
-	if err != nil && err.Error() != expected {
-		t.Error("Wrong error")
+func TestTrackValidatorEventTooBig(t *testing.T) {
+	props := make(map[string]interface{})
+	for i := 0; i < 299; i++ {
+		props[fmt.Sprintf("%s%d", makeBigString(255), i)] = makeBigString(255)
+	}
+	err := client.Track("key", "traffic", "eventType", nil, props)
+
+	expected := "The maximum size allowed for the properties is 32kb. Event not queued"
+	if err == nil {
+		t.Error("Should return an error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 		t.Error("Actual -> ", strMsg)
 		t.Error("Expected -> ", expected)
@@ -683,10 +769,10 @@ func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 }
 
 func TestTrackValidator(t *testing.T) {
-	err := client.Track("key", "traffic", "eventType", 1)
+	err := client.Track("key", "traffic", "eventType", 1, nil)
 
 	if err != nil {
-		t.Error("Shoueld not return error")
+		t.Error("Should not return error")
 	}
 }
 
@@ -695,7 +781,7 @@ func TestTrackClientDestroyed(t *testing.T) {
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -717,17 +803,15 @@ func TestTrackClientDestroyed(t *testing.T) {
 
 	client2.Destroy()
 
-	err := client2.Track("key", "trafficType", "eventType", 0)
+	err := client2.Track("key", "trafficType", "eventType", 0, nil)
 
 	expected := "Client has already been destroyed - no calls possible"
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }
@@ -752,20 +836,45 @@ func TestManagerWithEmptySplit(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
+	}
+	strMsg = ""
+}
+
+func TestManagerWithNonExistantSplit(t *testing.T) {
+	splitStorage := mutexmap.NewMMSplitStorage()
+	manager := SplitManager{
+		splitStorage: splitStorage,
+		logger:       logger,
+		validator:    inputValidation{logger: logger},
+	}
+	factory := SplitFactory{
+		manager: &manager,
+	}
+
+	factory.status.Store(SdkReady)
+	manager.factory = &factory
+
+	result := manager.Split("non_existant")
+
+	expected := "Split: you passed non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	if result != nil {
+		t.Error("Wrong result")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
 
 func TestDestroy(t *testing.T) {
-
+	cfg.OperationMode = "redis-consumer"
 	var client2 = SplitClient{
 		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
-		impressions: mutexmap.NewMMImpressionStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -801,10 +910,8 @@ func TestDestroy(t *testing.T) {
 	}
 
 	expected := "Client has already been destroyed - no calls possible"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 
@@ -815,10 +922,8 @@ func TestDestroy(t *testing.T) {
 	}
 
 	expected = "Client has already been destroyed - no calls possible"
-	if strMsg != expected {
+	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
-		t.Error("Actual -> ", strMsg)
-		t.Error("Expected -> ", expected)
 	}
 	strMsg = ""
 }

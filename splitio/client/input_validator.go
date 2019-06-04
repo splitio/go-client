@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
-
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -19,11 +20,15 @@ import (
 // MaxLength constant to check the length of the splits
 const MaxLength = 250
 
+// MaxEventLength constant to limit the event size
+const MaxEventLength = 32768
+
 // RegExpEventType constant that EventType must match
 const RegExpEventType = "^[a-zA-Z0-9][-_.:a-zA-Z0-9]{0,79}$"
 
 type inputValidation struct {
-	logger logging.LoggerInterface
+	logger       logging.LoggerInterface
+	splitStorage storage.SplitStorageConsumer
 }
 
 func parseIfNumeric(value interface{}, operation string) (string, error) {
@@ -159,6 +164,10 @@ func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
+	if !i.splitStorage.TrafficTypeExists(toLower) {
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
+			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
+	}
 	return toLower, nil
 }
 
@@ -233,4 +242,47 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 		}
 	}
 	return f, nil
+}
+
+func (i *inputValidation) validateTrackProperties(properties map[string]interface{}) (map[string]interface{}, int, error) {
+	if properties == nil || len(properties) == 0 {
+		return nil, 0, nil
+	}
+
+	if len(properties) > 300 {
+		i.logger.Warning("Track: Event has more than 300 properties. Some of them will be trimmed when processed")
+	}
+
+	processed := make(map[string]interface{})
+	size := 1024 // Average event size is ~750 bytes. Using 1kbyte as a starting point.
+	for name, value := range properties {
+		size += len(name)
+		switch value.(type) {
+		case int, int32, int64, uint, uint32, uint64, float32, float64, bool, nil:
+			processed[name] = value
+		case string:
+			asStr := value.(string)
+			size += len(asStr)
+			processed[name] = value
+		default:
+			i.logger.Warning("Property %s is of invalid type. Setting value to nil")
+			processed[name] = nil
+		}
+
+		if size > MaxEventLength {
+			i.logger.Error(
+				"The maximum size allowed for the properties is 32kb. Event not queued",
+			)
+			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
+		}
+	}
+	return processed, size, nil
+}
+
+func (i *inputValidation) IsSplitFound(label string, feature string, operation string) bool {
+	if label == impressionlabels.SplitNotFound {
+		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+		return false
+	}
+	return true
 }

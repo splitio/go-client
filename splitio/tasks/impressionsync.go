@@ -1,26 +1,13 @@
 package tasks
 
 import (
+	"errors"
+
 	"github.com/splitio/go-client/splitio/service"
-	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/impressionlistener"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )
-
-func listenerWrapper(
-	impressions []dtos.ImpressionsDTO,
-	listener impressionlistener.ListenerInterface,
-	logger logging.LoggerInterface,
-) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Error("Impression listener is packing with the following message: ", r)
-		}
-	}()
-	listener.Notify(impressions)
-}
 
 func submitImpressions(
 	impressionStorage storage.ImpressionStorageConsumer,
@@ -29,12 +16,19 @@ func submitImpressions(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
+	bulkSize int64,
 ) error {
-	impressions := impressionStorage.PopAll()
-	if len(impressions) > 0 {
-		return impressionRecorder.Record(impressions, sdkVersion, machineIP, machineName)
+	queuedImpressions, err := impressionStorage.PopN(bulkSize)
+	if err != nil {
+		logger.Error("Error reading impressions queue", err)
+		return errors.New("Error reading impressions queue")
 	}
-	return nil
+
+	if len(queuedImpressions) == 0 {
+		return nil
+	}
+
+	return impressionRecorder.Record(queuedImpressions, sdkVersion, machineIP, machineName)
 }
 
 // NewRecordImpressionsTask creates a new splits fetching and storing task
@@ -46,6 +40,7 @@ func NewRecordImpressionsTask(
 	machineIP string,
 	machineName string,
 	logger logging.LoggerInterface,
+	bulkSize int64,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitImpressions(
@@ -55,6 +50,7 @@ func NewRecordImpressionsTask(
 			machineIP,
 			machineName,
 			logger,
+			bulkSize,
 		)
 	}
 

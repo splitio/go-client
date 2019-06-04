@@ -11,6 +11,8 @@ type SplitStorageProducer interface {
 	Remove(splitname string)
 	Till() int64
 	Clear()
+	IncreaseTrafficTypeCount(trafficType string)
+	DecreaseTrafficTypeCount(trafficType string)
 }
 
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
@@ -19,6 +21,7 @@ type SplitStorageConsumer interface {
 	SplitNames() []string
 	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO
+	TrafficTypeExists(trafficType string) bool
 }
 
 // SegmentStorageProducer interface should be implemented by all structs that offer writing segments
@@ -36,12 +39,12 @@ type SegmentStorageConsumer interface {
 
 // ImpressionStorageProducer interface should be impemented by structs that accept incoming impressions
 type ImpressionStorageProducer interface {
-	LogImpressions(impressions []dtos.ImpressionsDTO) error
+	LogImpressions(impressions []Impression) error
 }
 
 // ImpressionStorageConsumer interface should be implemented by structs that offer popping impressions
 type ImpressionStorageConsumer interface {
-	PopAll() []dtos.ImpressionsDTO
+	PopN(n int64) ([]Impression, error)
 }
 
 // MetricsStorageProducer interface should be impemented by structs that accept incoming metrics
@@ -60,7 +63,7 @@ type MetricsStorageConsumer interface {
 
 // EventStorageProducer interface should be implemented by structs that accept incoming events
 type EventStorageProducer interface {
-	Push(event dtos.EventDTO) error
+	Push(event dtos.EventDTO, size int) error
 }
 
 // EventStorageConsumer interface should be implemented by structs that offer popping impressions

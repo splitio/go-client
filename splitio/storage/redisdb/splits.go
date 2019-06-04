@@ -3,11 +3,12 @@ package redisdb
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
-	"strconv"
-	"strings"
 )
 
 // RedisSplitStorage is a redis-based implementation of split storage
@@ -185,4 +186,29 @@ func (r *RedisSplitStorage) Clear() {
 
 		return err
 	})
+}
+
+// IncreaseTrafficTypeCount increases value for a traffic type
+func (r *RedisSplitStorage) IncreaseTrafficTypeCount(trafficType string) {}
+
+// DecreaseTrafficTypeCount decreases value for a traffic type
+func (r *RedisSplitStorage) DecreaseTrafficTypeCount(trafficType string) {}
+
+// TrafficTypeExists returns true or false depending on existance and counter
+// of trafficType
+func (r *RedisSplitStorage) TrafficTypeExists(trafficType string) bool {
+	keyToFetch := strings.Replace(redisTrafficType, "{trafficType}", trafficType, 1)
+	res, err := r.client.Get(keyToFetch)
+
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Could not fetch trafficType \"%s\" from redis: %s", trafficType, err.Error()))
+		return false
+	}
+
+	val, err := strconv.ParseInt(res, 10, 64)
+	if err != nil {
+		r.logger.Error("TrafficType could not be converted")
+		return false
+	}
+	return val > 0
 }

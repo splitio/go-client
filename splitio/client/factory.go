@@ -37,7 +37,7 @@ const SdkReady = 2
 // SdkError flag
 const SdkError = -1
 
-var inMemoryFullQueueChan = make(chan bool, 1)
+var inMememoryFullQueue = make(chan string, 1)
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
@@ -120,21 +120,9 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTask
 	}
 }
 
-// NewSplitFactory instntiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
+// newFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, error) {
-	if cfg == nil {
-		cfg = conf.Default()
-	}
-
-	logger := setupLogger(cfg)
-
-	err := conf.Normalize(apikey, cfg)
-	if err != nil {
-		logger.Error(err.Error())
-		return nil, err
-	}
-
+func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	// Set up storages
 	var splitStorage storage.SplitStorage
 	var segmentStorage storage.SegmentStorage
@@ -143,7 +131,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	var eventsStorage storage.EventsStorage
 
 	if cfg.OperationMode == "inmemory-standalone" {
-		err = api.ValidateApikey(apikey, cfg.Advanced)
+		err := api.ValidateApikey(apikey, cfg.Advanced)
 		if err != nil {
 			return nil, err
 		}
@@ -153,9 +141,9 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	case "inmemory-standalone", "localhost":
 		splitStorage = mutexmap.NewMMSplitStorage()
 		segmentStorage = mutexmap.NewMMSegmentStorage()
-		impressionStorage = mutexmap.NewMMImpressionStorage()
+		impressionStorage = mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger)
 		metricsStorage = mutexmap.NewMMMetricsStorage()
-		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMemoryFullQueueChan)
+		eventsStorage = mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 	case "redis-consumer", "redis-standalone":
 		host := cfg.Redis.Host
 		port := cfg.Redis.Port
@@ -223,8 +211,11 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		sync:        syncTasks,
 		cfg:         cfg,
 		events:      eventsStorage,
-		validator:   inputValidation{logger: logger},
-		metadata:    metadata,
+		validator: inputValidation{
+			logger:       logger,
+			splitStorage: splitStorage,
+		},
+		metadata: metadata,
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {
@@ -251,7 +242,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	case "localhost":
 		splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 		splitPeriod := cfg.TaskPeriods.SplitSync
-		readyChannel := make(chan string)
+		readyChannel := make(chan string, 1)
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
 		}
@@ -276,7 +267,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		workers := cfg.Advanced.SegmentWorkers
 		qSize := cfg.Advanced.SegmentQueueSize
 
-		readyChannel := make(chan string)
+		readyChannel := make(chan string, 1)
 		// Sync tasks
 		syncTasks = &sdkSync{
 			splitSync: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
@@ -298,6 +289,7 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 				ip,
 				instance,
 				logger,
+				cfg.Advanced.ImpressionsBulkSize,
 			),
 			countersSync: tasks.NewRecordCountersTask(
 				metricsStorage, metricsRecorder, countersPeriod, version, ip, instance, logger,
@@ -326,10 +318,18 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 		if cfg.OperationMode == "inmemory-standalone" {
 			go func() {
 				for true {
-					isFull := <-inMemoryFullQueueChan
-					if isFull {
+					msg := <-inMememoryFullQueue
+					switch msg {
+					case "EVENTS_FULL":
 						logger.Debug("FLUSHING storage queue")
 						errWakeUp := syncTasks.eventsSync.WakeUp()
+						if errWakeUp != nil {
+							logger.Error("Error flushing storage queue", errWakeUp)
+						}
+						break
+					case "IMPRESSIONS_FULL":
+						logger.Debug("FLUSHING storage queue")
+						errWakeUp := syncTasks.impressionSync.WakeUp()
 						if errWakeUp != nil {
 							logger.Error("Error flushing storage queue", errWakeUp)
 						}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/splitio/go-client/splitio/storage"
+
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -39,14 +41,55 @@ type HTTPImpressionRecorder struct {
 	httpRecorderBase
 }
 
-// Record sends an array (or slice) of dtos.ImpressionsDTO to the backend
+type impressionRecord struct {
+	KeyName      string `json:"keyName"`
+	Treatment    string `json:"treatment"`
+	Time         int64  `json:"time"`
+	ChangeNumber int64  `json:"changeNumber"`
+	Label        string `json:"label"`
+	BucketingKey string `json:"bucketingKey,omitempty"`
+}
+
+type impressionsRecord struct {
+	TestName       string             `json:"testName"`
+	KeyImpressions []impressionRecord `json:"keyImpressions"`
+}
+
+// Record sends an array (or slice) of impressionsRecord to the backend
 func (i *HTTPImpressionRecorder) Record(
-	impressions []dtos.ImpressionsDTO,
+	impressions []storage.Impression,
 	sdkVersion string,
 	machineIP string,
 	machineName string,
 ) error {
-	data, err := json.Marshal(impressions)
+	impressionsToPost := make(map[string][]impressionRecord)
+	for _, impression := range impressions {
+		keyImpression := impressionRecord{
+			KeyName:      impression.KeyName,
+			Treatment:    impression.Treatment,
+			Time:         impression.Time,
+			ChangeNumber: impression.ChangeNumber,
+			Label:        impression.Label,
+			BucketingKey: impression.BucketingKey,
+		}
+		v, ok := impressionsToPost[impression.FeatureName]
+		if ok {
+			v = append(v, keyImpression)
+		} else {
+			v = []impressionRecord{keyImpression}
+		}
+		impressionsToPost[impression.FeatureName] = v
+	}
+
+	bulkImpressions := make([]impressionsRecord, 0)
+	for testName, testImpressions := range impressionsToPost {
+		bulkImpressions = append(bulkImpressions, impressionsRecord{
+			TestName:       testName,
+			KeyImpressions: testImpressions,
+		})
+	}
+
+	data, err := json.Marshal(bulkImpressions)
 	if err != nil {
 		i.logger.Error("Error marshaling JSON", err.Error())
 		return err

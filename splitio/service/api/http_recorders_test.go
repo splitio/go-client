@@ -12,11 +12,31 @@ import (
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
 )
 
-func TestPostImpressions(t *testing.T) {
+func TestImpressionRecord(t *testing.T) {
+	impressionTXT := `{"keyName":"some_key","treatment":"off","time":1234567890,"changeNumber":55555555,"label":"some label","bucketingKey":"some_bucket_key"}`
+	impressionRecord := &impressionRecord{
+		KeyName:      "some_key",
+		Treatment:    "off",
+		Time:         1234567890,
+		ChangeNumber: 55555555,
+		Label:        "some label",
+		BucketingKey: "some_bucket_key"}
 
+	marshalImpression, err := json.Marshal(impressionRecord)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if string(marshalImpression) != impressionTXT {
+		t.Error("Error marshaling impression")
+	}
+}
+
+func TestPostImpressions(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +58,7 @@ func TestPostImpressions(t *testing.T) {
 		}
 
 		rBody, _ := ioutil.ReadAll(r.Body)
-		var impressionsInPost []dtos.ImpressionsDTO
+		var impressionsInPost []impressionsRecord
 		err := json.Unmarshal(rBody, &impressionsInPost)
 		if err != nil {
 			t.Error(err)
@@ -55,7 +75,8 @@ func TestPostImpressions(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	imp1 := dtos.ImpressionDTO{
+	imp1 := storage.Impression{
+		FeatureName:  "some_test",
 		KeyName:      "some_key_1",
 		Treatment:    "on",
 		Time:         1234567890,
@@ -63,7 +84,8 @@ func TestPostImpressions(t *testing.T) {
 		Label:        "some_label_1",
 		BucketingKey: "some_bucket_key_1",
 	}
-	imp2 := dtos.ImpressionDTO{
+	imp2 := storage.Impression{
+		FeatureName:  "some_test",
 		KeyName:      "some_key_2",
 		Treatment:    "off",
 		Time:         1234567890,
@@ -72,15 +94,8 @@ func TestPostImpressions(t *testing.T) {
 		BucketingKey: "some_bucket_key_2",
 	}
 
-	keyImpressions := make([]dtos.ImpressionDTO, 0)
-	keyImpressions = append(keyImpressions, imp1, imp2)
-	impressionsTest := dtos.ImpressionsDTO{
-		TestName:       "some_test",
-		KeyImpressions: keyImpressions,
-	}
-
-	impressions := make([]dtos.ImpressionsDTO, 0)
-	impressions = append(impressions, impressionsTest)
+	impressions := make([]storage.Impression, 0)
+	impressions = append(impressions, imp1, imp2)
 
 	impressionRecorder := NewHTTPImpressionRecorder(
 		"",

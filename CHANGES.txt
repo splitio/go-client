@@ -1,4 +1,5 @@
-4.1.0 (May 30, 2019)
+5.0.0 (Jun 4, 2019)
+ - Added support for optional event properties via our Track() method.
  - Added validation for traffic types in track call.
  - Added new label when the sdk is not ready.
  - Added multiple factory instantiation check.

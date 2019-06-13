@@ -372,10 +372,16 @@ func (c *SplitClient) Track(
 	}
 
 	if !c.isReady() {
-		c.logger.Warning("track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+		c.logger.Warning("Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	}
 
-	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(key, trafficType, eventType, value)
+	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(
+		key,
+		trafficType,
+		eventType,
+		value,
+		c.isReady() && c.apikey != "localhost",
+	)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return err

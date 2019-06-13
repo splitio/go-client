@@ -676,6 +676,80 @@ func TestTrackValidatorWithEmptyTrafficType(t *testing.T) {
 	strMsg = ""
 }
 
+func TestLocalhostTrafficType(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = "../../testdata/splits.yaml"
+	factory, _ := NewSplitFactory("localhost", sdkConf)
+	client := factory.Client()
+
+	_ = client.BlockUntilReady(1)
+
+	factory.status.Store(SdkOnInitialization)
+
+	if client.isReady() {
+		t.Error("Localhost should not be ready")
+	}
+
+	err := client.Track("key", "traffic", "eventType", nil, nil)
+
+	if err != nil {
+		t.Error("It should not inform any err")
+	}
+
+	if len(strMsg) > 0 {
+		t.Error("It should not inform any log")
+	}
+}
+
+func TestTrafficTypeOnReady(t *testing.T) {
+	err := client.Track("key", "traffic", "eventType", nil, nil)
+
+	expected := "Track: traffic type traffic does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	if err != nil {
+		t.Error("Wrong error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+}
+func TestTrackNotReadyYetTrafficType(t *testing.T) {
+	var clientNotReady = SplitClient{
+		cfg:         cfg,
+		evaluator:   &mockEvaluator{},
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		metrics:     mutexmap.NewMMMetricsStorage(),
+		logger:      logger,
+		validator: inputValidation{
+			logger:       logger,
+			splitStorage: &mockSplitStorage{},
+		},
+		events: &mockEvents{},
+	}
+
+	var factoryNotReady = SplitFactory{
+		client: &clientNotReady,
+	}
+
+	factoryNotReady.status.Store(SdkOnInitialization)
+	clientNotReady.factory = &factoryNotReady
+
+	err := clientNotReady.Track("key", "traffic", "eventType", nil, nil)
+
+	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
+	if err != nil {
+		t.Error("Wrong error")
+	}
+
+	if !strings.Contains(strMsg, expected) {
+		t.Error("Error is distinct from the expected one")
+		t.Error("Actual -> ", strMsg)
+		t.Error("Expected -> ", expected)
+	}
+}
+
 func TestTrackValidatorWithUpperCaseTrafficType(t *testing.T) {
 	err := client.Track("key", "traficTYPE", "eventType", nil, nil)
 
@@ -719,7 +793,6 @@ func TestTrackValidatorWitWrongTypeValue(t *testing.T) {
 }
 
 func TestTrackValidatorWithTooManyProperties(t *testing.T) {
-
 	props := make(map[string]interface{})
 	for i := 0; i < 301; i++ {
 		props[fmt.Sprintf("prop-%d", i)] = "asd"

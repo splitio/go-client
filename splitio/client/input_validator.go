@@ -155,7 +155,7 @@ func checkEventType(eventType string) error {
 	return nil
 }
 
-func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
+func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExistance bool) (string, error) {
 	err := checkIsEmptyString(trafficType, "traffic type", "Track")
 	if err != nil {
 		return "", err
@@ -164,7 +164,7 @@ func (i *inputValidation) checkTrafficType(trafficType string) (string, error) {
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
-	if !i.splitStorage.TrafficTypeExists(toLower) {
+	if shouldValidateExistance && !i.splitStorage.TrafficTypeExists(toLower) {
 		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
 			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
 	}
@@ -188,7 +188,13 @@ func checkValue(value interface{}) error {
 }
 
 // ValidateTrackInputs implements the validation for Track call
-func (i *inputValidation) ValidateTrackInputs(key string, trafficType string, eventType string, value interface{}) (string, string, string, interface{}, error) {
+func (i *inputValidation) ValidateTrackInputs(
+	key string,
+	trafficType string,
+	eventType string,
+	value interface{},
+	shouldValidateExistance bool,
+) (string, string, string, interface{}, error) {
 	err := checkIsValidString(key, "key", "Track")
 	if err != nil {
 		return "", trafficType, eventType, value, err
@@ -199,7 +205,7 @@ func (i *inputValidation) ValidateTrackInputs(key string, trafficType string, ev
 		return key, trafficType, "", value, err
 	}
 
-	trafficType, err = i.checkTrafficType(trafficType)
+	trafficType, err = i.checkTrafficType(trafficType, shouldValidateExistance)
 	if err != nil {
 		return key, "", eventType, value, err
 	}

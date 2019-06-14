@@ -1,4 +1,4 @@
-5.1.0 (Jun 13, 2019)
+5.0.1 (Jun 18, 2019)
  - Added coverage for traffic type validation existance only on ready and non localhost mode.
 5.0.0 (Jun 4, 2019)
  - Added support for optional event properties via our Track() method.

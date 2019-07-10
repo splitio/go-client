@@ -1,7 +1,7 @@
 package impressionlistener
 
 import (
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/storage"
 )
 
@@ -26,7 +26,7 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener) *Wrappe
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression storage.Impression, attributes map[string]interface{}, metadata dtos.QueueStoredMachineMetadataDTO) {
+func (i *WrapperImpressionListener) SendDataToClient(impression storage.Impression, attributes map[string]interface{}, metadata splitio.SdkMetadata) {
 	datToSend := ILObject{
 		Impression:         impression,
 		Attributes:         attributes,

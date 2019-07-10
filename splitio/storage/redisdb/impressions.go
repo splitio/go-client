@@ -2,10 +2,10 @@ package redisdb
 
 import (
 	"encoding/json"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
@@ -13,37 +13,27 @@ import (
 
 // RedisImpressionStorage is a redis-based implementation of split storage
 type RedisImpressionStorage struct {
-	client          prefixedRedisClient
+	client          *PrefixedRedisClient
 	mutex           *sync.Mutex
 	logger          logging.LoggerInterface
-	impTemplate     string
 	redisKey        string
 	impressionsTTL  time.Duration
 	metadataMessage dtos.QueueStoredMachineMetadataDTO
 }
 
 // NewRedisImpressionStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisImpressionStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	instanceID string,
-	instanceName string,
-	sdkVersion string,
-	logger logging.LoggerInterface,
-) *RedisImpressionStorage {
-	impTemplate := strings.Replace(redisImpressions, "{sdkVersion}", sdkVersion, 1)
-	impTemplate = strings.Replace(impTemplate, "{instanceId}", instanceID, 1)
+func NewRedisImpressionStorage(client *PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisImpressionStorage {
 	return &RedisImpressionStorage{
-		client:          *newPrefixedRedisClient(host, port, db, password, prefix),
-		mutex:           &sync.Mutex{},
-		logger:          logger,
-		impTemplate:     impTemplate,
-		redisKey:        redisImpressionsQueue,
-		impressionsTTL:  redisImpressionsTTL,
-		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: instanceName},
+		client:         client,
+		mutex:          &sync.Mutex{},
+		logger:         logger,
+		redisKey:       redisImpressionsQueue,
+		impressionsTTL: redisImpressionsTTL,
+		metadataMessage: dtos.QueueStoredMachineMetadataDTO{
+			SDKVersion:  metadata.SDKVersion,
+			MachineIP:   metadata.MachineIP,
+			MachineName: metadata.MachineName,
+		},
 	}
 }
 

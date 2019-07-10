@@ -11,13 +11,10 @@ import (
 func submitCounters(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
 ) error {
 	counters := metricsStorage.PopCounters()
 	if len(counters) > 0 {
-		err := metricsRecorder.RecordCounters(counters, sdkVersion, machineIP, machineName)
+		err := metricsRecorder.RecordCounters(counters)
 		return err
 	}
 	return nil
@@ -26,13 +23,10 @@ func submitCounters(
 func submitGauges(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
 ) error {
 	var errs []error
 	for _, gauge := range metricsStorage.PopGauges() {
-		err := metricsRecorder.RecordGauge(gauge, sdkVersion, machineIP, machineName)
+		err := metricsRecorder.RecordGauge(gauge)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -46,13 +40,10 @@ func submitGauges(
 func submitLatencies(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
 ) error {
 	latencies := metricsStorage.PopLatencies()
 	if len(latencies) > 0 {
-		err := metricsRecorder.RecordLatencies(latencies, sdkVersion, machineIP, machineName)
+		err := metricsRecorder.RecordLatencies(latencies)
 		return err
 	}
 	return nil
@@ -63,18 +54,12 @@ func NewRecordCountersTask(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitCounters(
 			metricsStorage,
 			metricsRecorder,
-			sdkVersion,
-			machineIP,
-			machineName,
 		)
 	}
 
@@ -89,18 +74,12 @@ func NewRecordGaugesTask(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitGauges(
 			metricsStorage,
 			metricsRecorder,
-			sdkVersion,
-			machineIP,
-			machineName,
 		)
 	}
 
@@ -116,18 +95,12 @@ func NewRecordLatenciesTask(
 	metricsStorage storage.MetricsStorageConsumer,
 	metricsRecorder service.MetricsRecorder,
 	period int,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
 		return submitLatencies(
 			metricsStorage,
 			metricsRecorder,
-			sdkVersion,
-			machineIP,
-			machineName,
 		)
 	}
 

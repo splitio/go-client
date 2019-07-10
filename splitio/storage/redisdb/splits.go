@@ -13,21 +13,14 @@ import (
 
 // RedisSplitStorage is a redis-based implementation of split storage
 type RedisSplitStorage struct {
-	client prefixedRedisClient
+	client *PrefixedRedisClient
 	logger logging.LoggerInterface
 }
 
 // NewRedisSplitStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisSplitStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	logger logging.LoggerInterface,
-) *RedisSplitStorage {
+func NewRedisSplitStorage(redisClient *PrefixedRedisClient, logger logging.LoggerInterface) *RedisSplitStorage {
 	return &RedisSplitStorage{
-		client: *newPrefixedRedisClient(host, port, db, password, prefix),
+		client: redisClient,
 		logger: logger,
 	}
 }

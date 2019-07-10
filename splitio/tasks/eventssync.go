@@ -13,9 +13,6 @@ func submitEvents(
 	eventStorage storage.EventStorageConsumer,
 	eventRecorder service.EventsRecorder,
 	bulkSize int64,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) error {
 	queuedEvents, err := eventStorage.PopN(bulkSize)
@@ -28,16 +25,13 @@ func submitEvents(
 		return nil
 	}
 
-	return eventRecorder.Record(queuedEvents, sdkVersion, machineIP, machineName)
+	return eventRecorder.Record(queuedEvents)
 }
 
 func onStopAction(
 	eventStorage storage.EventStorageConsumer,
 	eventRecorder service.EventsRecorder,
 	bulkSize int64,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) {
 
@@ -46,9 +40,6 @@ func onStopAction(
 			eventStorage,
 			eventRecorder,
 			bulkSize,
-			sdkVersion,
-			machineIP,
-			machineName,
 			logger,
 		)
 	}
@@ -61,35 +52,16 @@ func NewRecordEventsTask(
 	eventRecorder service.EventsRecorder,
 	bulkSize int64,
 	period int,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 ) *asynctask.AsyncTask {
 	record := func(logger logging.LoggerInterface) error {
-		return submitEvents(
-			eventStorage,
-			eventRecorder,
-			bulkSize,
-			sdkVersion,
-			machineIP,
-			machineName,
-			logger,
-		)
+		return submitEvents(eventStorage, eventRecorder, bulkSize, logger)
 	}
 
 	onStop := func(logger logging.LoggerInterface) {
 		// All this function does is flush events which will clear the storage
 		//record(logger)
-		onStopAction(
-			eventStorage,
-			eventRecorder,
-			bulkSize,
-			sdkVersion,
-			machineIP,
-			machineName,
-			logger,
-		)
+		onStopAction(eventStorage, eventRecorder, bulkSize, logger)
 	}
 
 	return asynctask.NewAsyncTask("SubmitEvents", record, period, nil, onStop, logger)

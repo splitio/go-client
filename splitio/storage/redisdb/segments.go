@@ -10,21 +10,14 @@ import (
 
 // RedisSegmentStorage is a redis implementation of a storage for segments
 type RedisSegmentStorage struct {
-	client prefixedRedisClient
+	client PrefixedRedisClient
 	logger logging.LoggerInterface
 }
 
 // NewRedisSegmentStorage creates a new RedisSegmentStorage and returns a reference to it
-func NewRedisSegmentStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	logger logging.LoggerInterface,
-) *RedisSegmentStorage {
+func NewRedisSegmentStorage(redisClient *PrefixedRedisClient, logger logging.LoggerInterface) *RedisSegmentStorage {
 	return &RedisSegmentStorage{
-		client: *newPrefixedRedisClient(host, port, db, password, prefix),
+		client: *redisClient,
 		logger: logger,
 	}
 }

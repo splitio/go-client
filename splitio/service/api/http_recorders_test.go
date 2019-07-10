@@ -105,9 +105,14 @@ func TestPostImpressions(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		&splitio.SdkMetadata{
+			SDKVersion:  "test-1.0.0",
+			MachineIP:   "127.0.0.1",
+			MachineName: "SOME_MACHINE_NAME",
+		},
 		logger,
 	)
-	err2 := impressionRecorder.Record(impressions, "test-1.0.0", "127.0.0.1", "SOME_MACHINE_NAME")
+	err2 := impressionRecorder.Record(impressions)
 	if err2 != nil {
 		t.Error(err2)
 	}
@@ -165,9 +170,14 @@ func TestPostMetricsLatency(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		&splitio.SdkMetadata{
+			SDKVersion:  "test-1.0.0",
+			MachineIP:   "127.0.0.1",
+			MachineName: "",
+		},
 		logger,
 	)
-	err2 := metricsRecorder.RecordLatencies(latencies, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
+	err2 := metricsRecorder.RecordLatencies(latencies)
 	if err2 != nil {
 		t.Error(err2)
 	}
@@ -229,10 +239,15 @@ func TestPostMetricsCounters(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		&splitio.SdkMetadata{
+			SDKVersion:  "test-1.0.0",
+			MachineIP:   "127.0.0.1",
+			MachineName: "",
+		},
 		logger,
 	)
 
-	err2 := metricsRecorder.RecordCounters(counters, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
+	err2 := metricsRecorder.RecordCounters(counters)
 	if err2 != nil {
 		t.Error(err2)
 	}
@@ -288,10 +303,15 @@ func TestPostMetricsGauge(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		&splitio.SdkMetadata{
+			SDKVersion:  "test-1.0.0",
+			MachineIP:   "127.0.0.1",
+			MachineName: "",
+		},
 		logger,
 	)
 
-	err2 := metricsRecorder.RecordGauge(gauge, "test-1.0.0", "127.0.0.1", "ip-127-0-0-1")
+	err2 := metricsRecorder.RecordGauge(gauge)
 	if err2 != nil {
 		t.Error(err2)
 	}

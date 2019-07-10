@@ -57,11 +57,17 @@ type TaskPeriods struct {
 
 // RedisConfig struct is used to cofigure the redis parameters
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Database int
-	Password string
-	Prefix   string
+	Host                  string
+	Port                  int
+	Database              int
+	Password              string
+	Prefix                string
+	TLS                   bool
+	TLSServerName         string
+	TLSSkipNameValidation bool
+	TLSRootCert           string
+	TLSClientCert         string
+	TLSClientKey          string
 }
 
 // AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
@@ -112,6 +118,7 @@ func Default() *SplitSdkConfig {
 			Password: "",
 			Port:     6379,
 			Prefix:   "",
+			TLS:      false,
 		},
 		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,

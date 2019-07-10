@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/splitio/go-client/splitio/conf"
 )
 
 // prefixable is a struct intended to be embedded in anything that can have a prefix added.
@@ -86,43 +87,44 @@ func newPrefixedTx(tx *redis.Tx, prefix string) *prefixedTx {
 
 // ---------
 
-// prefixedRedisClient is a redis client that adds/remove prefixes in every operation where needed
+// PrefixedRedisClient is a redis client that adds/remove prefixes in every operation where needed
 // it also uses prefixedPipe for redis trasactions (serialized atomic operations)
-type prefixedRedisClient struct {
+type PrefixedRedisClient struct {
 	prefixable
 	client *redis.Client
 }
 
-// newPrefixedRedisClient returns a new Prefixed Redis Client
-func newPrefixedRedisClient(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-) *prefixedRedisClient {
-	return &prefixedRedisClient{
-		client: redis.NewClient(&redis.Options{
-			Addr:     fmt.Sprintf("%s:%d", host, port),
-			Password: password,
-			DB:       db,
-		}),
-		prefixable: prefixable{prefix: prefix},
+// NewPrefixedRedisClient returns a new Prefixed Redis Client
+func NewPrefixedRedisClient(config *conf.RedisConfig) (*PrefixedRedisClient, error) {
+	rClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Password: config.Password,
+		DB:       config.Database,
+	})
+
+	err := rClient.Ping().Err()
+	if err != nil {
+		return nil, err
 	}
+
+	return &PrefixedRedisClient{
+		client:     rClient,
+		prefixable: prefixable{prefix: config.Prefix},
+	}, nil
 }
 
 // Get wraps aound redis get method by adding prefix and returning string and error directly
-func (r *prefixedRedisClient) Get(key string) (string, error) {
+func (r *PrefixedRedisClient) Get(key string) (string, error) {
 	return r.client.Get(r.withPrefix(key)).Result()
 }
 
 // Set wraps around redis get method by adding prefix and returning error directly
-func (r *prefixedRedisClient) Set(key string, value interface{}, expiration time.Duration) error {
+func (r *PrefixedRedisClient) Set(key string, value interface{}, expiration time.Duration) error {
 	return r.client.Set(r.withPrefix(key), value, expiration).Err()
 }
 
 // Keys wraps around redis keys method by adding prefix and returning []string and error directly
-func (r *prefixedRedisClient) Keys(pattern string) ([]string, error) {
+func (r *PrefixedRedisClient) Keys(pattern string) ([]string, error) {
 	keys, err := r.client.Keys(r.withPrefix(pattern)).Result()
 	if err != nil {
 		return nil, err
@@ -137,7 +139,7 @@ func (r *prefixedRedisClient) Keys(pattern string) ([]string, error) {
 }
 
 // Del wraps around redis del method by adding prefix and returning int64 and error directly
-func (r *prefixedRedisClient) Del(keys ...string) (int64, error) {
+func (r *PrefixedRedisClient) Del(keys ...string) (int64, error) {
 	prefixedKeys := make([]string, len(keys))
 	for i, k := range keys {
 		prefixedKeys[i] = r.withPrefix(k)
@@ -146,65 +148,65 @@ func (r *prefixedRedisClient) Del(keys ...string) (int64, error) {
 }
 
 // SMembers returns a slice with all the members of a set
-func (r *prefixedRedisClient) SMembers(key string) ([]string, error) {
+func (r *PrefixedRedisClient) SMembers(key string) ([]string, error) {
 	return r.client.SMembers(r.withPrefix(key)).Result()
 }
 
 // SAdd adds new members to a set
-func (r *prefixedRedisClient) SAdd(key string, members ...interface{}) (int64, error) {
+func (r *PrefixedRedisClient) SAdd(key string, members ...interface{}) (int64, error) {
 	return r.client.SAdd(r.withPrefix(key), members...).Result()
 }
 
 // SRem removes members from a set
-func (r *prefixedRedisClient) SRem(key string, members ...string) (int64, error) {
+func (r *PrefixedRedisClient) SRem(key string, members ...string) (int64, error) {
 	return r.client.SRem(r.withPrefix(key), members).Result()
 }
 
 // Exists returns true if a key exists in redis
-func (r *prefixedRedisClient) Exists(key string) (bool, error) {
+func (r *PrefixedRedisClient) Exists(key string) (bool, error) {
 	val, err := r.client.Exists(r.withPrefix(key)).Result()
 	return (val == 1), err
 }
 
 // Incr increments a key. Sets it in one if it doesn't exist
-func (r *prefixedRedisClient) Incr(key string) error {
+func (r *PrefixedRedisClient) Incr(key string) error {
 	return r.client.Incr(r.withPrefix(key)).Err()
 }
 
 // WrapTransaction accepts a function that performs a set of operations that will
 // be serialized and executed atomically. The function passed will recive a prefixedPipe
-func (r *prefixedRedisClient) WrapTransaction(f func(t *prefixedTx) error) error {
+func (r *PrefixedRedisClient) WrapTransaction(f func(t *prefixedTx) error) error {
 	return r.client.Watch(func(tx *redis.Tx) error {
 		return f(newPrefixedTx(tx, r.prefix))
 	})
 }
 
 // RPush insert all the specified values at the tail of the list stored at key
-func (r *prefixedRedisClient) RPush(key string, values ...interface{}) (int64, error) {
+func (r *PrefixedRedisClient) RPush(key string, values ...interface{}) (int64, error) {
 	return r.client.RPush(r.withPrefix(key), values...).Result()
 }
 
 // LRange Returns the specified elements of the list stored at key
-func (r *prefixedRedisClient) LRange(key string, start, stop int64) *redis.StringSliceCmd {
+func (r *PrefixedRedisClient) LRange(key string, start, stop int64) *redis.StringSliceCmd {
 	return r.client.LRange(r.withPrefix(key), start, stop)
 }
 
 // LTrim Trim an existing list so that it will contain only the specified range of elements specified
-func (r *prefixedRedisClient) LTrim(key string, start, stop int64) *redis.StatusCmd {
+func (r *PrefixedRedisClient) LTrim(key string, start, stop int64) *redis.StatusCmd {
 	return r.client.LTrim(r.withPrefix(key), start, stop)
 }
 
 // LLen Returns the length of the list stored at key
-func (r *prefixedRedisClient) LLen(key string) *redis.IntCmd {
+func (r *PrefixedRedisClient) LLen(key string) *redis.IntCmd {
 	return r.client.LLen(r.withPrefix(key))
 }
 
 // Expire set expiration time for particular key
-func (r *prefixedRedisClient) Expire(key string, value time.Duration) *redis.BoolCmd {
+func (r *PrefixedRedisClient) Expire(key string, value time.Duration) *redis.BoolCmd {
 	return r.client.Expire(r.withPrefix(key), value)
 }
 
-// Get TTL for particular key
-func (r *prefixedRedisClient) TTL(key string) *redis.DurationCmd {
+// TTL for particular key
+func (r *PrefixedRedisClient) TTL(key string) *redis.DurationCmd {
 	return r.client.TTL(r.withPrefix(key))
 }

@@ -52,6 +52,12 @@ func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	for _, split := range splits {
+		existing, thisIsAnUpdate := m.data[split.Name]
+		if thisIsAnUpdate {
+			// If it's an update, we decrement the traffic type count of the existing split,
+			// and then add the updated one (as part of the normal flow), in case it's different.
+			m.decreaseTrafficTypeCount(existing.TrafficTypeName)
+		}
 		m.data[split.Name] = split
 		m.increaseTrafficTypeCount(split.TrafficTypeName)
 	}

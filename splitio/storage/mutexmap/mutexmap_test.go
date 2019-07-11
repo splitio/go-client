@@ -159,6 +159,34 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	mainWG.Wait()
 }
 
+func TestTrafficTypeOnUpdates(t *testing.T) {
+	s1 := dtos.SplitDTO{
+		Name:            "s1",
+		TrafficTypeName: "tt1",
+	}
+
+	splitStorage := NewMMSplitStorage()
+	splitStorage.PutMany([]dtos.SplitDTO{s1}, 123)
+
+	if !splitStorage.TrafficTypeExists("tt1") {
+		t.Error("Traffic type 1 should exist.")
+	}
+
+	if splitStorage.TrafficTypeExists("tt2") {
+		t.Error("Traffic type 2 should not exist.")
+	}
+
+	s1.TrafficTypeName = "tt2"
+	splitStorage.PutMany([]dtos.SplitDTO{s1}, 123)
+	if splitStorage.TrafficTypeExists("tt1") {
+		t.Error("Traffic type 1 should not exist.")
+	}
+
+	if !splitStorage.TrafficTypeExists("tt2") {
+		t.Error("Traffic type 2 should exist.")
+	}
+}
+
 func TestMMSegmentStorage(t *testing.T) {
 	segments := make([][]string, 3)
 	segments[0] = []string{"1a", "1b", "1c"}

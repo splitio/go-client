@@ -79,8 +79,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	iterations := 500000
 
 	mainWG := sync.WaitGroup{}
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -90,8 +90,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -101,8 +101,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -112,8 +112,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -123,8 +123,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -134,8 +134,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)
@@ -145,8 +145,8 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 		}
 	}()
 
+	mainWG.Add(iterations)
 	go func() {
-		mainWG.Add(iterations)
 		for i := 0; i < iterations; i++ {
 			go func() {
 				time.Sleep(1 * time.Second)

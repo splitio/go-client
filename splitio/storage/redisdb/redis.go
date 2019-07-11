@@ -97,9 +97,10 @@ type PrefixedRedisClient struct {
 // NewPrefixedRedisClient returns a new Prefixed Redis Client
 func NewPrefixedRedisClient(config *conf.RedisConfig) (*PrefixedRedisClient, error) {
 	rClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
-		Password: config.Password,
-		DB:       config.Database,
+		Addr:      fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Password:  config.Password,
+		DB:        config.Database,
+		TLSConfig: config.TLSConfig,
 	})
 
 	err := rClient.Ping().Err()

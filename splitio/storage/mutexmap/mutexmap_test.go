@@ -2,8 +2,11 @@ package mutexmap
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
@@ -60,6 +63,100 @@ func TestMMSplitStorage(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSplitMutexMapConcurrency(t *testing.T) {
+	splitStorage := NewMMSplitStorage()
+	splits := make([]dtos.SplitDTO, 10)
+	for index := 0; index < 10; index++ {
+		splits = append(splits, dtos.SplitDTO{
+			Name: fmt.Sprintf("SomeSplit_%d", index),
+			Algo: index,
+		})
+
+	}
+
+	iterations := 500000
+
+	mainWG := sync.WaitGroup{}
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.PutMany(splits[0:rand.Intn(len(splits)-1)], 123)
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.Get(fmt.Sprintf("SomeSplit_%d", rand.Intn(len(splits)-1)))
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.Remove(fmt.Sprintf("SomeSplit_%d", rand.Intn(len(splits)-1)))
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.SplitNames()
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.SegmentNames()
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.GetAll()
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	go func() {
+		mainWG.Add(iterations)
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(1 * time.Second)
+				splitStorage.Till()
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	mainWG.Wait()
 }
 
 func TestMMSegmentStorage(t *testing.T) {

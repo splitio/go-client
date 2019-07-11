@@ -76,7 +76,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 
 	}
 
-	iterations := 500000
+	iterations := 50000
 
 	mainWG := sync.WaitGroup{}
 	mainWG.Add(iterations)

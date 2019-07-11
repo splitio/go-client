@@ -14,9 +14,10 @@ import (
 type MMSplitStorage struct {
 	data         map[string]dtos.SplitDTO
 	trafficTypes map[string]int64
-	mutex        *sync.RWMutex
 	till         int64
-	tillMutex    *sync.Mutex
+	mutex        *sync.RWMutex
+	ttMutex      *sync.RWMutex
+	tillMutex    *sync.RWMutex
 }
 
 // NewMMSplitStorage instantiates a new MMSplitStorage
@@ -24,9 +25,10 @@ func NewMMSplitStorage() *MMSplitStorage {
 	return &MMSplitStorage{
 		data:         make(map[string]dtos.SplitDTO),
 		trafficTypes: make(map[string]int64),
-		mutex:        &sync.RWMutex{},
 		till:         0,
-		tillMutex:    &sync.Mutex{},
+		mutex:        &sync.RWMutex{},
+		ttMutex:      &sync.RWMutex{},
+		tillMutex:    &sync.RWMutex{},
 	}
 
 }
@@ -47,11 +49,11 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 
 // PutMany bulk inserts splits into the in-memory storage
 func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	for _, split := range splits {
 		m.data[split.Name] = split
-		m.IncreaseTrafficTypeCount(split.TrafficTypeName)
+		m.increaseTrafficTypeCount(split.TrafficTypeName)
 	}
 	m.tillMutex.Lock()
 	defer m.tillMutex.Unlock()
@@ -60,19 +62,19 @@ func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 
 // Remove deletes a split from the in-memory storage
 func (m *MMSplitStorage) Remove(splitName string) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	split := m.Get(splitName)
-	if split != nil {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	split, exists := m.data[splitName]
+	if exists {
 		delete(m.data, splitName)
-		m.DecreaseTrafficTypeCount(split.TrafficTypeName)
+		m.decreaseTrafficTypeCount(split.TrafficTypeName)
 	}
 }
 
 // Till returns the last timestamp the split was fetched
 func (m *MMSplitStorage) Till() int64 {
-	m.tillMutex.Lock()
-	defer m.tillMutex.Unlock()
+	m.tillMutex.RLock()
+	defer m.tillMutex.RUnlock()
 	return m.till
 }
 
@@ -122,15 +124,15 @@ func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
 
 // Clear replaces the split storage with an empty one.
 func (m *MMSplitStorage) Clear() {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	m.data = make(map[string]dtos.SplitDTO)
 }
 
-// IncreaseTrafficTypeCount increases value for a traffic type
-func (m *MMSplitStorage) IncreaseTrafficTypeCount(trafficType string) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+// increaseTrafficTypeCount increases value for a traffic type
+func (m *MMSplitStorage) increaseTrafficTypeCount(trafficType string) {
+	m.ttMutex.Lock()
+	defer m.ttMutex.Unlock()
 	_, exists := m.trafficTypes[trafficType]
 	if !exists {
 		m.trafficTypes[trafficType] = 1
@@ -139,10 +141,10 @@ func (m *MMSplitStorage) IncreaseTrafficTypeCount(trafficType string) {
 	}
 }
 
-// DecreaseTrafficTypeCount decreases value for a traffic type
-func (m *MMSplitStorage) DecreaseTrafficTypeCount(trafficType string) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+// decreaseTrafficTypeCount decreases value for a traffic type
+func (m *MMSplitStorage) decreaseTrafficTypeCount(trafficType string) {
+	m.ttMutex.Lock()
+	defer m.ttMutex.Unlock()
 	value, exists := m.trafficTypes[trafficType]
 	if exists {
 		if value > 0 {
@@ -156,8 +158,8 @@ func (m *MMSplitStorage) DecreaseTrafficTypeCount(trafficType string) {
 // TrafficTypeExists returns true or false depending on existance and counter
 // of trafficType
 func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.ttMutex.RLock()
+	defer m.ttMutex.RUnlock()
 	value, exists := m.trafficTypes[trafficType]
 	return exists && value > 0
 }
@@ -166,17 +168,19 @@ func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
 
 // MMSegmentStorage contains is an in-memory implementation of segment storage
 type MMSegmentStorage struct {
-	data  map[string]*set.ThreadUnsafeSet
-	mutex *sync.RWMutex
-	till  map[string]int64
+	data      map[string]*set.ThreadUnsafeSet
+	till      map[string]int64
+	mutex     *sync.RWMutex
+	tillMutex *sync.RWMutex
 }
 
 // NewMMSegmentStorage instantiates a new MMSegmentStorage
 func NewMMSegmentStorage() *MMSegmentStorage {
 	return &MMSegmentStorage{
-		data:  make(map[string]*set.ThreadUnsafeSet),
-		mutex: &sync.RWMutex{},
-		till:  make(map[string]int64),
+		data:      make(map[string]*set.ThreadUnsafeSet),
+		till:      make(map[string]int64),
+		mutex:     &sync.RWMutex{},
+		tillMutex: &sync.RWMutex{},
 	}
 }
 
@@ -199,6 +203,8 @@ func (m *MMSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, till i
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data[name] = segment
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
 	m.till[name] = till
 }
 
@@ -207,13 +213,15 @@ func (m *MMSegmentStorage) Remove(segmentName string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	delete(m.data, segmentName)
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
 	delete(m.till, segmentName)
 }
 
 // Till returns the latest timestamp the segment was fetched
 func (m *MMSegmentStorage) Till(segmentName string) int64 {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.tillMutex.RLock()
+	defer m.tillMutex.RUnlock()
 	return m.till[segmentName]
 }
 

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/splitio/go-client/splitio"
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
@@ -60,7 +62,19 @@ func (l *MockedLogger) Verbose(msg ...interface{}) {}
 func (l *MockedLogger) Warning(msg ...interface{}) {}
 func TestRedisSplitStorage(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	splitStorage := NewRedisSplitStorage("localhost", 6379, 1, "", "testPrefix", logger)
+	prefixedClient, err := NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	splitStorage := NewRedisSplitStorage(prefixedClient, logger)
 
 	splitStorage.PutMany([]dtos.SplitDTO{
 		{Name: "split1", ChangeNumber: 1},
@@ -216,7 +230,19 @@ func TestRedisSplitStorage(t *testing.T) {
 
 func TestSegmentStorage(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	segmentStorage := NewRedisSegmentStorage("localhost", 6379, 1, "", "testPrefix", logger)
+	prefixedClient, err := NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	segmentStorage := NewRedisSegmentStorage(prefixedClient, logger)
 
 	segmentStorage.Put("segment1", set.NewSet("item1", "item2", "item3"), 123)
 	segmentStorage.Put("segment2", set.NewSet("item4", "item5", "item6"), 124)
@@ -276,7 +302,22 @@ func TestSegmentStorage(t *testing.T) {
 
 func TestImpressionStorage(t *testing.T) {
 	logger := NewMockedLogger()
-	impressionStorage := NewRedisImpressionStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "instanceName123", "go-test", logger)
+	prefixedClient, err := NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	metadata := &splitio.SdkMetadata{
+		SDKVersion:  "go-test",
+		MachineName: "instance123",
+	}
+	impressionStorage := NewRedisImpressionStorage(prefixedClient, metadata, logger)
 
 	var impression1 = storage.Impression{
 		FeatureName:  "feature1",
@@ -333,20 +374,33 @@ func TestImpressionStorage(t *testing.T) {
 
 func TestMetricsStorage(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	metricsStorage := NewRedisMetricsStorage("localhost", 6379, 1, "", "testPrefix", "instance123", "go-test", logger)
+	prefixedClient, err := NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	metadata := &splitio.SdkMetadata{
+		SDKVersion:  "go-test",
+		MachineName: "instance123",
+	}
+	metricsStorage := NewRedisMetricsStorage(prefixedClient, metadata, logger)
 
 	// Gauges
 
 	metricsStorage.PutGauge("g1", 3.345)
 	metricsStorage.PutGauge("g2", 4.456)
-
 	if metricsStorage.client.client.Exists(
 		"testPrefix.SPLITIO/go-test/instance123/gauge.g1",
 		"testPrefix.SPLITIO/go-test/instance123/gauge.g2",
 	).Val() != 2 {
 		t.Error("Keys or stored in an incorrect format")
 	}
-
 	gauges := metricsStorage.PopGauges()
 
 	if len(gauges) != 2 {
@@ -474,7 +528,18 @@ func TestMetricsStorage(t *testing.T) {
 
 func TestTrafficTypeStorage(t *testing.T) {
 	logger := NewMockedLogger()
-	ttStorage := NewRedisSplitStorage("localhost", 6379, 0, "", "testPrefix", logger)
+	prefixedClient, err := NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	ttStorage := NewRedisSplitStorage(prefixedClient, logger)
 
 	ttStorage.client.client.Del("testPrefix.SPLITIO.trafficType.mytraffictype")
 	ttStorage.client.client.Incr("testPrefix.SPLITIO.trafficType.mytraffictype")

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/storage"
@@ -64,6 +65,11 @@ func TestImpressionSyncTask(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
+	metadata := &splitio.SdkMetadata{
+		SDKVersion:  "go-0.1",
+		MachineIP:   "192.168.0.123",
+		MachineName: "machine1",
+	}
 	impressionRecorder := api.NewHTTPImpressionRecorder(
 		"",
 		&conf.SplitSdkConfig{
@@ -72,18 +78,15 @@ func TestImpressionSyncTask(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		metadata,
 		logger,
 	)
 
 	impressionStorage := mutexqueue.NewMQImpressionsStorage(200, make(chan string, 1), logger)
-
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
 		impressionRecorder,
 		1,
-		"go-0.1",
-		"192.168.0.123",
-		"machine1",
 		logger,
 		100,
 	)
@@ -141,12 +144,7 @@ type impressionRecorderMock struct {
 	iterations int
 }
 
-func (i *impressionRecorderMock) Record(
-	impressions []storage.Impression,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (i *impressionRecorderMock) Record(impressions []storage.Impression) error {
 	i.iterations++
 	return nil
 }
@@ -171,9 +169,6 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 		impressionStorage,
 		impressionRecorder,
 		100,
-		"aa",
-		"123.123.123.123",
-		"123-123-123-123",
 		logger,
 		100,
 	)

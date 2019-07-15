@@ -147,7 +147,7 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
+		c.logger.Error("Error posting data to API: ", req.URL.String(), err.Error())
 		return err
 	}
 	defer resp.Body.Close()

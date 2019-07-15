@@ -45,18 +45,15 @@ func TestSplitManager(t *testing.T) {
 	}, 123)
 
 	logger := logging.NewLogger(nil)
+	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,
 		validator:    inputValidation{logger: logger},
 		logger:       logger,
+		factory:      &factory,
 	}
 
-	factory := SplitFactory{
-		manager: &manager,
-	}
-
-	factory.status.Store(SdkReady)
-	manager.factory = &factory
+	factory.status.Store(sdkStatusReady)
 
 	splitNames := manager.SplitNames()
 	splitNameSet := set.NewSet(splitNames[0], splitNames[1])
@@ -96,17 +93,15 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	splitStorage.PutMany([]dtos.SplitDTO{*valid, *killed, *noConfig}, 123)
 
 	logger := logging.NewLogger(nil)
+	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,
 		logger:       logger,
 		validator:    inputValidation{logger: logger},
+		factory:      &factory,
 	}
 
-	factory := SplitFactory{
-		manager: &manager,
-	}
-
-	factory.status.Store(SdkReady)
+	factory.status.Store(sdkStatusReady)
 	manager.factory = &factory
 
 	splitNames := manager.SplitNames()

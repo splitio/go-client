@@ -12,9 +12,6 @@ import (
 func submitImpressions(
 	impressionStorage storage.ImpressionStorageConsumer,
 	impressionRecorder service.ImpressionsRecorder,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 	bulkSize int64,
 ) error {
@@ -28,7 +25,7 @@ func submitImpressions(
 		return nil
 	}
 
-	return impressionRecorder.Record(queuedImpressions, sdkVersion, machineIP, machineName)
+	return impressionRecorder.Record(queuedImpressions)
 }
 
 // NewRecordImpressionsTask creates a new splits fetching and storing task
@@ -36,9 +33,6 @@ func NewRecordImpressionsTask(
 	impressionStorage storage.ImpressionStorageConsumer,
 	impressionRecorder service.ImpressionsRecorder,
 	period int,
-	sdkVersion,
-	machineIP string,
-	machineName string,
 	logger logging.LoggerInterface,
 	bulkSize int64,
 ) *asynctask.AsyncTask {
@@ -46,9 +40,6 @@ func NewRecordImpressionsTask(
 		return submitImpressions(
 			impressionStorage,
 			impressionRecorder,
-			sdkVersion,
-			machineIP,
-			machineName,
 			logger,
 			bulkSize,
 		)

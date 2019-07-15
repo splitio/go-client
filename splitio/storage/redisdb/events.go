@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
 )
 
 // RedisEventsStorage redis implementation of EventsStorage interface
 type RedisEventsStorage struct {
-	client          prefixedRedisClient
+	client          *PrefixedRedisClient
 	mutex           *sync.Mutex
 	logger          logging.LoggerInterface
 	redisKey        string
@@ -18,23 +19,17 @@ type RedisEventsStorage struct {
 }
 
 // NewRedisEventsStorage returns an instance of RedisEventsStorage
-func NewRedisEventsStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	instanceID string,
-	instanceName string,
-	sdkVersion string,
-	logger logging.LoggerInterface,
-) *RedisEventsStorage {
+func NewRedisEventsStorage(redisClient *PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisEventsStorage {
 	return &RedisEventsStorage{
-		client:          *newPrefixedRedisClient(host, port, db, password, prefix),
-		logger:          logger,
-		redisKey:        redisEvents,
-		mutex:           &sync.Mutex{},
-		metadataMessage: dtos.QueueStoredMachineMetadataDTO{SDKVersion: sdkVersion, MachineIP: instanceID, MachineName: instanceName},
+		client:   redisClient,
+		logger:   logger,
+		redisKey: redisEvents,
+		mutex:    &sync.Mutex{},
+		metadataMessage: dtos.QueueStoredMachineMetadataDTO{
+			SDKVersion:  metadata.SDKVersion,
+			MachineIP:   metadata.MachineIP,
+			MachineName: metadata.MachineName,
+		},
 	}
 }
 

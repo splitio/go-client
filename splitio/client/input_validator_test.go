@@ -54,8 +54,9 @@ func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
 
 var logger = logging.NewLogger(options)
 var cfg = conf.Default()
+
+var factory = &SplitFactory{cfg: cfg}
 var client = SplitClient{
-	cfg:         cfg,
 	evaluator:   &mockEvaluator{},
 	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 	metrics:     mutexmap.NewMMMetricsStorage(),
@@ -64,16 +65,12 @@ var client = SplitClient{
 		logger:       logger,
 		splitStorage: &mockSplitStorage{},
 	},
-	events: &mockEvents{},
-}
-
-var factory = SplitFactory{
-	client: &client,
+	events:  &mockEvents{},
+	factory: factory,
 }
 
 func init() {
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	factory.status.Store(sdkStatusReady)
 }
 
 func TestFactoryWithNilApiKey(t *testing.T) {
@@ -158,6 +155,7 @@ func TestTreatmentValidatorWithStringKey(t *testing.T) {
 
 	if result != "TreatmentA" {
 		t.Error("Should be TreatmentA")
+		t.Error(result)
 	}
 
 	expected := ""
@@ -414,28 +412,16 @@ func TestTreatmentConfigValidatorWithFeatureNonExistant(t *testing.T) {
 
 func TestTreatmentClientDestroyed(t *testing.T) {
 
+	factory := &SplitFactory{cfg: cfg}
+	factory.status.Store(sdkStatusReady)
 	var client2 = SplitClient{
-		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
-		sync: &sdkSync{
-			countersSync:   nil,
-			gaugeSync:      nil,
-			impressionSync: nil,
-			latenciesSync:  nil,
-			segmentSync:    nil,
-			splitSync:      nil,
-		},
+		factory:     factory,
 	}
-
-	factory := SplitFactory{
-		client: &client2,
-	}
-
-	client2.factory = &factory
 
 	client2.Destroy()
 
@@ -553,29 +539,17 @@ func TestTreatmentsConfigValidatorWithFeatureNonExistant(t *testing.T) {
 
 func TestTreatmentsClientDestroyed(t *testing.T) {
 
+	factory := &SplitFactory{cfg: cfg}
 	var client2 = SplitClient{
-		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
-		sync: &sdkSync{
-			countersSync:   nil,
-			gaugeSync:      nil,
-			impressionSync: nil,
-			latenciesSync:  nil,
-			segmentSync:    nil,
-			splitSync:      nil,
-		},
+		factory:     factory,
 	}
 
-	factory := SplitFactory{
-		client: &client2,
-	}
-
-	client2.factory = &factory
-
+	factory.status.Store(sdkStatusReady)
 	client2.Destroy()
 
 	features := []string{"some_feature"}
@@ -684,7 +658,7 @@ func TestLocalhostTrafficType(t *testing.T) {
 
 	_ = client.BlockUntilReady(1)
 
-	factory.status.Store(SdkOnInitialization)
+	factory.status.Store(sdkStatusInitializing)
 
 	if client.isReady() {
 		t.Error("Localhost should not be ready")
@@ -716,8 +690,8 @@ func TestTrafficTypeOnReady(t *testing.T) {
 	}
 }
 func TestTrackNotReadyYetTrafficType(t *testing.T) {
+	var factoryNotReady = &SplitFactory{}
 	var clientNotReady = SplitClient{
-		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
@@ -726,15 +700,11 @@ func TestTrackNotReadyYetTrafficType(t *testing.T) {
 			logger:       logger,
 			splitStorage: &mockSplitStorage{},
 		},
-		events: &mockEvents{},
+		events:  &mockEvents{},
+		factory: factoryNotReady,
 	}
 
-	var factoryNotReady = SplitFactory{
-		client: &clientNotReady,
-	}
-
-	factoryNotReady.status.Store(SdkOnInitialization)
-	clientNotReady.factory = &factoryNotReady
+	factoryNotReady.status.Store(sdkStatusInitializing)
 
 	err := clientNotReady.Track("key", "traffic", "eventType", nil, nil)
 
@@ -851,28 +821,15 @@ func TestTrackValidator(t *testing.T) {
 
 func TestTrackClientDestroyed(t *testing.T) {
 
+	factory2 := &SplitFactory{cfg: cfg}
 	var client2 = SplitClient{
-		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
-		sync: &sdkSync{
-			countersSync:   nil,
-			gaugeSync:      nil,
-			impressionSync: nil,
-			latenciesSync:  nil,
-			segmentSync:    nil,
-			splitSync:      nil,
-		},
+		factory:     factory2,
 	}
-
-	factory := SplitFactory{
-		client: &client2,
-	}
-
-	client2.factory = &factory
 
 	client2.Destroy()
 
@@ -891,15 +848,13 @@ func TestTrackClientDestroyed(t *testing.T) {
 
 func TestManagerWithEmptySplit(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
+	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,
 		logger:       logger,
 	}
-	factory := SplitFactory{
-		manager: &manager,
-	}
 
-	factory.status.Store(SdkReady)
+	factory.status.Store(sdkStatusReady)
 	manager.factory = &factory
 
 	result := manager.Split("")
@@ -922,11 +877,9 @@ func TestManagerWithNonExistantSplit(t *testing.T) {
 		logger:       logger,
 		validator:    inputValidation{logger: logger},
 	}
-	factory := SplitFactory{
-		manager: &manager,
-	}
+	factory := SplitFactory{}
 
-	factory.status.Store(SdkReady)
+	factory.status.Store(sdkStatusReady)
 	manager.factory = &factory
 
 	result := manager.Split("non_existant")
@@ -944,35 +897,21 @@ func TestManagerWithNonExistantSplit(t *testing.T) {
 
 func TestDestroy(t *testing.T) {
 	cfg.OperationMode = "redis-consumer"
+	factory := SplitFactory{cfg: cfg}
 	var client2 = SplitClient{
-		cfg:         cfg,
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
-		sync: &sdkSync{
-			countersSync:   nil,
-			gaugeSync:      nil,
-			impressionSync: nil,
-			latenciesSync:  nil,
-			segmentSync:    nil,
-			splitSync:      nil,
-		},
+		factory:     &factory,
 	}
 
 	var manager = SplitManager{
 		logger:    logger,
 		validator: inputValidation{logger: logger},
+		factory:   &factory,
 	}
-
-	factory := SplitFactory{
-		client:  &client2,
-		manager: &manager,
-	}
-
-	client2.factory = &factory
-	manager.factory = &factory
 
 	client2.Destroy()
 

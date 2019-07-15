@@ -46,6 +46,7 @@ func TestPostImpressions(t *testing.T) {
 
 		if sdkVersion != fmt.Sprint("go-", splitio.Version) {
 			t.Error("SDK Version HEADER not match")
+			t.Error(sdkVersion)
 		}
 
 		if sdkMachine != "127.0.0.1" {
@@ -106,7 +107,7 @@ func TestPostImpressions(t *testing.T) {
 			},
 		},
 		&splitio.SdkMetadata{
-			SDKVersion:  "test-1.0.0",
+			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
 			MachineName: "SOME_MACHINE_NAME",
 		},
@@ -171,7 +172,7 @@ func TestPostMetricsLatency(t *testing.T) {
 			},
 		},
 		&splitio.SdkMetadata{
-			SDKVersion:  "test-1.0.0",
+			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
 			MachineName: "",
 		},
@@ -240,7 +241,7 @@ func TestPostMetricsCounters(t *testing.T) {
 			},
 		},
 		&splitio.SdkMetadata{
-			SDKVersion:  "test-1.0.0",
+			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
 			MachineName: "",
 		},
@@ -304,7 +305,7 @@ func TestPostMetricsGauge(t *testing.T) {
 			},
 		},
 		&splitio.SdkMetadata{
-			SDKVersion:  "test-1.0.0",
+			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
 			MachineName: "",
 		},

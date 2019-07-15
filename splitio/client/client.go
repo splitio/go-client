@@ -127,7 +127,7 @@ func (c *SplitClient) doTreatmentCall(
 		// Custom Impression Listener
 		if c.impressionListener != nil {
 			for _, dataToSend := range toStore {
-				c.impressionListener.SendDataToClient(dataToSend, attributes, c.factory.metadata)
+				c.impressionListener.SendDataToClient(dataToSend, attributes)
 			}
 		}
 	} else {
@@ -249,7 +249,7 @@ func (c *SplitClient) doTreatmentsCall(
 	// Custom Impression Listener
 	if c.impressionListener != nil {
 		for _, dataToSend := range bulkImpressions {
-			c.impressionListener.SendDataToClient(dataToSend, attributes, c.factory.metadata)
+			c.impressionListener.SendDataToClient(dataToSend, attributes)
 		}
 	}
 

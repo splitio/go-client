@@ -16,22 +16,24 @@ type ILObject struct {
 // WrapperImpressionListener struct
 type WrapperImpressionListener struct {
 	ImpressionListener ImpressionListener
+	metadata           *splitio.SdkMetadata
 }
 
 // NewImpressionListenerWrapper instantiates a new ImpressionListenerWrapper
-func NewImpressionListenerWrapper(impressionListener ImpressionListener) *WrapperImpressionListener {
+func NewImpressionListenerWrapper(impressionListener ImpressionListener, metadata *splitio.SdkMetadata) *WrapperImpressionListener {
 	return &WrapperImpressionListener{
 		ImpressionListener: impressionListener,
+		metadata:           metadata,
 	}
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression storage.Impression, attributes map[string]interface{}, metadata splitio.SdkMetadata) {
+func (i *WrapperImpressionListener) SendDataToClient(impression storage.Impression, attributes map[string]interface{}) {
 	datToSend := ILObject{
 		Impression:         impression,
 		Attributes:         attributes,
-		InstanceID:         metadata.MachineName,
-		SDKLanguageVersion: "go-" + metadata.SDKVersion,
+		InstanceID:         i.metadata.MachineName,
+		SDKLanguageVersion: i.metadata.SDKVersion,
 	}
 
 	i.ImpressionListener.LogImpression(datToSend)

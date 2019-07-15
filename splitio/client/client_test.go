@@ -462,12 +462,16 @@ func TestImpressionListener(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+		SDKVersion:  "go-" + splitio.Version,
+		MachineIP:   "123.123.123.123",
+		MachineName: "ip-123-123-123-123",
+	})
 
 	factory := &SplitFactory{
 		cfg: cfg,
 		metadata: splitio.SdkMetadata{
-			SDKVersion: splitio.Version,
+			SDKVersion: "go-" + splitio.Version,
 		},
 	}
 	client := SplitClient{
@@ -505,7 +509,11 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+		SDKVersion:  "go-" + splitio.Version,
+		MachineIP:   "123.123.123.123",
+		MachineName: "ip-123-123-123-123",
+	})
 
 	factory := &SplitFactory{
 		cfg: cfg,
@@ -772,6 +780,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	}
 	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
+
 	}
 	ilResult = make(map[string]interface{})
 

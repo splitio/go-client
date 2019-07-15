@@ -70,12 +70,12 @@ type SplitFactory struct {
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, engine.NewEngine(logger), f.logger),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, engine.NewEngine(f.logger), f.logger),
 		impressions: f.storages.impressions,
 		metrics:     f.storages.telemetry,
 		events:      f.storages.events,
 		validator: inputValidation{
-			logger:       logger,
+			logger:       f.logger,
 			splitStorage: f.storages.splits,
 		},
 		factory:            f,
@@ -87,8 +87,8 @@ func (f *SplitFactory) Client() *SplitClient {
 func (f *SplitFactory) Manager() *SplitManager {
 	return &SplitManager{
 		splitStorage: f.storages.splits,
-		validator:    inputValidation{logger: logger},
-		logger:       logger,
+		validator:    inputValidation{logger: f.logger},
+		logger:       f.logger,
 		factory:      f,
 	}
 }

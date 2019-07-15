@@ -446,7 +446,7 @@ func setupLocalhostFactory(
 // which will be used to instantiate both the client and the manager
 func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	metadata := splitio.SdkMetadata{
-		SDKVersion:  splitio.Version,
+		SDKVersion:  "go-" + splitio.Version,
 		MachineIP:   cfg.IPAddress,
 		MachineName: cfg.InstanceName,
 	}
@@ -470,7 +470,10 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	}
 
 	if cfg.Advanced.ImpressionListener != nil {
-		splitFactory.impressionListener = impressionlistener.NewImpressionListenerWrapper(cfg.Advanced.ImpressionListener)
+		splitFactory.impressionListener = impressionlistener.NewImpressionListenerWrapper(
+			cfg.Advanced.ImpressionListener,
+			&metadata,
+		)
 	}
 
 	return splitFactory, nil

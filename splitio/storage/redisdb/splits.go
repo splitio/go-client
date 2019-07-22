@@ -13,21 +13,14 @@ import (
 
 // RedisSplitStorage is a redis-based implementation of split storage
 type RedisSplitStorage struct {
-	client prefixedRedisClient
+	client *PrefixedRedisClient
 	logger logging.LoggerInterface
 }
 
 // NewRedisSplitStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisSplitStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	logger logging.LoggerInterface,
-) *RedisSplitStorage {
+func NewRedisSplitStorage(redisClient *PrefixedRedisClient, logger logging.LoggerInterface) *RedisSplitStorage {
 	return &RedisSplitStorage{
-		client: *newPrefixedRedisClient(host, port, db, password, prefix),
+		client: redisClient,
 		logger: logger,
 	}
 }
@@ -187,12 +180,6 @@ func (r *RedisSplitStorage) Clear() {
 		return err
 	})
 }
-
-// IncreaseTrafficTypeCount increases value for a traffic type
-func (r *RedisSplitStorage) IncreaseTrafficTypeCount(trafficType string) {}
-
-// DecreaseTrafficTypeCount decreases value for a traffic type
-func (r *RedisSplitStorage) DecreaseTrafficTypeCount(trafficType string) {}
 
 // TrafficTypeExists returns true or false depending on existance and counter
 // of trafficType

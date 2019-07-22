@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"encoding/json"
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -72,6 +73,11 @@ func TestMetricsSyncTask(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
+	metadata := &splitio.SdkMetadata{
+		SDKVersion:  "go-0.1",
+		MachineIP:   "192.168.0.123",
+		MachineName: "machine1",
+	}
 	metricsRecorder := api.NewHTTPMetricsRecorder(
 		"",
 		&conf.SplitSdkConfig{
@@ -80,6 +86,7 @@ func TestMetricsSyncTask(t *testing.T) {
 				SdkURL:    ts.URL,
 			},
 		},
+		metadata,
 		logger,
 	)
 
@@ -89,27 +96,18 @@ func TestMetricsSyncTask(t *testing.T) {
 		metricsStorage,
 		metricsRecorder,
 		1,
-		"go-0.1",
-		"192.168.0.123",
-		"machine1",
 		logger,
 	)
 	gaugesTask := NewRecordGaugesTask(
 		metricsStorage,
 		metricsRecorder,
 		1,
-		"go-0.1",
-		"192.168.0.123",
-		"machine1",
 		logger,
 	)
 	latenciesTask := NewRecordLatenciesTask(
 		metricsStorage,
 		metricsRecorder,
 		1,
-		"go-0.1",
-		"192.168.0.123",
-		"machine1",
 		logger,
 	)
 
@@ -147,32 +145,17 @@ type metricsRecorderMock struct {
 	latencyIterations int
 }
 
-func (m *metricsRecorderMock) RecordLatencies(
-	latencies []dtos.LatenciesDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *metricsRecorderMock) RecordLatencies(latencies []dtos.LatenciesDTO) error {
 	m.latencyIterations++
 	return nil
 }
 
-func (m *metricsRecorderMock) RecordCounters(
-	counters []dtos.CounterDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *metricsRecorderMock) RecordCounters(counters []dtos.CounterDTO) error {
 	m.counterIterations++
 	return nil
 }
 
-func (m *metricsRecorderMock) RecordGauge(
-	gauge dtos.GaugeDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *metricsRecorderMock) RecordGauge(gauge dtos.GaugeDTO) error {
 	m.gaugeIterations++
 	return nil
 }
@@ -191,9 +174,6 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 		metricsStorage,
 		metricsRecorder,
 		100,
-		"aa",
-		"123.123.123.123",
-		"123-123-123-123",
 		logger,
 	)
 
@@ -201,9 +181,6 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 		metricsStorage,
 		metricsRecorder,
 		100,
-		"aa",
-		"123.123.123.123",
-		"123-123-123-123",
 		logger,
 	)
 
@@ -211,9 +188,6 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 		metricsStorage,
 		metricsRecorder,
 		100,
-		"aa",
-		"123.123.123.123",
-		"123-123-123-123",
 		logger,
 	)
 

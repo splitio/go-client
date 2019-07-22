@@ -5,42 +5,25 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/util/metrics"
-	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	apikey             string
-	cfg                *conf.SplitSdkConfig
 	logger             logging.LoggerInterface
-	loggerConfig       logging.LoggerOptions
 	evaluator          evaluator.Interface
-	sync               *sdkSync
 	impressions        storage.ImpressionStorageProducer
 	metrics            storage.MetricsStorageProducer
 	events             storage.EventStorageProducer
 	validator          inputValidation
 	factory            *SplitFactory
 	impressionListener *impressionlistener.WrapperImpressionListener
-	metadata           dtos.QueueStoredMachineMetadataDTO
-}
-
-type sdkSync struct {
-	splitSync      *asynctask.AsyncTask
-	segmentSync    *asynctask.AsyncTask
-	impressionSync *asynctask.AsyncTask
-	gaugeSync      *asynctask.AsyncTask
-	countersSync   *asynctask.AsyncTask
-	latenciesSync  *asynctask.AsyncTask
-	eventsSync     *asynctask.AsyncTask
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -124,7 +107,7 @@ func (c *SplitClient) doTreatmentCall(
 	// Store impression
 	if c.impressions != nil {
 		var label string
-		if c.cfg.LabelsEnabled {
+		if c.factory.cfg.LabelsEnabled {
 			label = evaluationResult.Label
 		}
 
@@ -144,7 +127,7 @@ func (c *SplitClient) doTreatmentCall(
 		// Custom Impression Listener
 		if c.impressionListener != nil {
 			for _, dataToSend := range toStore {
-				c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+				c.impressionListener.SendDataToClient(dataToSend, attributes)
 			}
 		}
 	} else {
@@ -242,7 +225,7 @@ func (c *SplitClient) doTreatmentsCall(
 			}
 		} else {
 			var label string
-			if c.cfg.LabelsEnabled {
+			if c.factory.cfg.LabelsEnabled {
 				label = evaluationResult.Label
 			}
 			var impression = storage.Impression{
@@ -266,7 +249,7 @@ func (c *SplitClient) doTreatmentsCall(
 	// Custom Impression Listener
 	if c.impressionListener != nil {
 		for _, dataToSend := range bulkImpressions {
-			c.impressionListener.SendDataToClient(dataToSend, attributes, c.metadata)
+			c.impressionListener.SendDataToClient(dataToSend, attributes)
 		}
 	}
 
@@ -312,36 +295,10 @@ func (c *SplitClient) isReady() bool {
 	return c.factory.IsReady()
 }
 
-// Destroy stops all async tasks and clears all storages
+// Destroy the client and the underlying factory.
 func (c *SplitClient) Destroy() {
-	if !c.factory.IsDestroyed() {
-		removeInstanceFromTracker(c.apikey)
-	}
-	c.factory.Destroy()
-
-	if c.cfg.OperationMode == "redis-consumer" {
-		return
-	}
-
-	// Stop all tasks
-	if c.sync.splitSync != nil {
-		c.sync.splitSync.Stop()
-	}
-	if c.sync.segmentSync != nil {
-		c.sync.segmentSync.Stop()
-	}
-
-	if c.sync.impressionSync != nil {
-		c.sync.impressionSync.Stop()
-	}
-	if c.sync.gaugeSync != nil {
-		c.sync.gaugeSync.Stop()
-	}
-	if c.sync.countersSync != nil {
-		c.sync.countersSync.Stop()
-	}
-	if c.sync.latenciesSync != nil {
-		c.sync.latenciesSync.Stop()
+	if !c.isDestroyed() {
+		c.factory.Destroy()
 	}
 }
 
@@ -380,7 +337,7 @@ func (c *SplitClient) Track(
 		trafficType,
 		eventType,
 		value,
-		c.isReady() && c.apikey != "localhost",
+		c.isReady() && c.factory.apikey != "localhost",
 	)
 	if err != nil {
 		c.logger.Error(err.Error())

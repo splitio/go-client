@@ -2,6 +2,7 @@ package redisdb
 
 import (
 	"fmt"
+	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
 	"regexp"
@@ -11,7 +12,7 @@ import (
 
 // RedisMetricsStorage is a redis-based implementation of split storage
 type RedisMetricsStorage struct {
-	client            prefixedRedisClient
+	client            PrefixedRedisClient
 	logger            logging.LoggerInterface
 	gaugeTemplate     string
 	countersTemplate  string
@@ -20,25 +21,16 @@ type RedisMetricsStorage struct {
 }
 
 // NewRedisMetricsStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisMetricsStorage(
-	host string,
-	port int,
-	db int,
-	password string,
-	prefix string,
-	instanceID string,
-	sdkVersion string,
-	logger logging.LoggerInterface,
-) *RedisMetricsStorage {
-	gaugeTemplate := strings.Replace(redisGauge, "{sdkVersion}", sdkVersion, 1)
-	gaugeTemplate = strings.Replace(gaugeTemplate, "{instanceId}", instanceID, 1)
-	countersTemplate := strings.Replace(redisCount, "{sdkVersion}", sdkVersion, 1)
-	countersTemplate = strings.Replace(countersTemplate, "{instanceId}", instanceID, 1)
-	latenciesTemplate := strings.Replace(redisLatency, "{sdkVersion}", sdkVersion, 1)
-	latenciesTemplate = strings.Replace(latenciesTemplate, "{instanceId}", instanceID, 1)
+func NewRedisMetricsStorage(redisClient *PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisMetricsStorage {
+	gaugeTemplate := strings.Replace(redisGauge, "{sdkVersion}", metadata.SDKVersion, 1)
+	gaugeTemplate = strings.Replace(gaugeTemplate, "{instanceId}", metadata.MachineName, 1)
+	countersTemplate := strings.Replace(redisCount, "{sdkVersion}", metadata.SDKVersion, 1)
+	countersTemplate = strings.Replace(countersTemplate, "{instanceId}", metadata.MachineName, 1)
+	latenciesTemplate := strings.Replace(redisLatency, "{sdkVersion}", metadata.SDKVersion, 1)
+	latenciesTemplate = strings.Replace(latenciesTemplate, "{instanceId}", metadata.MachineName, 1)
 	latencyRegex := regexp.MustCompile(redisLatencyRegex)
 	return &RedisMetricsStorage{
-		client:            *newPrefixedRedisClient(host, port, db, password, prefix),
+		client:            *redisClient,
 		logger:            logger,
 		gaugeTemplate:     gaugeTemplate,
 		countersTemplate:  countersTemplate,

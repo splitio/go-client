@@ -14,24 +14,19 @@ import (
 )
 
 type httpRecorderBase struct {
-	client *HTTPClient
-	logger logging.LoggerInterface
+	client   *HTTPClient
+	logger   logging.LoggerInterface
+	metadata *splitio.SdkMetadata
 }
 
-func (h *httpRecorderBase) recordRaw(
-	url string,
-	data []byte,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (h *httpRecorderBase) recordRaw(url string, data []byte) error {
 	headers := make(map[string]string)
-	headers["SplitSDKVersion"] = sdkVersion
-	headers["SplitSDKMachineIP"] = machineIP
-	if machineName == "" && machineIP != "" {
-		headers["SplitSDKMachineName"] = fmt.Sprintf("ip-%s", strings.Replace(machineIP, ".", "-", -1))
+	headers["SplitSDKVersion"] = h.metadata.SDKVersion
+	headers["SplitSDKMachineIP"] = h.metadata.MachineIP
+	if h.metadata.MachineName == "" && h.metadata.MachineIP != "" {
+		headers["SplitSDKMachineName"] = fmt.Sprintf("ip-%s", strings.Replace(h.metadata.MachineIP, ".", "-", -1))
 	} else {
-		headers["SplitSDKMachineName"] = machineName
+		headers["SplitSDKMachineName"] = h.metadata.MachineName
 	}
 	return h.client.Post(url, data, headers)
 }
@@ -56,12 +51,7 @@ type impressionsRecord struct {
 }
 
 // Record sends an array (or slice) of impressionsRecord to the backend
-func (i *HTTPImpressionRecorder) Record(
-	impressions []storage.Impression,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (i *HTTPImpressionRecorder) Record(impressions []storage.Impression) error {
 	impressionsToPost := make(map[string][]impressionRecord)
 	for _, impression := range impressions {
 		keyImpression := impressionRecord{
@@ -95,7 +85,7 @@ func (i *HTTPImpressionRecorder) Record(
 		return err
 	}
 
-	err = i.recordRaw("/testImpressions/bulk", data, sdkVersion, machineIP, machineName)
+	err = i.recordRaw("/testImpressions/bulk", data)
 	if err != nil {
 		i.logger.Error("Error posting impressions", err.Error())
 		return err
@@ -108,14 +98,16 @@ func (i *HTTPImpressionRecorder) Record(
 func NewHTTPImpressionRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
+	metadata *splitio.SdkMetadata,
 	logger logging.LoggerInterface,
 ) *HTTPImpressionRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
-			client: client,
-			logger: logger,
+			client:   client,
+			logger:   logger,
+			metadata: metadata,
 		},
 	}
 }
@@ -126,21 +118,16 @@ type HTTPMetricsRecorder struct {
 }
 
 // RecordCounters method submits counter metrics to the backend
-func (m *HTTPMetricsRecorder) RecordCounters(
-	counters []dtos.CounterDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *HTTPMetricsRecorder) RecordCounters(counters []dtos.CounterDTO) error {
 	data, err := json.Marshal(counters)
 	if err != nil {
 		m.logger.Error("Error marshaling JSON", err.Error())
 		return err
 	}
 
-	err = m.recordRaw("/metrics/counters", data, sdkVersion, machineIP, machineName)
+	err = m.recordRaw("/metrics/counters", data)
 	if err != nil {
-		m.logger.Error("Error posting impressions", err.Error())
+		m.logger.Error("Error posting counters", err.Error())
 		return err
 	}
 
@@ -148,21 +135,16 @@ func (m *HTTPMetricsRecorder) RecordCounters(
 }
 
 // RecordLatencies method submits latency metrics to the backend
-func (m *HTTPMetricsRecorder) RecordLatencies(
-	latencies []dtos.LatenciesDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *HTTPMetricsRecorder) RecordLatencies(latencies []dtos.LatenciesDTO) error {
 	data, err := json.Marshal(latencies)
 	if err != nil {
 		m.logger.Error("Error marshaling JSON", err.Error())
 		return err
 	}
 
-	err = m.recordRaw("/metrics/times", data, sdkVersion, machineIP, machineName)
+	err = m.recordRaw("/metrics/times", data)
 	if err != nil {
-		m.logger.Error("Error posting impressions", err.Error())
+		m.logger.Error("Error posting latencies", err.Error())
 		return err
 	}
 
@@ -170,21 +152,16 @@ func (m *HTTPMetricsRecorder) RecordLatencies(
 }
 
 // RecordGauge method submits gauge metrics to the backend
-func (m *HTTPMetricsRecorder) RecordGauge(
-	gauge dtos.GaugeDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (m *HTTPMetricsRecorder) RecordGauge(gauge dtos.GaugeDTO) error {
 	data, err := json.Marshal(gauge)
 	if err != nil {
 		m.logger.Error("Error marshaling JSON", err.Error())
 		return err
 	}
 
-	err = m.recordRaw("/metrics/gauge", data, sdkVersion, machineIP, machineName)
+	err = m.recordRaw("/metrics/gauge", data)
 	if err != nil {
-		m.logger.Error("Error posting impressions", err.Error())
+		m.logger.Error("Error posting gauges", err.Error())
 		return err
 	}
 
@@ -195,14 +172,16 @@ func (m *HTTPMetricsRecorder) RecordGauge(
 func NewHTTPMetricsRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
+	metadata *splitio.SdkMetadata,
 	logger logging.LoggerInterface,
 ) *HTTPMetricsRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPMetricsRecorder{
 		httpRecorderBase: httpRecorderBase{
-			client: client,
-			logger: logger,
+			client:   client,
+			metadata: metadata,
+			logger:   logger,
 		},
 	}
 }
@@ -213,19 +192,14 @@ type HTTPEventsRecorder struct {
 }
 
 // Record sends an array (or slice) of dtos.EventDTO to the backend
-func (i *HTTPEventsRecorder) Record(
-	events []dtos.EventDTO,
-	sdkVersion string,
-	machineIP string,
-	machineName string,
-) error {
+func (i *HTTPEventsRecorder) Record(events []dtos.EventDTO) error {
 	data, err := json.Marshal(events)
 	if err != nil {
 		i.logger.Error("Error marshaling JSON", err.Error())
 		return err
 	}
 
-	err = i.recordRaw("/events/bulk", data, sdkVersion, machineIP, machineName)
+	err = i.recordRaw("/events/bulk", data)
 	if err != nil {
 		i.logger.Error("Error posting events", err.Error())
 		return err
@@ -238,14 +212,16 @@ func (i *HTTPEventsRecorder) Record(
 func NewHTTPEventsRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
+	metadata *splitio.SdkMetadata,
 	logger logging.LoggerInterface,
 ) *HTTPEventsRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPEventsRecorder{
 		httpRecorderBase: httpRecorderBase{
-			client: client,
-			logger: logger,
+			client:   client,
+			logger:   logger,
+			metadata: metadata,
 		},
 	}
 }

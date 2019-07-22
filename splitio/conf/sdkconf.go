@@ -2,6 +2,7 @@
 package conf
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os/user"
@@ -57,11 +58,12 @@ type TaskPeriods struct {
 
 // RedisConfig struct is used to cofigure the redis parameters
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Database int
-	Password string
-	Prefix   string
+	Host      string
+	Port      int
+	Database  int
+	Password  string
+	Prefix    string
+	TLSConfig *tls.Config
 }
 
 // AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
@@ -107,11 +109,12 @@ func Default() *SplitSdkConfig {
 		LoggerConfig:  logging.LoggerOptions{},
 		SplitFile:     splitFile,
 		Redis: RedisConfig{
-			Database: 0,
-			Host:     "localhost",
-			Password: "",
-			Port:     6379,
-			Prefix:   "",
+			Database:  0,
+			Host:      "localhost",
+			Password:  "",
+			Port:      6379,
+			Prefix:    "",
+			TLSConfig: nil,
 		},
 		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,

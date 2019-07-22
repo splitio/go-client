@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -77,7 +76,6 @@ func (c *HTTPClient) Get(service string) ([]byte, error) {
 
 	authorization := c.apikey
 	c.logger.Debug("Authorization [ApiKey]: ", logging.ObfuscateAPIKey(authorization))
-	req.Header.Add("SplitSDKVersion", c.version)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
@@ -131,7 +129,6 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("SplitSDKVersion", fmt.Sprint("go-", c.version))
 
 	if headers != nil {
 		for headerName, headerValue := range headers {
@@ -147,7 +144,7 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Error("Error requesting data to API: ", req.URL.String(), err.Error())
+		c.logger.Error("Error posting data to API: ", req.URL.String(), err.Error())
 		return err
 	}
 	defer resp.Body.Close()
@@ -173,7 +170,6 @@ func ValidateApikey(apikey string, config conf.AdvancedConfig) error {
 	client := &http.Client{}
 
 	req, _ := http.NewRequest("GET", sdkURL+"/segmentChanges/___TEST___?since=-1", nil)
-	req.Header.Add("SplitSDKVersion", splitio.Version)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+apikey)

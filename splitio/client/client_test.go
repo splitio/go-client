@@ -82,21 +82,18 @@ func TestClientGetTreatment(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		validator:   inputValidation{logger: logger},
-	}
-
 	factory := SplitFactory{
-		client: &client,
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+			telemetry:   mutexmap.NewMMMetricsStorage(),
+		},
+		logger: logger,
 	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
 
+	client := factory.Client()
+	client.evaluator = &mockEvaluator{}
+	factory.status.Store(sdkStatusReady)
 	client.Treatment("key", "feature", nil)
 
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
@@ -106,7 +103,7 @@ func TestClientGetTreatment(t *testing.T) {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
 
-	client.cfg.LabelsEnabled = false
+	client.factory.cfg.LabelsEnabled = false
 	client.Treatment("key", "feature2", nil)
 
 	impressions, _ = impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
@@ -121,20 +118,18 @@ func TestTreatments(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		validator:   inputValidation{logger: logger},
+	factory := SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+			telemetry:   mutexmap.NewMMMetricsStorage(),
+		},
+		logger: logger,
 	}
 
-	factory := SplitFactory{
-		client: &client,
-	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	client := factory.Client()
+	client.evaluator = &mockEvaluator{}
+	factory.status.Store(sdkStatusReady)
 
 	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil)
 
@@ -166,7 +161,7 @@ func TestLocalhostMode(t *testing.T) {
 	client := factory.Client()
 	client.BlockUntilReady(1)
 
-	if client.cfg.OperationMode != "localhost" {
+	if factory.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
@@ -194,20 +189,18 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		validator:   inputValidation{logger: logger},
+	factory := SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+			telemetry:   mutexmap.NewMMMetricsStorage(),
+		},
+		logger: logger,
 	}
 
-	factory := SplitFactory{
-		client: &client,
-	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	client := factory.Client()
+	client.evaluator = &mockEvaluator{}
+	factory.status.Store(sdkStatusReady)
 
 	feature1 := client.Treatment(nil, "feature", nil)
 	if feature1 != "control" {
@@ -245,15 +238,19 @@ func TestClientPanicking(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
-	client := SplitClient{
-		cfg:         cfg,
-		evaluator:   &mockEventsPanic{},
-		events:      &mockEvents{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		validator:   inputValidation{logger: logger},
+	factory := SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+			telemetry:   mutexmap.NewMMMetricsStorage(),
+			events:      &mockEvents{},
+		},
+		logger: logger,
 	}
+
+	client := factory.Client()
+	client.evaluator = &mockEventsPanic{}
+	factory.status.Store(sdkStatusReady)
 
 	treatment := client.Treatment("key", "some", nil)
 	if treatment != "control" {
@@ -304,24 +301,21 @@ func TestClientDestroy(t *testing.T) {
 	countersTask.Start()
 	latenciesTask.Start()
 
-	client := SplitClient{
-		cfg:    &conf.SplitSdkConfig{},
-		logger: logger,
-		sync: &sdkSync{
-			countersSync:   countersTask,
-			gaugeSync:      gaugesTask,
-			impressionSync: impressionsTask,
-			latenciesSync:  latenciesTask,
-			segmentSync:    segmentsTask,
-			splitSync:      splitTask,
+	factory := &SplitFactory{
+		tasks: sdkSync{
+			counters:    countersTask,
+			gauges:      gaugesTask,
+			impressions: impressionsTask,
+			latencies:   latenciesTask,
+			segments:    segmentsTask,
+			splits:      splitTask,
 		},
+		cfg: conf.Default(),
 	}
-
-	factory := SplitFactory{
-		client: &client,
+	client := SplitClient{
+		logger:  logger,
+		factory: factory,
 	}
-
-	client.factory = &factory
 
 	time.Sleep(1 * time.Second)
 	client.Destroy()
@@ -468,26 +462,28 @@ func TestImpressionListener(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+		SDKVersion:  "go-" + splitio.Version,
+		MachineIP:   "123.123.123.123",
+		MachineName: "ip-123-123-123-123",
+	})
 
+	factory := &SplitFactory{
+		cfg: cfg,
+		metadata: splitio.SdkMetadata{
+			SDKVersion: "go-" + splitio.Version,
+		},
+	}
 	client := SplitClient{
-		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
 		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
-		metadata: dtos.QueueStoredMachineMetadataDTO{
-			MachineName: cfg.InstanceName,
-			SDKVersion:  splitio.Version,
-		},
+		factory:            factory,
 	}
 
-	factory := SplitFactory{
-		client: &client,
-	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	factory.status.Store(sdkStatusReady)
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -513,26 +509,28 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest)
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+		SDKVersion:  "go-" + splitio.Version,
+		MachineIP:   "123.123.123.123",
+		MachineName: "ip-123-123-123-123",
+	})
 
+	factory := &SplitFactory{
+		cfg: cfg,
+		metadata: splitio.SdkMetadata{
+			SDKVersion: splitio.Version,
+		},
+	}
 	client := SplitClient{
-		cfg:                cfg,
 		evaluator:          &mockEvaluator{},
 		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:             logger,
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
-		metadata: dtos.QueueStoredMachineMetadataDTO{
-			MachineName: cfg.InstanceName,
-			SDKVersion:  splitio.Version,
-		},
+		factory:            factory,
 	}
 
-	factory := SplitFactory{
-		client: &client,
-	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	factory.status.Store(sdkStatusReady)
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -782,6 +780,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	}
 	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
+
 	}
 	ilResult = make(map[string]interface{})
 
@@ -1166,20 +1165,17 @@ func TestClient(t *testing.T) {
 		logger,
 	)
 
+	factory := &SplitFactory{cfg: cfg}
 	client := SplitClient{
-		cfg:         cfg,
 		evaluator:   evaluator,
 		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:      logger,
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		validator:   inputValidation{logger: logger},
+		factory:     factory,
 	}
 
-	factory := SplitFactory{
-		client: &client,
-	}
-	factory.status.Store(SdkReady)
-	client.factory = &factory
+	factory.status.Store(sdkStatusReady)
 
 	// Assertions Treatment
 	if client.Treatment("user1", "valid", nil) != "on" {
@@ -1297,7 +1293,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 		t.Error("Localhost should be ready")
 	}
 
-	if client.cfg.OperationMode != "localhost" {
+	if client.factory.cfg.OperationMode != "localhost" {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 

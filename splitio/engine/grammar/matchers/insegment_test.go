@@ -49,6 +49,6 @@ func TestInSegmentMatcher(t *testing.T) {
 
 	segmentStorage.Remove("segmentito")
 	if matcher.Match("item1", nil, nil) {
-		t.Error("Should return false for a nonexistant segment")
+		t.Error("Should return false for a nonexistent segment")
 	}
 }

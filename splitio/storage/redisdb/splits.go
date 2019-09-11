@@ -181,7 +181,7 @@ func (r *RedisSplitStorage) Clear() {
 	})
 }
 
-// TrafficTypeExists returns true or false depending on existance and counter
+// TrafficTypeExists returns true or false depending on existence and counter
 // of trafficType
 func (r *RedisSplitStorage) TrafficTypeExists(trafficType string) bool {
 	keyToFetch := strings.Replace(redisTrafficType, "{trafficType}", trafficType, 1)

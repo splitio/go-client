@@ -44,7 +44,7 @@ func TestMMSplitStorage(t *testing.T) {
 		}
 	}
 
-	split := splitStorage.Get("nonexistant_split")
+	split := splitStorage.Get("nonexistent_split")
 	if split != nil {
 		t.Error("Nil expected but split returned")
 	}
@@ -216,7 +216,7 @@ func TestMMSegmentStorage(t *testing.T) {
 		}
 	}
 
-	segment := segmentStorage.Get("nonexistant_segment")
+	segment := segmentStorage.Get("nonexistent_segment")
 	if segment != nil {
 		t.Error("Nil expected but segment returned")
 	}

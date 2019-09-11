@@ -382,28 +382,28 @@ func TestTreatmentValidatorWhitespacesFeatureName(t *testing.T) {
 	strMsg = ""
 }
 
-func TestTreatmentValidatorWithFeatureNonExistant(t *testing.T) {
-	result := client.Treatment("key", "feature_non_existant", nil)
+func TestTreatmentValidatorWithFeatureNonexistent(t *testing.T) {
+	result := client.Treatment("key", "feature_non_existent", nil)
 
 	if result != "control" {
 		t.Error("Should be control")
 	}
 
-	expected := "Treatment: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	expected := "Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console."
 	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
 
-func TestTreatmentConfigValidatorWithFeatureNonExistant(t *testing.T) {
-	result := client.TreatmentWithConfig("key", "feature_non_existant", nil)
+func TestTreatmentConfigValidatorWithFeatureNonexistent(t *testing.T) {
+	result := client.TreatmentWithConfig("key", "feature_non_existent", nil)
 
 	if result.Treatment != "control" {
 		t.Error("Should be control")
 	}
 
-	expected := "TreatmentWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	expected := "TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console."
 	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 	}
@@ -510,27 +510,27 @@ func TestTreatmentsWhitespaceFeatures(t *testing.T) {
 	strMsg = ""
 }
 
-func TestTreatmentsValidatorWithFeatureNonExistant(t *testing.T) {
-	result := client.Treatments("key", []string{"feature_non_existant"}, nil)
+func TestTreatmentsValidatorWithFeatureNonexistent(t *testing.T) {
+	result := client.Treatments("key", []string{"feature_non_existent"}, nil)
 
-	if result["feature_non_existant"] != "control" {
+	if result["feature_non_existent"] != "control" {
 		t.Error("Should be control")
 	}
 
-	expected := "Treatments: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	expected := "Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console."
 	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 	}
 	strMsg = ""
 }
-func TestTreatmentsConfigValidatorWithFeatureNonExistant(t *testing.T) {
-	result := client.TreatmentsWithConfig("key", []string{"feature_non_existant"}, nil)
+func TestTreatmentsConfigValidatorWithFeatureNonexistent(t *testing.T) {
+	result := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
 
-	if result["feature_non_existant"].Treatment != "control" {
+	if result["feature_non_existent"].Treatment != "control" {
 		t.Error("Should be control")
 	}
 
-	expected := "TreatmentsWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	expected := "TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console."
 	if !strings.Contains(strMsg, expected) {
 		t.Error("Error is distinct from the expected one")
 	}
@@ -870,7 +870,7 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	strMsg = ""
 }
 
-func TestManagerWithNonExistantSplit(t *testing.T) {
+func TestManagerWithNonexistentSplit(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	manager := SplitManager{
 		splitStorage: splitStorage,
@@ -882,9 +882,9 @@ func TestManagerWithNonExistantSplit(t *testing.T) {
 	factory.status.Store(sdkStatusReady)
 	manager.factory = &factory
 
-	result := manager.Split("non_existant")
+	result := manager.Split("non_existent")
 
-	expected := "Split: you passed non_existant that does not exist in this environment, please double check what Splits exist in the web console."
+	expected := "Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console."
 	if result != nil {
 		t.Error("Wrong result")
 	}

@@ -23,11 +23,13 @@ import (
 func main() {
     cfg := conf.Default()
     factory, err := client.NewSplitFactory("YOUR_SDK_TYPE_API_KEY", cfg)
-    if err != nil { // SDK initialization error
+    if err != nil { 
+        // SDK initialization error
     }
 
     err = client.BlockUntilReady(10)
-    if err != nil { // SDK timeout error
+    if err != nil { 
+        // SDK timeout error
     }
 
     client := factory.Client()

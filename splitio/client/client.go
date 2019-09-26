@@ -55,7 +55,7 @@ func (c *SplitClient) getEvaluationResult(
 	}, impressionBucketingKey
 }
 
-// getEvaluationResult calls evaluation for multiple treatments at once
+// getEvaluationsResult calls evaluation for multiple treatments at once
 func (c *SplitClient) getEvaluationsResult(
 	matchingKey string,
 	bucketingKey *string,
@@ -85,6 +85,7 @@ func (c *SplitClient) getEvaluationsResult(
 	return result, impressionBucketingKey
 }
 
+// createImpression creates impression to be stored and used by listener
 func (c *SplitClient) createImpression(
 	feature string,
 	impressionBucketingKey string,
@@ -109,6 +110,7 @@ func (c *SplitClient) createImpression(
 	}
 }
 
+// storeData stores impression, runs listener and stores metrics
 func (c *SplitClient) storeData(impressions []storage.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTimeNs int64) {
 	// Store impression
 	if c.impressions != nil {

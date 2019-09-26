@@ -130,10 +130,8 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 
-	if headers != nil {
-		for headerName, headerValue := range headers {
-			req.Header.Add(headerName, headerValue)
-		}
+	for headerName, headerValue := range headers {
+		req.Header.Add(headerName, headerValue)
 	}
 
 	c.logger.Debug(fmt.Sprintf("Headers: %v", req.Header))
@@ -149,7 +147,7 @@ func (c *HTTPClient) Post(service string, body []byte, headers map[string]string
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := ioutil.ReadAll(resp.Body)
+	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return err
@@ -173,9 +171,13 @@ func ValidateApikey(apikey string, config conf.AdvancedConfig) error {
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+apikey)
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-	if resp != nil && resp.StatusCode == 403 {
+	if resp.StatusCode == 403 {
 		return errors.New("you passed a browser type apikey, please grab an apikey from the Split console that is of type sdk")
 	}
 

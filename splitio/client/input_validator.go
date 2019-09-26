@@ -279,7 +279,7 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 			i.logger.Error(
 				"The maximum size allowed for the properties is 32kb. Event not queued",
 			)
-			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
+			return nil, size, errors.New("The maximum size allowed for the properties is 32kb. Event not queued")
 		}
 	}
 	return processed, size, nil

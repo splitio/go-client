@@ -157,6 +157,18 @@ func TestRedisSplitStorage(t *testing.T) {
 		t.Error("GetAll returned incorrect splits")
 	}
 
+	// Test FetchMany before removing all the splits
+	splitsToFetch := []string{"split1", "split2", "split3", "split4", "split5", "split6"}
+	allSplitFetched := splitStorage.FetchMany(splitsToFetch)
+	if len(allSplitFetched) != 6 {
+		t.Error("It should return 6 splits")
+	}
+	for _, split := range splitsToFetch {
+		if allSplitFetched[split] == nil {
+			t.Error("It should not be nil")
+		}
+	}
+
 	for _, name := range []string{"split1", "split2", "split3", "split4", "split5", "split6"} {
 		splitStorage.Remove(name)
 	}
@@ -223,6 +235,16 @@ func TestRedisSplitStorage(t *testing.T) {
 
 	if key1 != "value1" || key2 != "value2" {
 		t.Error("Keys that are not splits should not have been altered")
+	}
+
+	allSplitFetched = splitStorage.FetchMany(splitsToFetch)
+	if len(allSplitFetched) != 6 {
+		t.Error("It should return 6 splits")
+	}
+	for _, split := range splitsToFetch {
+		if allSplitFetched[split] != nil {
+			t.Error("It should be nil")
+		}
 	}
 
 	splitStorage.client.client.Del("key1", "key2")

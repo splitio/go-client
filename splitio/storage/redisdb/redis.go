@@ -211,3 +211,12 @@ func (r *PrefixedRedisClient) Expire(key string, value time.Duration) *redis.Boo
 func (r *PrefixedRedisClient) TTL(key string) *redis.DurationCmd {
 	return r.client.TTL(r.withPrefix(key))
 }
+
+// Mget fetchs multiple results
+func (r *PrefixedRedisClient) Mget(keys []string) ([]interface{}, error) {
+	keysWithPrefix := make([]string, 0)
+	for _, key := range keys {
+		keysWithPrefix = append(keysWithPrefix, r.withPrefix(key))
+	}
+	return r.client.MGet(keysWithPrefix...).Result()
+}

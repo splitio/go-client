@@ -47,6 +47,17 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 	return &c
 }
 
+// FetchMany fetches features in redis and returns an array of split dtos
+func (m *MMSplitStorage) FetchMany(splitNames []string) map[string]*dtos.SplitDTO {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	splits := make(map[string]*dtos.SplitDTO)
+	for _, splitName := range splitNames {
+		splits[splitName] = m.Get(splitName)
+	}
+	return splits
+}
+
 // PutMany bulk inserts splits into the in-memory storage
 func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 	m.mutex.Lock()

@@ -190,13 +190,13 @@ func TestTreatmentValidatorOnFeatureName(t *testing.T) {
 	expectedTreatment(client.Treatment("key", "  feature   ", nil), "TreatmentA", t)
 	expectedLogMessage("Treatment: split name '  feature   ' has extra whitespace, trimming", t)
 
-	// Non Existant
-	expectedTreatment(client.Treatment("key", "feature_non_existant", nil), "control", t)
-	expectedLogMessage("Treatment: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console", t)
+	// Non Existent
+	expectedTreatment(client.Treatment("key", "feature_non_existent", nil), "control", t)
+	expectedLogMessage("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
 
-	// Non Existant
-	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_non_existant", nil), "control", "", t)
-	expectedLogMessage("TreatmentWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console", t)
+	// Non Existent
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_non_existent", nil), "control", "", t)
+	expectedLogMessage("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
 }
 
 func expectedTreatments(key interface{}, features []string, length int, t *testing.T) map[string]string {
@@ -227,15 +227,15 @@ func TestTreatmentsValidator(t *testing.T) {
 	expectedTreatment(result["some_feature"], "control", t)
 	expectedLogMessage("Treatments: split name ' some_feature  ' has extra whitespace, trimming", t)
 
-	// Non Existant
-	result = expectedTreatments("key", []string{"feature_non_existant"}, 1, t)
-	expectedTreatment(result["feature_non_existant"], "control", t)
-	expectedLogMessage("Treatments: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console", t)
+	// Non Existent
+	result = expectedTreatments("key", []string{"feature_non_existent"}, 1, t)
+	expectedTreatment(result["feature_non_existent"], "control", t)
+	expectedLogMessage("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
 
-	// Non Existant Config
-	resultWithConfig := client.TreatmentsWithConfig("key", []string{"feature_non_existant"}, nil)
-	expectedTreatmentAndConfig(resultWithConfig["feature_non_existant"], "control", "", t)
-	expectedLogMessage("TreatmentsWithConfig: you passed feature_non_existant that does not exist in this environment, please double check what Splits exist in the web console", t)
+	// Non Existent Config
+	resultWithConfig := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
+	expectedTreatmentAndConfig(resultWithConfig["feature_non_existent"], "control", "", t)
+	expectedLogMessage("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
@@ -405,6 +405,6 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	manager.Split("")
 	expectedLogMessage("Split: you passed an empty split name, split name must be a non-empty string", t)
 
-	manager.Split("non_existant")
-	expectedLogMessage("Split: you passed non_existant that does not exist in this environment, please double check what Splits exist in the web console", t)
+	manager.Split("non_existent")
+	expectedLogMessage("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
 }

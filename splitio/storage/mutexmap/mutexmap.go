@@ -172,7 +172,7 @@ func (m *MMSplitStorage) decreaseTrafficTypeCount(trafficType string) {
 	}
 }
 
-// TrafficTypeExists returns true or false depending on existance and counter
+// TrafficTypeExists returns true or false depending on existence and counter
 // of trafficType
 func (m *MMSplitStorage) TrafficTypeExists(trafficType string) bool {
 	m.ttMutex.RLock()

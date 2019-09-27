@@ -39,20 +39,16 @@ func (c *SplitClient) getEvaluationResult(
 	feature string,
 	attributes map[string]interface{},
 	operation string,
-) (*evaluator.Result, string) {
-	impressionBucketingKey := ""
-	if bucketingKey != nil {
-		impressionBucketingKey = *bucketingKey
-	}
+) *evaluator.Result {
 	if c.isReady() {
-		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, feature, attributes), impressionBucketingKey
+		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, feature, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	return &evaluator.Result{
 		Treatment: evaluator.Control,
 		Label:     impressionlabels.ClientNotReady,
 		Config:    nil,
-	}, impressionBucketingKey
+	}
 }
 
 // getEvaluationsResult calls evaluation for multiple treatments at once
@@ -62,13 +58,9 @@ func (c *SplitClient) getEvaluationsResult(
 	features []string,
 	attributes map[string]interface{},
 	operation string,
-) (evaluator.Results, string) {
-	impressionBucketingKey := ""
-	if bucketingKey != nil {
-		impressionBucketingKey = *bucketingKey
-	}
+) evaluator.Results {
 	if c.isReady() {
-		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, features, attributes), impressionBucketingKey
+		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, features, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	result := evaluator.Results{
@@ -82,13 +74,13 @@ func (c *SplitClient) getEvaluationsResult(
 			Config:    nil,
 		}
 	}
-	return result, impressionBucketingKey
+	return result
 }
 
 // createImpression creates impression to be stored and used by listener
 func (c *SplitClient) createImpression(
 	feature string,
-	impressionBucketingKey string,
+	bucketingKey *string,
 	evaluationLabel string,
 	matchingKey string,
 	treatment string,
@@ -97,6 +89,11 @@ func (c *SplitClient) createImpression(
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
+	}
+
+	impressionBucketingKey := ""
+	if bucketingKey != nil {
+		impressionBucketingKey = *bucketingKey
 	}
 
 	return storage.Impression{
@@ -118,9 +115,7 @@ func (c *SplitClient) storeData(impressions []storage.Impression, attributes map
 
 		// Custom Impression Listener
 		if c.impressionListener != nil {
-			for _, dataToSend := range impressions {
-				c.impressionListener.SendDataToClient(dataToSend, attributes)
-			}
+			c.impressionListener.SendDataToClient(impressions, attributes)
 		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
@@ -179,14 +174,14 @@ func (c *SplitClient) doTreatmentCall(
 		return controlTreatment
 	}
 
-	evaluationResult, impressionBucketingKey := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
+	evaluationResult := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
 
 	if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
 		return controlTreatment
 	}
 
 	c.storeData(
-		[]storage.Impression{c.createImpression(feature, impressionBucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
+		[]storage.Impression{c.createImpression(feature, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTimeNs,
@@ -267,7 +262,7 @@ func (c *SplitClient) doTreatmentsCall(
 	}
 
 	var bulkImpressions []storage.Impression
-	evaluationsResult, impressionBucketingKey := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
+	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 	for feature, evaluation := range evaluationsResult.Evaluations {
 		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
 			treatments[feature] = TreatmentResult{
@@ -275,7 +270,7 @@ func (c *SplitClient) doTreatmentsCall(
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpression(feature, impressionBucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
+			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,

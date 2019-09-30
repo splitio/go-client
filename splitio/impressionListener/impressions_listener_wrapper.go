@@ -28,13 +28,15 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener, metadat
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impression storage.Impression, attributes map[string]interface{}) {
-	datToSend := ILObject{
-		Impression:         impression,
-		Attributes:         attributes,
-		InstanceID:         i.metadata.MachineName,
-		SDKLanguageVersion: i.metadata.SDKVersion,
-	}
+func (i *WrapperImpressionListener) SendDataToClient(impressions []storage.Impression, attributes map[string]interface{}) {
+	for _, impression := range impressions {
+		datToSend := ILObject{
+			Impression:         impression,
+			Attributes:         attributes,
+			InstanceID:         i.metadata.MachineName,
+			SDKLanguageVersion: i.metadata.SDKVersion,
+		}
 
-	i.ImpressionListener.LogImpression(datToSend)
+		i.ImpressionListener.LogImpression(datToSend)
+	}
 }

@@ -44,7 +44,25 @@ func TestMMSplitStorage(t *testing.T) {
 		}
 	}
 
-	split := splitStorage.Get("nonexistant_split")
+	splitNames := make([]string, 0)
+	for index := 0; index < 10; index++ {
+		splitNames = append(splitNames, fmt.Sprintf("SomeSplit_%d", index))
+	}
+	splitsFetchedMany := splitStorage.FetchMany(splitNames)
+	if len(splitsFetchedMany) != 10 {
+		t.Error("It should return 10 splits")
+	}
+	for index := 0; index < 10; index++ {
+		if splitsFetchedMany[fmt.Sprintf("SomeSplit_%d", index)] == nil {
+			t.Error("It should not be nil")
+		}
+	}
+	splitsFetchedMany = splitStorage.FetchMany([]string{"nonexistent_split"})
+	if splitsFetchedMany["nonexistent_split"] != nil {
+		t.Error("It should be nil")
+	}
+
+	split := splitStorage.Get("nonexistent_split")
 	if split != nil {
 		t.Error("Nil expected but split returned")
 	}
@@ -216,7 +234,7 @@ func TestMMSegmentStorage(t *testing.T) {
 		}
 	}
 
-	segment := segmentStorage.Get("nonexistant_segment")
+	segment := segmentStorage.Get("nonexistent_segment")
 	if segment != nil {
 		t.Error("Nil expected but segment returned")
 	}

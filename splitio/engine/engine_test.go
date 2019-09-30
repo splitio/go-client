@@ -87,7 +87,7 @@ func TestTreatmentOnTrafficAllocation1(t *testing.T) {
 
 	eng := Engine{}
 	eng.logger = logger
-	treatment, _ := eng.DoEvaluation(split, "aaaaaaklmnbv", nil, nil)
+	treatment, _ := eng.DoEvaluation(split, "aaaaaaklmnbv", "aaaaaaklmnbv", nil)
 
 	if *treatment == "default" {
 		t.Error("It should not return default treatment.")
@@ -136,7 +136,7 @@ func TestTreatmentOnTrafficAllocation99(t *testing.T) {
 
 	eng := Engine{}
 	eng.logger = logger
-	treatment, _ := eng.DoEvaluation(split, "aaaaaaklmnbv", nil, nil)
+	treatment, _ := eng.DoEvaluation(split, "aaaaaaklmnbv", "aaaaaaklmnbv", nil)
 
 	if *treatment != "default" {
 		t.Error("It should return default treatment.")
@@ -240,7 +240,7 @@ func TestTest(t *testing.T) {
 	eng.logger = logger
 
 	for _, tr := range treatmentsResults {
-		treatment, _ := eng.DoEvaluation(split, tr.Key, nil, nil)
+		treatment, _ := eng.DoEvaluation(split, tr.Key, tr.Key, nil)
 
 		if *treatment != tr.Result {
 			t.Error("Checking expected treatment " + tr.Result + " for key: " + tr.Key)

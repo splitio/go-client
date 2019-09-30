@@ -7,6 +7,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
+	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 
 	"github.com/splitio/go-toolkit/injection"
@@ -26,6 +27,12 @@ type Result struct {
 	EvaluationTimeNs  int64
 	SplitChangeNumber int64
 	Config            *string
+}
+
+// Results represents the result of multiple evaluations at once
+type Results struct {
+	Evaluations      map[string]Result
+	EvaluationTimeNs int64
 }
 
 // Evaluator struct is the main evaluator
@@ -51,19 +58,13 @@ func NewEvaluator(
 	}
 }
 
-// Evaluate returns a struct with the resulting treatment and extra information for the impression
-func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
-	splitDto := e.splitStorage.Get(feature)
+func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature string, splitDto *dtos.SplitDTO, attributes map[string]interface{}) *Result {
 	var config *string
-	if bucketingKey == nil {
-		bucketingKey = &key
-	}
 	if splitDto == nil {
 		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
-		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config, EvaluationTimeNs: 0}
+		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
 	}
 
-	// TODO: Move this to NewEvaluator ?
 	ctx := injection.NewContext()
 	ctx.AddDependency("segmentStorage", e.segmentStorage)
 	ctx.AddDependency("evaluator", e)
@@ -90,9 +91,7 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 		}
 	}
 
-	before := time.Now()
 	treatment, label := e.eng.DoEvaluation(split, key, bucketingKey, attributes)
-	after := time.Now()
 
 	if treatment == nil {
 		e.logger.Warning(fmt.Sprintf(
@@ -112,15 +111,50 @@ func (e *Evaluator) Evaluate(key string, bucketingKey *string, feature string, a
 	return &Result{
 		Treatment:         *treatment,
 		Label:             label,
-		EvaluationTimeNs:  after.Sub(before).Nanoseconds(),
 		SplitChangeNumber: split.ChangeNumber(),
 		Config:            config,
 	}
 }
 
+// EvaluateFeature returns a struct with the resulting treatment and extra information for the impression
+func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
+	before := time.Now()
+	splitDto := e.splitStorage.Get(feature)
+
+	if bucketingKey == nil {
+		bucketingKey = &key
+	}
+	result := e.evaluateTreatment(key, *bucketingKey, feature, splitDto, attributes)
+	after := time.Now()
+
+	result.EvaluationTimeNs = after.Sub(before).Nanoseconds()
+	return result
+}
+
+// EvaluateFeatures returns a struct with the resulting treatment and extra information for the impression
+func (e *Evaluator) EvaluateFeatures(key string, bucketingKey *string, features []string, attributes map[string]interface{}) Results {
+	var results = Results{
+		Evaluations:      make(map[string]Result),
+		EvaluationTimeNs: 0,
+	}
+	before := time.Now()
+	splits := e.splitStorage.FetchMany(features)
+
+	if bucketingKey == nil {
+		bucketingKey = &key
+	}
+	for _, feature := range features {
+		results.Evaluations[feature] = *e.evaluateTreatment(key, *bucketingKey, feature, splits[feature], attributes)
+	}
+
+	after := time.Now()
+	results.EvaluationTimeNs = after.Sub(before).Nanoseconds()
+	return results
+}
+
 // EvaluateDependency SHOULD ONLY BE USED by DependencyMatcher.
 // It's used to break the dependency cycle between matchers and evaluators.
 func (e *Evaluator) EvaluateDependency(key string, bucketingKey *string, feature string, attributes map[string]interface{}) string {
-	res := e.Evaluate(key, bucketingKey, feature, attributes)
+	res := e.EvaluateFeature(key, bucketingKey, feature, attributes)
 	return res.Treatment
 }

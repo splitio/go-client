@@ -1,3 +1,6 @@
+5.1.1 (Sept XX, 2019)
+ - Fetch multiple splits at once on getTreatments/getTreatmentsWithConfig
+
 5.1.0 (Jul 19, 2019)
  - Added support for TLS connections to redis
  - Refactored initialization process
@@ -5,7 +8,7 @@
  - Fixed possible concurrency issue with split storage
 
 5.0.1 (Jun 19, 2019)
- - Added coverage for traffic type validation existance only on ready and non localhost mode.
+ - Added coverage for traffic type validation existence only on ready and non localhost mode.
 
 5.0.0 (Jun 4, 2019)
  - Added support for optional event properties via our Track() method.

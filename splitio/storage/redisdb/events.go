@@ -105,7 +105,7 @@ func (r *RedisEventsStorage) Count() int64 {
 	return r.client.LLen(r.redisKey).Val()
 }
 
-// Empty returns true if redis list is zero lenght
+// Empty returns true if redis list is zero length
 func (r *RedisEventsStorage) Empty() bool {
 	return r.client.LLen(r.redisKey).Val() == 0
 }

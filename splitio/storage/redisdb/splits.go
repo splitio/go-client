@@ -45,6 +45,36 @@ func (r *RedisSplitStorage) Get(feature string) *dtos.SplitDTO {
 	return &split
 }
 
+// FetchMany retrieves features from redis storage
+func (r *RedisSplitStorage) FetchMany(features []string) map[string]*dtos.SplitDTO {
+	keysToFetch := make([]string, 0)
+	for _, feature := range features {
+		keysToFetch = append(keysToFetch, strings.Replace(redisSplit, "{split}", feature, 1))
+	}
+	rawSplits, err := r.client.Mget(keysToFetch)
+
+	if err != nil {
+		r.logger.Error(fmt.Sprintf("Could not fetch features from redis: %s", err.Error()))
+		return nil
+	}
+
+	splits := make(map[string]*dtos.SplitDTO)
+	for idx, feature := range features {
+		var split *dtos.SplitDTO
+		rawSplit, ok := rawSplits[idx].(string)
+		if ok {
+			err = json.Unmarshal([]byte(rawSplit), &split)
+			if err != nil {
+				r.logger.Error("Could not parse feature \"%s\" fetched from redis", feature)
+				return nil
+			}
+		}
+		splits[feature] = split
+	}
+
+	return splits
+}
+
 // PutMany bulk stores splits in redis
 func (r *RedisSplitStorage) PutMany(splits []dtos.SplitDTO, changeNumber int64) {
 	for _, split := range splits {
@@ -181,7 +211,7 @@ func (r *RedisSplitStorage) Clear() {
 	})
 }
 
-// TrafficTypeExists returns true or false depending on existance and counter
+// TrafficTypeExists returns true or false depending on existence and counter
 // of trafficType
 func (r *RedisSplitStorage) TrafficTypeExists(trafficType string) bool {
 	keyToFetch := strings.Replace(redisTrafficType, "{trafficType}", trafficType, 1)

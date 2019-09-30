@@ -37,7 +37,7 @@ func main() {
 }
 ```
 
-Please refer to [our official docs]([docs_for_java_url](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)) to learn about all the functionality provided by our SDK and the configuration options available for tailoring it to your current application setup.
+Please refer to [our official docs](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)) to learn about all the functionality provided by our SDK and the configuration options available for tailoring it to your current application setup.
 
 ## Submitting issues
 The Split team monitors all issues submitted to this [issue tracker](https://github.com/splitio/<LANGUAGE>-client/issues). We encourage you to use this issue tracker to submit any bug reports, feedback, and feature enhancements. We'll do our best to respond in a timely manner.

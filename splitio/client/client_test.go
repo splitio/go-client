@@ -30,7 +30,7 @@ type mockEvaluator struct{}
 type mockEvents struct{}
 type mockEventsPanic struct{}
 
-func (e *mockEvaluator) Evaluate(
+func (e *mockEvaluator) EvaluateFeature(
 	key string,
 	bucketingKey *string,
 	feature string,
@@ -67,8 +67,56 @@ func (e *mockEvaluator) Evaluate(
 		}
 	}
 }
+func (e *mockEvaluator) EvaluateFeatures(
+	key string,
+	bucketingKey *string,
+	features []string,
+	attributes map[string]interface{},
+) evaluator.Results {
+	results := evaluator.Results{
+		Evaluations:      make(map[string]evaluator.Result),
+		EvaluationTimeNs: 0,
+	}
+	for _, feature := range features {
+		switch feature {
+		case "feature":
+			results.Evaluations["feature"] = evaluator.Result{
+				EvaluationTimeNs:  0,
+				Label:             "aLabel",
+				SplitChangeNumber: 123,
+				Treatment:         "TreatmentA",
+			}
+			break
+		case "feature2":
+			results.Evaluations["feature2"] = evaluator.Result{
+				EvaluationTimeNs:  0,
+				Label:             "bLabel",
+				SplitChangeNumber: 123,
+				Treatment:         "TreatmentB",
+			}
+			break
+		case "some_feature":
+			results.Evaluations["some_feature"] = evaluator.Result{
+				EvaluationTimeNs:  0,
+				Label:             "bLabel",
+				SplitChangeNumber: 123,
+				Treatment:         evaluator.Control,
+			}
+			break
+		default:
+			results.Evaluations[feature] = evaluator.Result{
+				EvaluationTimeNs:  0,
+				Label:             impressionlabels.SplitNotFound,
+				SplitChangeNumber: 123,
+				Treatment:         evaluator.Control,
+			}
+			break
+		}
+	}
+	return results
+}
 
-func (e *mockEventsPanic) Evaluate(
+func (e *mockEventsPanic) EvaluateFeature(
 	key string,
 	bucketingKey *string,
 	feature string,
@@ -76,28 +124,62 @@ func (e *mockEventsPanic) Evaluate(
 ) *evaluator.Result {
 	panic("Testing panicking")
 }
+func (e *mockEventsPanic) EvaluateFeatures(
+	key string,
+	bucketingKey *string,
+	features []string,
+	attributes map[string]interface{},
+) evaluator.Results {
+	panic("Testing panicking")
+}
 
 func (s *mockEvents) Push(event dtos.EventDTO, size int) error { return nil }
 
-func TestClientGetTreatment(t *testing.T) {
+func getFactory() SplitFactory {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
-	factory := SplitFactory{
+	return SplitFactory{
 		cfg: cfg,
 		storages: sdkStorages{
 			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 			telemetry:   mutexmap.NewMMMetricsStorage(),
+			events:      &mockEvents{},
 		},
 		logger: logger,
 	}
+}
 
+func expectedTreatment(treatment string, expectedTreatment string, t *testing.T) {
+	if treatment != expectedTreatment {
+		t.Error("Expected: " + expectedTreatment + " actual: " + treatment)
+	}
+}
+
+func expectedTreatmentAndConfig(treatmentResult TreatmentResult, expectedTreatment string, expectedConfig string, t *testing.T) {
+	if treatmentResult.Treatment != expectedTreatment {
+		t.Error("Expected: " + treatmentResult.Treatment + " actual: " + expectedTreatment)
+	}
+	if expectedConfig != "" {
+		if *treatmentResult.Config != expectedConfig {
+			t.Error("Expected Config: " + *treatmentResult.Config + " actual: " + expectedConfig)
+		}
+	} else {
+		if treatmentResult.Config != nil {
+			t.Error("Config was not nil")
+		}
+	}
+
+}
+
+func TestClientGetTreatment(t *testing.T) {
+	factory := getFactory()
 	client := factory.Client()
 	client.evaluator = &mockEvaluator{}
 	factory.status.Store(sdkStatusReady)
-	client.Treatment("key", "feature", nil)
 
+	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
 	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
 	impression := impressions[0]
@@ -106,7 +188,7 @@ func TestClientGetTreatment(t *testing.T) {
 	}
 
 	client.factory.cfg.LabelsEnabled = false
-	client.Treatment("key", "feature2", nil)
+	expectedTreatment(client.Treatment("key", "feature2", nil), "TreatmentB", t)
 
 	impressions, _ = impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
 	impression = impressions[0]
@@ -116,34 +198,15 @@ func TestClientGetTreatment(t *testing.T) {
 }
 
 func TestTreatments(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	factory := SplitFactory{
-		cfg: cfg,
-		storages: sdkStorages{
-			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			telemetry:   mutexmap.NewMMMetricsStorage(),
-		},
-		logger: logger,
-	}
-
+	factory := getFactory()
 	client := factory.Client()
 	client.evaluator = &mockEvaluator{}
 	factory.status.Store(sdkStatusReady)
 
 	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil)
 
-	featureRes, ok := res["feature"]
-	if !ok || featureRes != "TreatmentA" {
-		t.Error("Incorrect result for \"feature\"")
-	}
-
-	notFeatureRes, ok := res["notFeature"]
-	if !ok || notFeatureRes != evaluator.Control {
-		t.Error("Incorrect result for \"notFeature\"")
-	}
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["notFeature"], evaluator.Control, t)
 }
 
 func TestLocalhostMode(t *testing.T) {
@@ -167,15 +230,8 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
-	feature1 := client.Treatment("asd", "feature1", nil)
-	if feature1 != "on" {
-		t.Error("Feature1 retrieved incorrectly")
-	}
-
-	feature2 := client.Treatment("asd", "feature2", nil)
-	if feature2 != "off" {
-		t.Error("Feature2 retrieved incorrectly")
-	}
+	expectedTreatment(client.Treatment("asd", "feature1", nil), "on", t)
+	expectedTreatment(client.Treatment("asd", "feature2", nil), "off", t)
 
 	if client.Track("somekey", "somett", "somee", nil, nil) != nil {
 		t.Error("It should be ok")
@@ -187,77 +243,29 @@ func TestLocalhostMode(t *testing.T) {
 }
 
 func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	factory := SplitFactory{
-		cfg: cfg,
-		storages: sdkStorages{
-			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			telemetry:   mutexmap.NewMMMetricsStorage(),
-		},
-		logger: logger,
-	}
-
+	factory := getFactory()
 	client := factory.Client()
 	client.evaluator = &mockEvaluator{}
 	factory.status.Store(sdkStatusReady)
 
-	feature1 := client.Treatment(nil, "feature", nil)
-	if feature1 != "control" {
-		t.Error("Feature1 retrieved incorrectly")
-	}
-
-	feature2 := client.Treatment(true, "feature", nil)
-	if feature2 != "control" {
-		t.Error("Feature2 retrieved incorrectly")
-	}
-
-	feature3 := client.Treatment(123, "feature", nil)
-	if feature3 != "TreatmentA" {
-		t.Error("Feature3 retrieved incorrectly")
-	}
-
-	feature4 := client.Treatment("key", "feature", nil)
-	if feature4 != "TreatmentA" {
-		t.Error("Feature4 retrieved incorrectly")
-	}
-
-	var key = &Key{
+	expectedTreatment(client.Treatment(nil, "feature", nil), evaluator.Control, t)
+	expectedTreatment(client.Treatment(true, "feature", nil), evaluator.Control, t)
+	expectedTreatment(client.Treatment(123, "feature", nil), "TreatmentA", t)
+	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
+	expectedTreatment(client.Treatment(&Key{
 		MatchingKey:  "key",
 		BucketingKey: "bucketing",
-	}
-
-	feature5 := client.Treatment(key, "feature", nil)
-	if feature5 != "TreatmentA" {
-		t.Error("Feature5 retrieved incorrectly")
-	}
+	}, "feature", nil), "TreatmentA", t)
 }
 
 func TestClientPanicking(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-
-	factory := SplitFactory{
-		cfg: cfg,
-		storages: sdkStorages{
-			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			telemetry:   mutexmap.NewMMMetricsStorage(),
-			events:      &mockEvents{},
-		},
-		logger: logger,
-	}
+	factory := getFactory()
 
 	client := factory.Client()
 	client.evaluator = &mockEventsPanic{}
 	factory.status.Store(sdkStatusReady)
 
-	treatment := client.Treatment("key", "some", nil)
-	if treatment != "control" {
-		t.Error("treatment retrieved incorrectly")
-	}
+	expectedTreatment(client.Treatment("key", "some", nil), evaluator.Control, t)
 }
 
 func TestClientDestroy(t *testing.T) {
@@ -423,6 +431,7 @@ func TestClientDestroy(t *testing.T) {
 	}
 }
 
+// TEST CLIENT WITH IMPRESSION LISTENER //
 type ImpressionListenerTest struct {
 }
 
@@ -458,7 +467,7 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 	return true
 }
 
-func TestImpressionListener(t *testing.T) {
+func getClientForListener() SplitClient {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
@@ -472,10 +481,17 @@ func TestImpressionListener(t *testing.T) {
 
 	factory := &SplitFactory{
 		cfg: cfg,
+		storages: sdkStorages{
+			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+			telemetry:   mutexmap.NewMMMetricsStorage(),
+			events:      &mockEvents{},
+		},
+		logger: logger,
 		metadata: splitio.SdkMetadata{
 			SDKVersion: "go-" + splitio.Version,
 		},
 	}
+
 	client := SplitClient{
 		evaluator:          &mockEvaluator{},
 		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
@@ -487,15 +503,15 @@ func TestImpressionListener(t *testing.T) {
 
 	factory.status.Store(sdkStatusReady)
 
+	return client
+}
+func TestImpressionListener(t *testing.T) {
+	client := getClientForListener()
+
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
 
-	res := client.Treatment("user1", "feature", attributes)
-
-	if res != "TreatmentA" {
-		t.Error("Wrong Treatment result")
-	}
-
+	expectedTreatment(client.Treatment("user1", "feature", attributes), "TreatmentA", t)
 	expectedVersion := "go-" + splitio.Version
 
 	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
@@ -507,41 +523,15 @@ func TestImpressionListener(t *testing.T) {
 }
 
 func TestImpressionListenerForTreatments(t *testing.T) {
-	cfg := conf.Default()
-	cfg.LabelsEnabled = true
-	logger := logging.NewLogger(nil)
-	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
-		SDKVersion:  "go-" + splitio.Version,
-		MachineIP:   "123.123.123.123",
-		MachineName: "ip-123-123-123-123",
-	})
-
-	factory := &SplitFactory{
-		cfg: cfg,
-		metadata: splitio.SdkMetadata{
-			SDKVersion: splitio.Version,
-		},
-	}
-	client := SplitClient{
-		evaluator:          &mockEvaluator{},
-		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:             logger,
-		metrics:            mutexmap.NewMMMetricsStorage(),
-		impressionListener: impresionL,
-		factory:            factory,
-	}
-
-	factory.status.Store(sdkStatusReady)
+	client := getClientForListener()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
 
 	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes)
 
-	if res["feature"] != "TreatmentA" || res["feature2"] != "TreatmentB" {
-		t.Error("Wrong Treatment result")
-	}
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["feature2"], "TreatmentB", t)
 
 	if len(ilResult) != 2 {
 		t.Error("Error on ImpressionListener")
@@ -562,6 +552,7 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 	delete(ilResult, "feature2")
 }
 
+// TEST BLOCK UNTIL READY //
 func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
 	file, err := ioutil.TempFile("", "splitio_tests")
 	if err != nil {
@@ -629,19 +620,11 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
 
-	if client.Treatment("something", "something", attributes) != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
-
-	if client.Treatment("something", "something", nil) != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(client.Treatment("something", "something", attributes), evaluator.Control, t)
 
 	features := []string{"something"}
 	result := client.Treatments("something", features, nil)
-	if result["something"] != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(result["something"], evaluator.Control, t)
 
 	err = client.BlockUntilReady(1)
 	if err != nil {
@@ -661,10 +644,7 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 		t.Error("It should not return error")
 	}
 
-	feature1 := client.Treatment("asd", "feature1", nil)
-	if feature1 != "on" {
-		t.Error("Feature1 retrieved incorrectly")
-	}
+	expectedTreatment(client.Treatment("asd", "feature1", nil), "on", t)
 
 	if manager.SplitNames()[0] != "feature1" {
 		t.Error("It should return splits")
@@ -777,24 +757,18 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Client should not be ready")
 	}
 
-	if client.Treatment("not_ready", "not_ready", attributes) != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(client.Treatment("not_ready", "not_ready", attributes), evaluator.Control, t)
 	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 
 	}
 	ilResult = make(map[string]interface{})
 
-	if client.Treatment("something", "something", nil) != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(client.Treatment("something", "something", attributes), evaluator.Control, t)
 
 	features := []string{"something"}
 	result := client.Treatments("something", features, nil)
-	if result["something"] != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(result["something"], evaluator.Control, t)
 
 	err := client.Track("something", "something", "something", nil, nil)
 	if err != nil {
@@ -916,17 +890,13 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 		t.Error("It should not return splits")
 	}
 
-	if client.Treatment("not_ready2", "not_ready2", attributes) != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(client.Treatment("not_ready2", "not_ready2", attributes), evaluator.Control, t)
 	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
 
 	result := client.Treatments("not_ready3", []string{"not_ready3"}, attributes)
-	if result["not_ready3"] != evaluator.Control {
-		t.Error("Wrong evaluation")
-	}
+	expectedTreatment(result["not_ready3"], evaluator.Control, t)
 	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
@@ -1132,6 +1102,21 @@ func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([
 func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
 func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
 func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }
+func (s *mockStorage) FetchMany(features []string) map[string]*dtos.SplitDTO {
+	splits := make(map[string]*dtos.SplitDTO)
+	for _, feature := range features {
+		switch feature {
+		default:
+		case "valid":
+			splits[feature] = valid
+			break
+		case "killed":
+			splits["killed"] = killed
+			break
+		}
+	}
+	return splits
+}
 
 type mockSegmentStorage struct{}
 
@@ -1180,106 +1165,55 @@ func TestClient(t *testing.T) {
 	factory.status.Store(sdkStatusReady)
 
 	// Assertions Treatment
-	if client.Treatment("user1", "valid", nil) != "on" {
-		t.Error("Unexpected Treatment Result")
-	}
+	expectedTreatment(client.Treatment("user1", "valid", nil), "on", t)
 	if isInvalidImpression(client, "user1", "valid", "on") {
 		t.Error("Wrong impression saved")
 	}
 
-	if client.Treatment("invalid", "valid", nil) != "off" {
-		t.Error("Unexpected Treatment Result")
-	}
+	expectedTreatment(client.Treatment("invalid", "valid", nil), "off", t)
 	if isInvalidImpression(client, "invalid", "valid", "off") {
 		t.Error("Wrong impression saved")
 	}
 
+	expectedTreatment(client.Treatment("invalid", "invalid", nil), "control", t)
 	if client.Treatment("invalid", "invalid", nil) != "control" {
 		t.Error("Unexpected Treatment Result")
 	}
 
-	if client.Treatment("invalid", "killed", nil) != "defTreatment" {
-		t.Error("Unexpected Treatment Result")
-	}
+	expectedTreatment(client.Treatment("invalid", "killed", nil), "defTreatment", t)
 	if isInvalidImpression(client, "invalid", "killed", "defTreatment") {
 		t.Error("Wrong impression saved")
 	}
 
 	// Assertion Treatments
 	treatments := client.Treatments("user1", []string{"valid", "invalid", "killed"}, nil)
-	if treatments["invalid"] != "control" {
-		t.Error("Unexpected treatment result")
-	}
-	if treatments["killed"] != "defTreatment" {
-		t.Error("Unexpected treatment result")
-	}
-	if treatments["valid"] != "on" {
-		t.Error("Unexpected treatment result")
-	}
+	expectedTreatment(treatments["invalid"], "control", t)
+	expectedTreatment(treatments["killed"], "defTreatment", t)
+	expectedTreatment(treatments["valid"], "on", t)
 	client.impressions.(storage.ImpressionStorage).PopN(cfg.Advanced.ImpressionsBulkSize)
 
 	// Assertion TreatmentWithConfig
-	result := client.TreatmentWithConfig("user1", "valid", nil)
-	if result.Treatment != "on" {
-		t.Error("Unexpected Treatment Result")
-	}
-	if *result.Config != "{\"color\": \"blue\",\"size\": 13}" {
-		t.Error("Unexpected Config Result")
-	}
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("user1", "valid", nil), "on", "{\"color\": \"blue\",\"size\": 13}", t)
 	if isInvalidImpression(client, "user1", "valid", "on") {
 		t.Error("Wrong impression saved")
 	}
 
-	result = client.TreatmentWithConfig("invalid", "valid", nil)
-	if result.Treatment != "off" {
-		t.Error("Unexpected Treatment Result")
-	}
-	if result.Config != nil {
-		t.Error("Unexpected Config Result")
-	}
-	if isInvalidImpression(client, "invalid", "valid", result.Treatment) {
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "valid", nil), "off", "", t)
+	if isInvalidImpression(client, "invalid", "valid", "off") {
 		t.Error("Wrong impression saved")
 	}
 
-	result = client.TreatmentWithConfig("invalid", "invalid", nil)
-	if result.Treatment != "control" {
-		t.Error("Unexpected Treatment Result")
-	}
-	if result.Config != nil {
-		t.Error("Unexpected Config Result")
-	}
-
-	result = client.TreatmentWithConfig("invalid", "killed", nil)
-	if result.Treatment != "defTreatment" {
-		t.Error("Unexpected Treatment Result")
-	}
-	if *result.Config != "{\"color\": \"orange\",\"size\": 15}" {
-		t.Error("Unexpected Config Result")
-	}
-	if isInvalidImpression(client, "invalid", "killed", result.Treatment) {
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "invalid", nil), "control", "", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "killed", nil), "defTreatment", "{\"color\": \"orange\",\"size\": 15}", t)
+	if isInvalidImpression(client, "invalid", "killed", "defTreatment") {
 		t.Error("Wrong impression saved")
 	}
 
 	// Assertion TreatmentsWithConfig
 	treatmentsWithConfigs := client.TreatmentsWithConfig("user1", []string{"valid", "invalid", "killed"}, nil)
-	if treatmentsWithConfigs["invalid"].Treatment != "control" {
-		t.Error("Unexpected treatment result")
-	}
-	if treatmentsWithConfigs["invalid"].Config != nil {
-		t.Error("Unexpected Config Result")
-	}
-	if treatmentsWithConfigs["killed"].Treatment != "defTreatment" {
-		t.Error("Unexpected treatment result")
-	}
-	if *treatmentsWithConfigs["killed"].Config != "{\"color\": \"orange\",\"size\": 15}" {
-		t.Error("Unexpected Config Result")
-	}
-	if treatmentsWithConfigs["valid"].Treatment != "on" {
-		t.Error("Unexpected treatment result")
-	}
-	if *treatmentsWithConfigs["valid"].Config != "{\"color\": \"blue\",\"size\": 13}" {
-		t.Error("Unexpected Config Result")
-	}
+	expectedTreatmentAndConfig(treatmentsWithConfigs["invalid"], "control", "", t)
+	expectedTreatmentAndConfig(treatmentsWithConfigs["killed"], "defTreatment", "{\"color\": \"orange\",\"size\": 15}", t)
+	expectedTreatmentAndConfig(treatmentsWithConfigs["valid"], "on", "{\"color\": \"blue\",\"size\": 13}", t)
 }
 
 func TestLocalhostModeYAML(t *testing.T) {
@@ -1303,86 +1237,25 @@ func TestLocalhostModeYAML(t *testing.T) {
 		t.Error("Error grabbing splits for localhost mode")
 	}
 
-	result := client.Treatment("only_key", "my_feature", nil)
-	if result != "off" {
-		t.Error("Treatment retrieved incorrectly")
-	}
+	expectedTreatment(client.Treatment("only_key", "my_feature", nil), "off", t)
+	expectedTreatment(client.Treatment("invalid_key", "my_feature", nil), "control", t)
+	expectedTreatment(client.Treatment("key", "my_feature", nil), "on", t)
+	expectedTreatment(client.Treatment("key2", "other_feature", nil), "on", t)
+	expectedTreatment(client.Treatment("test", "other_feature_2", nil), "on", t)
+	expectedTreatment(client.Treatment("key", "other_feature_3", nil), "off", t)
+	expectedTreatment(client.Treatment("key_whitelist", "other_feature_3", nil), "on", t)
 
-	result = client.Treatment("invalid_key", "my_feature", nil)
-	if result != "control" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-
-	result = client.Treatment("key", "my_feature", nil)
-	if result != "on" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-
-	result = client.Treatment("key2", "other_feature", nil)
-	if result != "on" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-
-	result = client.Treatment("test", "other_feature_2", nil)
-	if result != "on" {
-		t.Error("Treatment retrieved incorrectly", result)
-	}
-
-	result = client.Treatment("key", "other_feature_3", nil)
-	if result != "off" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-
-	result = client.Treatment("key_whitelist", "other_feature_3", nil)
-	if result != "on" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-
-	resultWithConfigs := client.TreatmentWithConfig("only_key", "my_feature", nil)
-	if resultWithConfigs.Treatment != "off" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
-		t.Error("Wronf config returned")
-	}
-
-	resultWithConfigs = client.TreatmentWithConfig("key", "my_feature", nil)
-	if resultWithConfigs.Treatment != "on" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-	if *resultWithConfigs.Config != "{\"desc\" : \"this applies only to ON treatment\"}" {
-		t.Error("Wronf config returned")
-	}
-
-	resultWithConfigs = client.TreatmentWithConfig("key3", "other_feature", nil)
-	if resultWithConfigs.Treatment != "on" {
-		t.Error("Treatment retrieved incorrectly")
-	}
-	if resultWithConfigs.Config != nil {
-		t.Error("Config should be nil")
-	}
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("only_key", "my_feature", nil), "off", "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "my_feature", nil), "on", "{\"desc\" : \"this applies only to ON treatment\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key3", "other_feature", nil), "on", "", t)
 
 	resultTreatments := client.Treatments("only_key", []string{"my_feature", "other_feature"}, nil)
-	if resultTreatments["my_feature"] != "off" {
-		t.Error("Wrong Treatment result")
-	}
-	if resultTreatments["other_feature"] != "control" {
-		t.Error("Wrong Treatment result")
-	}
+	expectedTreatment(resultTreatments["my_feature"], "off", t)
+	expectedTreatment(resultTreatments["other_feature"], "control", t)
 
 	resultTreatmentsWithConfig := client.TreatmentsWithConfig("only_key", []string{"my_feature", "other_feature"}, nil)
-	if resultTreatmentsWithConfig["my_feature"].Treatment != "off" {
-		t.Error("Wrong Treatment result")
-	}
-	if *resultTreatmentsWithConfig["my_feature"].Config != "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}" {
-		t.Error("Wrong Config result")
-	}
-	if resultTreatmentsWithConfig["other_feature"].Treatment != "control" {
-		t.Error("Wrong Treatment result")
-	}
-	if resultTreatmentsWithConfig["other_feature"].Config != nil {
-		t.Error("Config should be nil")
-	}
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["my_feature"], "off", "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}", t)
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
 func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {

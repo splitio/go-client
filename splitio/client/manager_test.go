@@ -84,7 +84,7 @@ func TestSplitManager(t *testing.T) {
 
 	sx := manager.Split("split3492042")
 	if sx != nil {
-		t.Error("Nonexistant split should return nil")
+		t.Error("Nonexistent split should return nil")
 	}
 }
 
@@ -156,6 +156,6 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 
 	sx := manager.Split("split3492042")
 	if sx != nil {
-		t.Error("Nonexistant split should return nil")
+		t.Error("Nonexistent split should return nil")
 	}
 }

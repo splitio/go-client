@@ -1300,7 +1300,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
 
 func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
 	// Deletes generated data
-	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/NA/latency.sdk.getTreatment.bucket.*", splitio.Version))
+	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
 	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")
 	prefixedClient.Del(keys...)
 }
@@ -1377,7 +1377,7 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
-	client.BlockUntilReady(5)
+	client.BlockUntilReady(2)
 	return *client
 }
 

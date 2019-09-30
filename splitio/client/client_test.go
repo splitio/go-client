@@ -1312,10 +1312,13 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(jsonImpr[0]), &impression)
 	metadata := impression["m"]
-
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
 		t.Error("Instance Name and Machine IP should have 'NA' values")
+	}
+	listenerData, _ := ilResult["valid"].(map[string]interface{})
+	if listenerData["InstanceName"] != "NA" {
+		t.Error("InstanceName should be 'NA")
 	}
 
 	// Grabs created event
@@ -1338,10 +1341,13 @@ func TestRedisClientWithIPEnabled(t *testing.T) {
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(jsonImpr[0]), &impression)
 	metadata := impression["m"]
-
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
 		t.Error("Instance Name and Machine IP should not have 'NA' values")
+	}
+	listenerData, _ := ilResult["valid"].(map[string]interface{})
+	if listenerData["InstanceName"] == "NA" {
+		t.Error("InstanceName should not be 'NA")
 	}
 
 	// Grabs created event
@@ -1364,6 +1370,7 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.LoggerConfig.LogLevel = logging.LevelDebug
 	cfg.TaskPeriods.ImpressionSync = 3
 	cfg.TaskPeriods.EventsSync = 3
@@ -1423,6 +1430,11 @@ func TestClientWithIPEnabled(t *testing.T) {
 	// Calls treatments to generate one valid impression
 	client.Track("user1", "my-traffic", "my-event", nil, nil)
 	client.Treatment("user1", "DEMO_MURMUR2", nil)
+
+	listenerData, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if listenerData["InstanceName"] == "NA" {
+		t.Error("InstanceName should not be 'NA")
+	}
 
 	select {
 	case <-postChannel:
@@ -1485,6 +1497,11 @@ func TestClientWithIPDisabled(t *testing.T) {
 	// Calls treatments to generate one valid impression
 	client.Track("user1", "my-traffic", "my-event", nil, nil)
 	client.Treatment("user1", "DEMO_MURMUR2", nil)
+
+	listenerData, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if listenerData["InstanceName"] != "NA" {
+		t.Error("InstanceName should be 'NA")
+	}
 
 	select {
 	case <-postChannel:

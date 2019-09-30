@@ -285,7 +285,6 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata *splitio.SdkMetadata,
 ) (*SplitFactory, error) {
-	fmt.Println("IN MEMORY")
 	err := api.ValidateApikey(apikey, cfg.Advanced)
 	if err != nil {
 		return nil, err
@@ -412,8 +411,6 @@ func setupLocalhostFactory(
 	logger logging.LoggerInterface,
 	metadata *splitio.SdkMetadata,
 ) (*SplitFactory, error) {
-	fmt.Println("IN LOCAL")
-
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 	splitPeriod := cfg.TaskPeriods.SplitSync

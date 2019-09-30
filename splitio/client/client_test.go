@@ -1419,7 +1419,6 @@ func TestClientWithIPEnabled(t *testing.T) {
 			postChannel <- "finished"
 		case "/segmentChanges":
 		default:
-			t.Error(r.URL.Path)
 			fmt.Fprintln(w, "ok")
 			return
 		}
@@ -1485,7 +1484,6 @@ func TestClientWithIPDisabled(t *testing.T) {
 			postChannel <- "finished"
 		case "/segmentChanges":
 		default:
-			t.Error(r.URL.Path)
 			fmt.Fprintln(w, "ok")
 			return
 		}

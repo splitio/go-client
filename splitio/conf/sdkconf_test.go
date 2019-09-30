@@ -28,4 +28,17 @@ func TestSdkConfNormalization(t *testing.T) {
 	if cfg.Advanced.SdkURL != cfg.SplitSyncProxyURL || cfg.Advanced.EventsURL != cfg.SplitSyncProxyURL {
 		t.Error("Sdk & Events URL should be updated when SplitSyncProxyURL is not empty")
 	}
+
+	cfg = Default()
+	cfg.IPAddressesEnabled = false
+	err = Normalize("asd", cfg)
+	if err != nil || cfg.IPAddress != "NA" || cfg.InstanceName != "NA" {
+		t.Error("Should be NA")
+	}
+
+	cfg = Default()
+	err = Normalize("asd", cfg)
+	if err != nil || cfg.IPAddress == "NA" || cfg.InstanceName == "NA" {
+		t.Error("Should not be NA")
+	}
 }

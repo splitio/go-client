@@ -1,6 +1,7 @@
 package client
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,11 +15,12 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-client/splitio/impressionListener"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-client/splitio/storage/mutexqueue"
+	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
@@ -1380,5 +1382,242 @@ func TestLocalhostModeYAML(t *testing.T) {
 	}
 	if resultTreatmentsWithConfig["other_feature"].Config != nil {
 		t.Error("Config should be nil")
+	}
+}
+
+func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
+	// Create prefixed client for adding Split
+	prefixedClient, _ := redisdb.NewPrefixedRedisClient(&conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	})
+
+	splitStorage := redisdb.NewRedisSplitStorage(prefixedClient, logger)
+	splitStorage.PutMany([]dtos.SplitDTO{*valid}, 1494593336752)
+
+	// Set default configs to connect Client with redis
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.IPAddressesEnabled = IPAddressesEnabled
+	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
+	cfg.OperationMode = "redis-consumer"
+	cfg.Redis = conf.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Database: 1,
+		Password: "",
+		Prefix:   "testPrefix",
+	}
+
+	factory, _ := NewSplitFactory("apikey", cfg)
+	client := factory.Client()
+
+	// Deletes previous data
+	prefixedClient.Del("SPLITIO.impressions", "SPLITIO.events")
+
+	// Calls treatments to generate one valid impression
+	client.Treatment("user1", "valid", nil)
+	client.Track("user1", "my-traffic", "my-event", nil, nil)
+
+	return prefixedClient
+}
+
+func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
+	// Deletes generated data
+	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/NA/latency.sdk.getTreatment.bucket.*", splitio.Version))
+	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")
+	prefixedClient.Del(keys...)
+}
+
+func TestRedisClientWithIPDisabled(t *testing.T) {
+	prefixedClient := getRedisConfWithIP(false)
+	// Grabs created impression
+	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	impression := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	metadata := impression["m"]
+
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] != "NA" || metadata["n"] != "NA" {
+		t.Error("Instance Name and Machine IP should have 'NA' values")
+	}
+
+	// Grabs created event
+	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	metadata = event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] != "NA" || metadata["n"] != "NA" {
+		t.Error("Instance Name and Machine IP should have 'NA' values")
+	}
+
+	deleteDataGenerated(prefixedClient)
+}
+
+func TestRedisClientWithIPEnabled(t *testing.T) {
+	prefixedClient := getRedisConfWithIP(true)
+	// Grabs created impression
+	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	impression := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	metadata := impression["m"]
+
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] == "NA" || metadata["n"] == "NA" {
+		t.Error("Instance Name and Machine IP should not have 'NA' values")
+	}
+
+	// Grabs created event
+	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	metadata = event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] == "NA" || metadata["n"] == "NA" {
+		t.Error("Instance Name and Machine IP should not have 'NA' values")
+	}
+
+	deleteDataGenerated(prefixedClient)
+}
+
+func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) SplitClient {
+	// Set default configs to connect Client with redis
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.IPAddressesEnabled = IPAddressesEnabled
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.LoggerConfig.LogLevel = logging.LevelDebug
+	cfg.TaskPeriods.ImpressionSync = 3
+	cfg.TaskPeriods.EventsSync = 3
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(5)
+	return *client
+}
+
+func TestClientWithIPEnabled(t *testing.T) {
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock.json")
+	var splitMock, _ = ioutil.ReadFile("../../testdata/split_mock.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
+			return
+		case "/segmentChanges/___TEST___":
+			w.Header().Add("Content-Encoding", "gzip")
+			gzw := gzip.NewWriter(w)
+			defer gzw.Close()
+			fmt.Fprintln(gzw, "Hello, client")
+			return
+		case "/testImpressions/bulk":
+		case "/events/bulk":
+			if r.Header.Get("SplitSDKMachineIP") == "NA" || r.Header.Get("SplitSDKMachineName") == "NA" {
+				t.Error("It should not be NA when IPAddressesEnabled has been set")
+			}
+
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost []map[string]interface{}
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if len(dataInPost) < 1 {
+				t.Error("It should send data")
+			}
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/segmentChanges":
+		default:
+			t.Error(r.URL.Path)
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+
+	client := getInMemoryClientWithIP(true, ts)
+	// Calls treatments to generate one valid impression
+	client.Track("user1", "my-traffic", "my-event", nil, nil)
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
+func TestClientWithIPDisabled(t *testing.T) {
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock.json")
+	var splitMock, _ = ioutil.ReadFile("../../testdata/split_mock.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
+			return
+		case "/segmentChanges/___TEST___":
+			w.Header().Add("Content-Encoding", "gzip")
+			gzw := gzip.NewWriter(w)
+			defer gzw.Close()
+			fmt.Fprintln(gzw, "Hello, client")
+			return
+		case "/testImpressions/bulk":
+		case "/events/bulk":
+			for header := range r.Header {
+				if (header == "SplitSDKMachineIP") || (header == "SplitSDKMachineName") {
+					t.Error("Should not insert one of SplitSDKMachineIP, SplitSDKMachineName")
+				}
+			}
+
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost []map[string]interface{}
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if len(dataInPost) < 1 {
+				t.Error("It should send data")
+			}
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/segmentChanges":
+		default:
+			t.Error(r.URL.Path)
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+
+	client := getInMemoryClientWithIP(false, ts)
+
+	// Calls treatments to generate one valid impression
+	client.Track("user1", "my-traffic", "my-event", nil, nil)
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
 	}
 }

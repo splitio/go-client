@@ -174,7 +174,7 @@ func TestPostMetricsLatency(t *testing.T) {
 		&splitio.SdkMetadata{
 			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
-			MachineName: "",
+			MachineName: "ip-127-0-0-1",
 		},
 		logger,
 	)
@@ -243,7 +243,7 @@ func TestPostMetricsCounters(t *testing.T) {
 		&splitio.SdkMetadata{
 			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
-			MachineName: "",
+			MachineName: "ip-127-0-0-1",
 		},
 		logger,
 	)
@@ -307,7 +307,7 @@ func TestPostMetricsGauge(t *testing.T) {
 		&splitio.SdkMetadata{
 			SDKVersion:  "go-" + splitio.Version,
 			MachineIP:   "127.0.0.1",
-			MachineName: "",
+			MachineName: "ip-127-0-0-1",
 		},
 		logger,
 	)

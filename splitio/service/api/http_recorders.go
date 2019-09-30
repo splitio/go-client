@@ -2,8 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 
 	"github.com/splitio/go-client/splitio/storage"
 
@@ -22,11 +20,11 @@ type httpRecorderBase struct {
 func (h *httpRecorderBase) recordRaw(url string, data []byte) error {
 	headers := make(map[string]string)
 	headers["SplitSDKVersion"] = h.metadata.SDKVersion
-	headers["SplitSDKMachineIP"] = h.metadata.MachineIP
-	if h.metadata.MachineName == "" && h.metadata.MachineIP != "" {
-		headers["SplitSDKMachineName"] = fmt.Sprintf("ip-%s", strings.Replace(h.metadata.MachineIP, ".", "-", -1))
-	} else {
+	if h.metadata.MachineName != "NA" && h.metadata.MachineName != "unknown" {
 		headers["SplitSDKMachineName"] = h.metadata.MachineName
+	}
+	if h.metadata.MachineIP != "NA" && h.metadata.MachineIP != "unknown" {
+		headers["SplitSDKMachineIP"] = h.metadata.MachineIP
 	}
 	return h.client.Post(url, data, headers)
 }

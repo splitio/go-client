@@ -13,7 +13,7 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/impressionListener"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"
@@ -285,6 +285,7 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata *splitio.SdkMetadata,
 ) (*SplitFactory, error) {
+	fmt.Println("IN MEMORY")
 	err := api.ValidateApikey(apikey, cfg.Advanced)
 	if err != nil {
 		return nil, err
@@ -411,6 +412,8 @@ func setupLocalhostFactory(
 	logger logging.LoggerInterface,
 	metadata *splitio.SdkMetadata,
 ) (*SplitFactory, error) {
+	fmt.Println("IN LOCAL")
+
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 	splitPeriod := cfg.TaskPeriods.SplitSync

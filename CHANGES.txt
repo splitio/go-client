@@ -1,11 +1,12 @@
 5.1.1 (Sept XX, 2019)
- - Fetch multiple splits at once on getTreatments/getTreatmentsWithConfig
+ - Added logic to fetch multiple splits at once on getTreatments/getTreatmentsWithConfig.
+ - Added flag `IPAddressesEnabled` into Config to enable/disable sending MachineName and MachineIP when data is posted in headers.
 
 5.1.0 (Jul 19, 2019)
- - Added support for TLS connections to redis
- - Refactored initialization process
- - Fixed traffic type count issue
- - Fixed possible concurrency issue with split storage
+ - Added support for TLS connections to redis.
+ - Refactored initialization process.
+ - Fixed traffic type count issue.
+ - Fixed possible concurrency issue with split storage.
 
 5.0.1 (Jun 19, 2019)
  - Added coverage for traffic type validation existence only on ready and non localhost mode.

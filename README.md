@@ -33,7 +33,15 @@ func main() {
     }
 
     client := factory.Client()
-    fmt.Println(client.Treatment("CUSTOMER_ID", "SPLIT_NAME", nil))
+
+    treatment := client.Treatment("CUSTOMER_ID", "SPLIT_NAME", nil)
+    if treatment == "on" {
+    // insert code here to show on treatment
+    } else if treatment == "off" {
+    // insert code here to show off treatment 
+    } else {
+    // insert your control treatment code here
+    }
 }
 ```
 

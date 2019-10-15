@@ -1,7 +1,7 @@
-5.1.1 (Oct 14, 2019)
+5.1.1 (Oct 15, 2019)
  - Added logic to fetch multiple splits at once on getTreatments/getTreatmentsWithConfig.
  - Added flag `IPAddressesEnabled` into Config to enable/disable sending MachineName and MachineIP when data is posted in headers.
- - Fixed resource leak in api.ValidateApikey.
+ - Fixed resource leak in `api.ValidateApikey`.
 
 5.1.0 (Jul 19, 2019)
  - Added support for TLS connections to redis.

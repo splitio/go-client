@@ -155,7 +155,7 @@ func checkEventType(eventType string) error {
 	return nil
 }
 
-func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExistance bool) (string, error) {
+func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExistence bool) (string, error) {
 	err := checkIsEmptyString(trafficType, "traffic type", "Track")
 	if err != nil {
 		return "", err
@@ -164,7 +164,7 @@ func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExi
 	if toLower != trafficType {
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
-	if shouldValidateExistance && !i.splitStorage.TrafficTypeExists(toLower) {
+	if shouldValidateExistence && !i.splitStorage.TrafficTypeExists(toLower) {
 		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
 			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
 	}
@@ -193,7 +193,7 @@ func (i *inputValidation) ValidateTrackInputs(
 	trafficType string,
 	eventType string,
 	value interface{},
-	shouldValidateExistance bool,
+	shouldValidateExistence bool,
 ) (string, string, string, interface{}, error) {
 	err := checkIsValidString(key, "key", "Track")
 	if err != nil {
@@ -205,7 +205,7 @@ func (i *inputValidation) ValidateTrackInputs(
 		return key, trafficType, "", value, err
 	}
 
-	trafficType, err = i.checkTrafficType(trafficType, shouldValidateExistance)
+	trafficType, err = i.checkTrafficType(trafficType, shouldValidateExistence)
 	if err != nil {
 		return key, "", eventType, value, err
 	}
@@ -251,7 +251,7 @@ func (i *inputValidation) ValidateFeatureNames(features []string, operation stri
 }
 
 func (i *inputValidation) validateTrackProperties(properties map[string]interface{}) (map[string]interface{}, int, error) {
-	if properties == nil || len(properties) == 0 {
+	if len(properties) == 0 {
 		return nil, 0, nil
 	}
 
@@ -279,7 +279,7 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 			i.logger.Error(
 				"The maximum size allowed for the properties is 32kb. Event not queued",
 			)
-			return nil, size, errors.New("Event too big. Only up to 32kb per event supported")
+			return nil, size, errors.New("The maximum size allowed for the properties is 32kb. Event not queued")
 		}
 	}
 	return processed, size, nil

@@ -1,13 +1,14 @@
 package matchers
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"
-	"reflect"
-	"testing"
 )
 
 func TestInSegmentMatcher(t *testing.T) {
@@ -49,6 +50,6 @@ func TestInSegmentMatcher(t *testing.T) {
 
 	segmentStorage.Remove("segmentito")
 	if matcher.Match("item1", nil, nil) {
-		t.Error("Should return false for a nonexistant segment")
+		t.Error("Should return false for a nonexistent segment")
 	}
 }

@@ -3,6 +3,7 @@ package matchers
 import (
 	"errors"
 	"fmt"
+
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"

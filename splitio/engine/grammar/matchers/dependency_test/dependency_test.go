@@ -1,9 +1,12 @@
 package dependencytests
 
-// This tests are stored here to break ciruclar dependencies between evaluator
+// This tests are stored here to break circular dependencies between evaluator
 // & matchers as referenced directly within this test cases.
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
@@ -11,8 +14,6 @@ import (
 	"github.com/splitio/go-client/splitio/storage/mutexmap"
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"
-	"reflect"
-	"testing"
 )
 
 type mockEvaluator struct {
@@ -39,7 +40,7 @@ func (e *mockEvaluator) EvaluateDependency(
 	}
 
 	if !ok {
-		e.t.Error("Incorrect bucketing key recieved")
+		e.t.Error("Incorrect bucketing key received")
 	}
 
 	return "on"

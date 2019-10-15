@@ -16,6 +16,7 @@ type SplitStorageProducer interface {
 // SplitStorageConsumer should be implemented by structs that offer reading splits from storage
 type SplitStorageConsumer interface {
 	Get(splitName string) *dtos.SplitDTO
+	FetchMany(splitNames []string) map[string]*dtos.SplitDTO
 	SplitNames() []string
 	SegmentNames() *set.ThreadUnsafeSet
 	GetAll() []dtos.SplitDTO

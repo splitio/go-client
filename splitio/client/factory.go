@@ -13,7 +13,7 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/impressionListener"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/local"
 	"github.com/splitio/go-client/splitio/storage"

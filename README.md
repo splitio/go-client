@@ -33,11 +33,19 @@ func main() {
     }
 
     client := factory.Client()
-    fmt.Println(client.Treatment("CUSTOMER_ID", "SPLIT_NAME", nil))
+
+    treatment := client.Treatment("CUSTOMER_ID", "SPLIT_NAME", nil)
+    if treatment == "on" {
+    // insert code here to show on treatment
+    } else if treatment == "off" {
+    // insert code here to show off treatment 
+    } else {
+    // insert your control treatment code here
+    }
 }
 ```
 
-Please refer to [our official docs]([docs_for_java_url](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)) to learn about all the functionality provided by our SDK and the configuration options available for tailoring it to your current application setup.
+Please refer to [our official docs](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)) to learn about all the functionality provided by our SDK and the configuration options available for tailoring it to your current application setup.
 
 ## Submitting issues
 The Split team monitors all issues submitted to this [issue tracker](https://github.com/splitio/go-client/issues). We encourage you to use this issue tracker to submit any bug reports, feedback, and feature enhancements. We'll do our best to respond in a timely manner.

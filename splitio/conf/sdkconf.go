@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/splitio/go-client/splitio/impressionListener"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
@@ -31,18 +31,19 @@ import (
 // - Redis: (Required for "redis-consumer" & "redis-standalone" operation modes. Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 type SplitSdkConfig struct {
-	OperationMode     string
-	InstanceName      string
-	IPAddress         string
-	BlockUntilReady   int
-	SplitFile         string
-	LabelsEnabled     bool
-	SplitSyncProxyURL string
-	Logger            logging.LoggerInterface
-	LoggerConfig      logging.LoggerOptions
-	TaskPeriods       TaskPeriods
-	Advanced          AdvancedConfig
-	Redis             RedisConfig
+	OperationMode      string
+	InstanceName       string
+	IPAddress          string
+	IPAddressesEnabled bool
+	BlockUntilReady    int
+	SplitFile          string
+	LabelsEnabled      bool
+	SplitSyncProxyURL  string
+	Logger             logging.LoggerInterface
+	LoggerConfig       logging.LoggerOptions
+	TaskPeriods        TaskPeriods
+	Advanced           AdvancedConfig
+	Redis              RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -87,9 +88,12 @@ type AdvancedConfig struct {
 // Default returns a config struct with all the default values
 func Default() *SplitSdkConfig {
 
+	instanceName := "unknown"
 	ipAddress, err := nethelpers.ExternalIP()
 	if err != nil {
 		ipAddress = "unknown"
+	} else {
+		instanceName = fmt.Sprintf("ip-%s", strings.Replace(ipAddress, ".", "-", -1))
 	}
 
 	var splitFile string
@@ -101,13 +105,14 @@ func Default() *SplitSdkConfig {
 	}
 
 	return &SplitSdkConfig{
-		OperationMode: "inmemory-standalone",
-		LabelsEnabled: true,
-		IPAddress:     ipAddress,
-		InstanceName:  fmt.Sprintf("ip-%s", strings.Replace(ipAddress, ".", "-", -1)),
-		Logger:        nil,
-		LoggerConfig:  logging.LoggerOptions{},
-		SplitFile:     splitFile,
+		OperationMode:      "inmemory-standalone",
+		LabelsEnabled:      true,
+		IPAddress:          ipAddress,
+		IPAddressesEnabled: true,
+		InstanceName:       instanceName,
+		Logger:             nil,
+		LoggerConfig:       logging.LoggerOptions{},
+		SplitFile:          splitFile,
 		Redis: RedisConfig{
 			Database:  0,
 			Host:      "localhost",
@@ -169,6 +174,11 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	if cfg.SplitSyncProxyURL != "" {
 		cfg.Advanced.SdkURL = cfg.SplitSyncProxyURL
 		cfg.Advanced.EventsURL = cfg.SplitSyncProxyURL
+	}
+
+	if !cfg.IPAddressesEnabled {
+		cfg.IPAddress = "NA"
+		cfg.InstanceName = "NA"
 	}
 
 	return nil

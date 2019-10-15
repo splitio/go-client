@@ -203,6 +203,17 @@ func (s *mockStorage) Get(
 	}
 	return nil
 }
+func (s *mockStorage) FetchMany(
+	feature []string,
+) map[string]*dtos.SplitDTO {
+	splits := make(map[string]*dtos.SplitDTO)
+	splits["mysplittest"] = mysplittest
+	splits["mysplittest2"] = mysplittest2
+	splits["mysplittest3"] = mysplittest3
+	splits["mysplittest4"] = mysplittest4
+	splits["mysplittest5"] = nil
+	return splits
+}
 func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([]dtos.SplitDTO, 0) }
 func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
 func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
@@ -219,7 +230,7 @@ func TestSplitWithoutConfigurations(t *testing.T) {
 		logger)
 
 	key := "test"
-	result := evaluator.Evaluate(key, &key, "mysplittest", nil)
+	result := evaluator.EvaluateFeature(key, &key, "mysplittest", nil)
 
 	if result.Treatment != "off" {
 		t.Error("Wrong treatment result")
@@ -242,7 +253,7 @@ func TestSplitWithtConfigurations(t *testing.T) {
 		logger)
 
 	key := "test"
-	result := evaluator.Evaluate(key, &key, "mysplittest2", nil)
+	result := evaluator.EvaluateFeature(key, &key, "mysplittest2", nil)
 
 	if result.Treatment != "on" {
 		t.Error("Wrong treatment result")
@@ -265,7 +276,7 @@ func TestSplitWithtConfigurationsButKilled(t *testing.T) {
 		logger)
 
 	key := "test"
-	result := evaluator.Evaluate(key, &key, "mysplittest3", nil)
+	result := evaluator.EvaluateFeature(key, &key, "mysplittest3", nil)
 
 	if result.Treatment != "killed" {
 		t.Error("Wrong treatment result")
@@ -288,7 +299,7 @@ func TestSplitWithConfigurationsButKilledWithConfigsOnDefault(t *testing.T) {
 		logger)
 
 	key := "test"
-	result := evaluator.Evaluate(key, &key, "mysplittest4", nil)
+	result := evaluator.EvaluateFeature(key, &key, "mysplittest4", nil)
 
 	if result.Treatment != "killed" {
 		t.Error("Wrong treatment result")
@@ -296,5 +307,60 @@ func TestSplitWithConfigurationsButKilledWithConfigsOnDefault(t *testing.T) {
 
 	if result.Config == nil && *result.Config != "{\"color\": \"orange\",\"size\": 13}" {
 		t.Error("Unexpected configs")
+	}
+}
+
+func TestMultipleEvaluations(t *testing.T) {
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+
+	evaluator := NewEvaluator(
+		&mockStorage{},
+		nil,
+		nil,
+		logger)
+
+	key := "test"
+	splits := []string{"mysplittest", "mysplittest2", "mysplittest3", "mysplittest4", "mysplittest5"}
+	result := evaluator.EvaluateFeatures(key, &key, splits, nil)
+
+	if result.Evaluations["mysplittest"].Treatment != "off" {
+		t.Error("Wrong treatment result")
+	}
+	if result.Evaluations["mysplittest"].Config != nil {
+		t.Error("Unexpected configs")
+	}
+
+	if result.Evaluations["mysplittest2"].Treatment != "on" {
+		t.Error("Wrong treatment result")
+	}
+	if result.Evaluations["mysplittest2"].Config == nil && *result.Evaluations["mysplittest2"].Config != "{\"color\": \"blue\",\"size\": 13}" {
+		t.Error("Unexpected configs")
+	}
+
+	if result.Evaluations["mysplittest3"].Treatment != "killed" {
+		t.Error("Wrong treatment result")
+	}
+	if result.Evaluations["mysplittest3"].Config != nil {
+		t.Error("Unexpected configs")
+	}
+
+	if result.Evaluations["mysplittest4"].Treatment != "killed" {
+		t.Error("Wrong treatment result")
+	}
+	if result.Evaluations["mysplittest4"].Config == nil && *result.Evaluations["mysplittest4"].Config != "{\"color\": \"orange\",\"size\": 13}" {
+		t.Error("Unexpected configs")
+	}
+
+	if result.Evaluations["mysplittest5"].Treatment != "control" {
+		t.Error("Wrong treatment result")
+	}
+	if result.Evaluations["mysplittest5"].Config != nil {
+		t.Error("Unexpected configs")
+	}
+
+	if result.EvaluationTimeNs <= 0 {
+		t.Error("It should be greater than 0")
 	}
 }

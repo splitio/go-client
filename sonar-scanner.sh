@@ -14,6 +14,7 @@ sonar_scanner() {
     -Dsonar.go.coverage.reportPaths='coverage.out' \
     -Dsonar.links.ci='https://travis-ci.com/splitio/go-client' \
     -Dsonar.links.scm='https://github.com/splitio/go-client' \
+    -Dsonar.pullrequest.provider='GitHub' \
     "${params}"
 
   return $?
@@ -21,7 +22,6 @@ sonar_scanner() {
 
 if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
   sonar_scanner \
-    -Dsonar.pullrequest.provider='GitHub' \
     -Dsonar.pullrequest.github.repository='splitio/go-client' \
     -Dsonar.pullrequest.key=$TRAVIS_PULL_REQUEST \
     -Dsonar.pullrequest.branch=$TRAVIS_PULL_REQUEST_BRANCH \

@@ -9,6 +9,7 @@ sonar_scanner() {
     -Dsonar.ws.timeout='300' \
     -Dsonar.sources='.' \
     -Dsonar.projectName='go-client' \
+    -Dsonar.projectKey='go-client' \
     -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*' \
     -Dsonar.go.coverage.reportPaths='coverage.out' \
     -Dsonar.links.ci='https://travis-ci.com/splitio/go-client' \

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,12 +32,13 @@ type impressionsRecord struct {
 }
 
 func TestImpressionSyncTask(t *testing.T) {
-	reqestReceived := false
+	requestReceived := atomic.Value{}
+	requestReceived.Store(false)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/impressions" && r.Method != "POST" {
 			t.Error("Invalid request. Should be POST to /impressions")
 		}
-		reqestReceived = true
+		requestReceived.Store(true)
 
 		body, err := ioutil.ReadAll(r.Body)
 		r.Body.Close()
@@ -121,7 +123,7 @@ func TestImpressionSyncTask(t *testing.T) {
 
 	time.Sleep(time.Second * 10)
 
-	if !reqestReceived {
+	if !requestReceived.Load().(bool) {
 		t.Error("Request not received")
 	}
 
@@ -141,11 +143,11 @@ func (r *mockRecorder) Record(i []storage.Impression, s string, m string, m2 str
 }
 
 type impressionRecorderMock struct {
-	iterations int
+	iterations atomic.Value
 }
 
 func (i *impressionRecorderMock) Record(impressions []storage.Impression) error {
-	i.iterations++
+	i.iterations.Store(i.iterations.Load().(int) + 1)
 	return nil
 }
 
@@ -165,6 +167,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	impressionStorage.LogImpressions([]storage.Impression{imp1})
 	impressionStorage.LogImpressions([]storage.Impression{imp1})
 	impressionRecorder := &impressionRecorderMock{}
+	impressionRecorder.iterations.Store(0)
 	impressionTask := NewRecordImpressionsTask(
 		impressionStorage,
 		impressionRecorder,
@@ -176,7 +179,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	impressionTask.Start()
 	time.Sleep(time.Second * 2)
 
-	if impressionRecorder.iterations != 1 {
+	if impressionRecorder.iterations.Load().(int) != 1 {
 		t.Error("Impressions should already have been flushed once")
 	}
 
@@ -195,7 +198,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	impressionStorage.LogImpressions([]storage.Impression{imp2})
 	impressionTask.Stop()
 	time.Sleep(time.Second * 2)
-	if impressionRecorder.iterations != 2 {
+	if impressionRecorder.iterations.Load().(int) != 2 {
 		t.Error("Impression Task should have ran twice")
 	}
 }

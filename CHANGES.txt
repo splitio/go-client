@@ -1,4 +1,4 @@
-5.1.2 (Nov 24, 2019)
+5.1.2 ()
  - Several fixes in tests as a result of a locking & race conditions audit
  - Fixed locking issue for .Treatments() && .TreatmentsWithConfig() methods.
 

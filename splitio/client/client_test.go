@@ -271,21 +271,6 @@ func TestClientPanicking(t *testing.T) {
 
 func TestClientDestroy(t *testing.T) {
 	logger := logging.NewLogger(nil)
-
-	/*
-		resSplits := 0
-		stoppedSplit := false
-		resSegments := 0
-		stoppedSegments := false
-		resImpressions := 0
-		stoppedImpressions := false
-		resGauge := 0
-		stoppedGauge := false
-		resCounters := 0
-		stoppedCounters := false
-		resLatencies := 0
-		stoppedLatencies := false
-	*/
 	resSplits := atomic.Value{}
 	resSplits.Store(0)
 	resSegments := atomic.Value{}

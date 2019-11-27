@@ -94,14 +94,14 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 
 	}
 
-	iterations := 50000
+	iterations := 100000
 
 	mainWG := sync.WaitGroup{}
 	mainWG.Add(iterations)
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.PutMany(splits[0:rand.Intn(len(splits)-1)], 123)
 				mainWG.Done()
 			}()
@@ -112,7 +112,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.Get(fmt.Sprintf("SomeSplit_%d", rand.Intn(len(splits)-1)))
 				mainWG.Done()
 			}()
@@ -123,7 +123,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.Remove(fmt.Sprintf("SomeSplit_%d", rand.Intn(len(splits)-1)))
 				mainWG.Done()
 			}()
@@ -134,7 +134,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.SplitNames()
 				mainWG.Done()
 			}()
@@ -145,7 +145,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.SegmentNames()
 				mainWG.Done()
 			}()
@@ -156,7 +156,7 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.GetAll()
 				mainWG.Done()
 			}()
@@ -167,8 +167,19 @@ func TestSplitMutexMapConcurrency(t *testing.T) {
 	go func() {
 		for i := 0; i < iterations; i++ {
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				splitStorage.Till()
+				mainWG.Done()
+			}()
+		}
+	}()
+
+	mainWG.Add(iterations)
+	go func() {
+		for i := 0; i < iterations; i++ {
+			go func() {
+				time.Sleep(5 * time.Second)
+				splitStorage.FetchMany(splitStorage.SplitNames())
 				mainWG.Done()
 			}()
 		}

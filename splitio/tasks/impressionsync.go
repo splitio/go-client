@@ -22,6 +22,7 @@ func submitImpressions(
 	}
 
 	if len(queuedImpressions) == 0 {
+		logger.Debug("No impressions fetched from queue. Nothing to send")
 		return nil
 	}
 

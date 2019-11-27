@@ -33,12 +33,7 @@ func NewMMSplitStorage() *MMSplitStorage {
 
 }
 
-// Get retrieves a split from the MMSplitStorage
-// NOTE: A pointer TO A COPY is returned, in order to avoid race conditions between
-// evaluations and sdk <-> backend sync
-func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+func (m *MMSplitStorage) _get(splitName string) *dtos.SplitDTO {
 	item, exists := m.data[splitName]
 	if !exists {
 		return nil
@@ -47,15 +42,30 @@ func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
 	return &c
 }
 
+// Get retrieves a split from the MMSplitStorage
+// NOTE: A pointer TO A COPY is returned, in order to avoid race conditions between
+// evaluations and sdk <-> backend sync
+func (m *MMSplitStorage) Get(splitName string) *dtos.SplitDTO {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m._get(splitName)
+}
+
 // FetchMany fetches features in redis and returns an array of split dtos
 func (m *MMSplitStorage) FetchMany(splitNames []string) map[string]*dtos.SplitDTO {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	splits := make(map[string]*dtos.SplitDTO)
 	for _, splitName := range splitNames {
-		splits[splitName] = m.Get(splitName)
+		splits[splitName] = m._get(splitName)
 	}
 	return splits
+}
+
+func (m *MMSplitStorage) _updateTill(till int64) {
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
+	m.till = till
 }
 
 // PutMany bulk inserts splits into the in-memory storage
@@ -72,9 +82,7 @@ func (m *MMSplitStorage) PutMany(splits []dtos.SplitDTO, till int64) {
 		m.data[split.Name] = split
 		m.increaseTrafficTypeCount(split.TrafficTypeName)
 	}
-	m.tillMutex.Lock()
-	defer m.tillMutex.Unlock()
-	m.till = till
+	m._updateTill(till)
 }
 
 // Remove deletes a split from the in-memory storage
@@ -215,14 +223,24 @@ func (m *MMSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	return s
 }
 
+func (m *MMSegmentStorage) _updateTill(name string, till int64) {
+	m.tillMutex.Lock()
+	defer m.tillMutex.Unlock()
+	m.till[name] = till
+}
+
 // Put adds a new segment to the in-memory storage
 func (m *MMSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, till int64) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data[name] = segment
+	m._updateTill(name, till)
+}
+
+func (m *MMSegmentStorage) _removeTill(segmentName string) {
 	m.tillMutex.Lock()
 	defer m.tillMutex.Unlock()
-	m.till[name] = till
+	delete(m.till, segmentName)
 }
 
 // Remove deletes a segment from the in-memmory storage
@@ -230,9 +248,7 @@ func (m *MMSegmentStorage) Remove(segmentName string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	delete(m.data, segmentName)
-	m.tillMutex.Lock()
-	defer m.tillMutex.Unlock()
-	delete(m.till, segmentName)
+	m._removeTill(segmentName)
 }
 
 // Till returns the latest timestamp the segment was fetched

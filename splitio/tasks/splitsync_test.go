@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,12 +19,13 @@ func TestSplitSyncTask(t *testing.T) {
 	mockedSplit1 := dtos.SplitDTO{Name: "split1", Killed: false, Status: "ACTIVE", TrafficTypeName: "one"}
 	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE", TrafficTypeName: "two"}
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE", TrafficTypeName: "one"}
-	reqestReceived := false
+	requestReceived := atomic.Value{}
+	requestReceived.Store(false)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/splits" && r.Method != "GET" {
 			t.Error("Invalid request. Should be GET to /splits")
 		}
-		reqestReceived = true
+		requestReceived.Store(true)
 
 		splitChanges := dtos.SplitChangesDTO{
 			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
@@ -83,7 +85,7 @@ func TestSplitSyncTask(t *testing.T) {
 		return
 	}
 
-	if !reqestReceived {
+	if !requestReceived.Load().(bool) {
 		t.Error("Request not received")
 	}
 

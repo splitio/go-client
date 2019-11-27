@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -270,32 +271,47 @@ func TestClientPanicking(t *testing.T) {
 
 func TestClientDestroy(t *testing.T) {
 	logger := logging.NewLogger(nil)
+	resSplits := atomic.Value{}
+	resSplits.Store(0)
+	resSegments := atomic.Value{}
+	resSegments.Store(0)
+	resImpressions := atomic.Value{}
+	resImpressions.Store(0)
+	resGauge := atomic.Value{}
+	resGauge.Store(0)
+	resCounters := atomic.Value{}
+	resCounters.Store(0)
+	resLatencies := atomic.Value{}
+	resLatencies.Store(0)
 
-	resSplits := 0
-	stoppedSplit := false
-	resSegments := 0
-	stoppedSegments := false
-	resImpressions := 0
-	stoppedImpressions := false
-	resGauge := 0
-	stoppedGauge := false
-	resCounters := 0
-	stoppedCounters := false
-	resLatencies := 0
-	stoppedLatencies := false
+	stoppedSplits := atomic.Value{}
+	stoppedSplits.Store(false)
+	stoppedSegments := atomic.Value{}
+	stoppedSegments.Store(false)
+	stoppedImpressions := atomic.Value{}
+	stoppedImpressions.Store(false)
+	stoppedGauge := atomic.Value{}
+	stoppedGauge.Store(false)
+	stoppedCounters := atomic.Value{}
+	stoppedCounters.Store(false)
+	stoppedLatencies := atomic.Value{}
+	stoppedLatencies.Store(false)
 
-	splitSync := func(l logging.LoggerInterface) error { resSplits++; return nil }
-	splitStop := func(l logging.LoggerInterface) { stoppedSplit = true }
-	segmentSync := func(l logging.LoggerInterface) error { resSegments++; return nil }
-	segmentStop := func(l logging.LoggerInterface) { stoppedSegments = true }
-	impressionSync := func(l logging.LoggerInterface) error { resImpressions++; return nil }
-	impressionStop := func(l logging.LoggerInterface) { stoppedImpressions = true }
-	gaugeSync := func(l logging.LoggerInterface) error { resGauge++; return nil }
-	gaugeStop := func(l logging.LoggerInterface) { stoppedGauge = true }
-	counterSync := func(l logging.LoggerInterface) error { resCounters++; return nil }
-	counterStop := func(l logging.LoggerInterface) { stoppedCounters = true }
-	latencySync := func(l logging.LoggerInterface) error { resLatencies++; return nil }
-	latencyStop := func(l logging.LoggerInterface) { stoppedLatencies = true }
+	splitSync := func(l logging.LoggerInterface) error { resSplits.Store(resSplits.Load().(int) + 1); return nil }
+	splitStop := func(l logging.LoggerInterface) { stoppedSplits.Store(true) }
+	segmentSync := func(l logging.LoggerInterface) error { resSegments.Store(resSegments.Load().(int) + 1); return nil }
+	segmentStop := func(l logging.LoggerInterface) { stoppedSegments.Store(true) }
+	impressionSync := func(l logging.LoggerInterface) error {
+		resImpressions.Store(resImpressions.Load().(int) + 1)
+		return nil
+	}
+	impressionStop := func(l logging.LoggerInterface) { stoppedImpressions.Store(true) }
+	gaugeSync := func(l logging.LoggerInterface) error { resGauge.Store(resGauge.Load().(int) + 1); return nil }
+	gaugeStop := func(l logging.LoggerInterface) { stoppedGauge.Store(true) }
+	counterSync := func(l logging.LoggerInterface) error { resCounters.Store(resCounters.Load().(int) + 1); return nil }
+	counterStop := func(l logging.LoggerInterface) { stoppedCounters.Store(true) }
+	latencySync := func(l logging.LoggerInterface) error { resLatencies.Store(resLatencies.Load().(int) + 1); return nil }
+	latencyStop := func(l logging.LoggerInterface) { stoppedLatencies.Store(true) }
 
 	splitTask := asynctask.NewAsyncTask("splits", splitSync, 100, nil, splitStop, logger)
 	segmentsTask := asynctask.NewAsyncTask("segments", segmentSync, 100, nil, segmentStop, logger)
@@ -357,27 +373,27 @@ func TestClientDestroy(t *testing.T) {
 
 	// -----
 
-	if resSplits != 1 {
+	if resSplits.Load().(int) != 1 {
 		t.Error("Splits should have run once")
 	}
 
-	if resSegments != 1 {
+	if resSegments.Load().(int) != 1 {
 		t.Error("Segments should have run once")
 	}
 
-	if resImpressions != 1 {
+	if resImpressions.Load().(int) != 1 {
 		t.Error("Impressions should have run once")
 	}
 
-	if resGauge != 1 {
+	if resGauge.Load().(int) != 1 {
 		t.Error("Gauge should have run once")
 	}
 
-	if resCounters != 1 {
+	if resCounters.Load().(int) != 1 {
 		t.Error("Conters should have run once")
 	}
 
-	if resLatencies != 1 {
+	if resLatencies.Load().(int) != 1 {
 		t.Error("Latencies should have run once")
 	}
 
@@ -389,28 +405,28 @@ func TestClientDestroy(t *testing.T) {
 		t.Error("Single .Treatment() call should return control")
 	}
 
-	if !stoppedCounters {
-		t.Error("Counters shoud be stopped")
+	if !stoppedCounters.Load().(bool) {
+		t.Error("Counters should be stopped")
 	}
 
-	if !stoppedGauge {
-		t.Error("Gauge shoud be stopped")
+	if !stoppedGauge.Load().(bool) {
+		t.Error("Gauge should be stopped")
 	}
 
-	if !stoppedImpressions {
-		t.Error("Impressions shoud be stopped")
+	if !stoppedImpressions.Load().(bool) {
+		t.Error("Impressions should be stopped")
 	}
 
-	if !stoppedLatencies {
-		t.Error("Latencies shoud be stopped")
+	if !stoppedLatencies.Load().(bool) {
+		t.Error("Latencies should be stopped")
 	}
 
-	if !stoppedSegments {
-		t.Error("Segments shoud be stopped")
+	if !stoppedSegments.Load().(bool) {
+		t.Error("Segments should be stopped")
 	}
 
-	if !stoppedSplit {
-		t.Error("Split shoud be stopped")
+	if !stoppedSplits.Load().(bool) {
+		t.Error("Split should be stopped")
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)

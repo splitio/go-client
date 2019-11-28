@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,27 +20,31 @@ func TestSegmentSyncTask(t *testing.T) {
 	addedS1 := []string{"item1", "item2", "item3", "item4"}
 	addedS2 := []string{"item5", "item6", "item7", "item8"}
 
-	s1RequestReceieved := false
-	s2RequestReceieved := false
-	var toReturn []string
-	var name string
+	s1RequestReceieved := atomic.Value{}
+	s1RequestReceieved.Store(false)
+	s2RequestReceieved := atomic.Value{}
+	s2RequestReceieved.Store(false)
+	toReturn := atomic.Value{}
+	toReturn.Store([]string{})
+	name := atomic.Value{}
+	name.Store("")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/segmentChanges/s1":
-			s1RequestReceieved = true
-			toReturn = addedS1
-			name = "s1"
+			s1RequestReceieved.Store(true)
+			toReturn.Store(addedS1)
+			name.Store("s1")
 		case "/segmentChanges/s2":
-			s2RequestReceieved = true
-			toReturn = addedS2
-			name = "s2"
+			s2RequestReceieved.Store(true)
+			toReturn.Store(addedS2)
+			name.Store("s2")
 		default:
 			t.Errorf("Invalid URL %s", r.URL.Path)
 		}
 
 		segmentChanges := dtos.SegmentChangesDTO{
-			Added:   toReturn,
-			Name:    name,
+			Added:   toReturn.Load().([]string),
+			Name:    name.Load().(string),
 			Removed: []string{},
 			Since:   123,
 			Till:    123,
@@ -140,7 +145,7 @@ func TestSegmentSyncTask(t *testing.T) {
 		return
 	}
 
-	if !s1RequestReceieved || !s2RequestReceieved {
+	if !s1RequestReceieved.Load().(bool) || !s2RequestReceieved.Load().(bool) {
 		t.Error("Request not received")
 	}
 

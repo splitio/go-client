@@ -22,6 +22,7 @@ func submitEvents(
 	}
 
 	if len(queuedEvents) == 0 {
+		logger.Debug("No events fetched from queue. Nothing to send")
 		return nil
 	}
 

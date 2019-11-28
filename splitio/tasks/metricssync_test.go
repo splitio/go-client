@@ -11,14 +11,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestMetricsSyncTask(t *testing.T) {
-	countersRequestReceived := false
-	gaugesRequestReceived := false
-	latenciesRequestReceived := false
+	countersRequestReceived := atomic.Value{}
+	countersRequestReceived.Store(false)
+	gaugesRequestReceived := atomic.Value{}
+	gaugesRequestReceived.Store(false)
+	latenciesRequestReceived := atomic.Value{}
+	latenciesRequestReceived.Store(false)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			t.Error("Method should be POST")
@@ -33,7 +37,7 @@ func TestMetricsSyncTask(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/metrics/times":
-			latenciesRequestReceived = true
+			latenciesRequestReceived.Store(true)
 			var latencies []dtos.LatenciesDTO
 			err = json.Unmarshal(body, &latencies)
 			if err != nil {
@@ -44,7 +48,7 @@ func TestMetricsSyncTask(t *testing.T) {
 				t.Error("Incorrect metric name")
 			}
 		case "/metrics/counters":
-			countersRequestReceived = true
+			countersRequestReceived.Store(true)
 			var counters []dtos.CounterDTO
 			err = json.Unmarshal(body, &counters)
 			if err != nil {
@@ -55,7 +59,7 @@ func TestMetricsSyncTask(t *testing.T) {
 				t.Error("Incorrect count received")
 			}
 		case "/metrics/gauge":
-			gaugesRequestReceived = true
+			gaugesRequestReceived.Store(true)
 			var gauge dtos.GaugeDTO
 			err = json.Unmarshal(body, &gauge)
 			if err != nil {
@@ -124,7 +128,7 @@ func TestMetricsSyncTask(t *testing.T) {
 	metricsStorage.IncCounter("counter1")
 	time.Sleep(time.Second * 2)
 
-	if !countersRequestReceived || !gaugesRequestReceived || !latenciesRequestReceived {
+	if !countersRequestReceived.Load().(bool) || !gaugesRequestReceived.Load().(bool) || !latenciesRequestReceived.Load().(bool) {
 		t.Error("Not all expected requests received")
 	}
 
@@ -140,23 +144,23 @@ func TestMetricsSyncTask(t *testing.T) {
 }
 
 type metricsRecorderMock struct {
-	gaugeIterations   int
-	counterIterations int
-	latencyIterations int
+	gaugeIterations   atomic.Value
+	counterIterations atomic.Value
+	latencyIterations atomic.Value
 }
 
 func (m *metricsRecorderMock) RecordLatencies(latencies []dtos.LatenciesDTO) error {
-	m.latencyIterations++
+	m.latencyIterations.Store(m.latencyIterations.Load().(int) + 1)
 	return nil
 }
 
 func (m *metricsRecorderMock) RecordCounters(counters []dtos.CounterDTO) error {
-	m.counterIterations++
+	m.counterIterations.Store(m.counterIterations.Load().(int) + 1)
 	return nil
 }
 
 func (m *metricsRecorderMock) RecordGauge(gauge dtos.GaugeDTO) error {
-	m.gaugeIterations++
+	m.gaugeIterations.Store(m.gaugeIterations.Load().(int) + 1)
 	return nil
 }
 
@@ -169,6 +173,10 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 	metricsStorage.IncCounter("c1")
 	metricsStorage.IncLatency("l1", 2)
 	metricsRecorder := &metricsRecorderMock{}
+
+	metricsRecorder.gaugeIterations.Store(0)
+	metricsRecorder.counterIterations.Store(0)
+	metricsRecorder.latencyIterations.Store(0)
 
 	gaugeTask := NewRecordGaugesTask(
 		metricsStorage,
@@ -196,9 +204,9 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 	counterTask.Start()
 	time.Sleep(time.Second * 3)
 
-	if metricsRecorder.counterIterations != 1 ||
-		metricsRecorder.gaugeIterations != 1 ||
-		metricsRecorder.latencyIterations != 1 {
+	if metricsRecorder.counterIterations.Load().(int) != 1 ||
+		metricsRecorder.gaugeIterations.Load().(int) != 1 ||
+		metricsRecorder.latencyIterations.Load().(int) != 1 {
 		t.Error("All metrics should already have been flushed once")
 	}
 
@@ -215,15 +223,15 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 
 	time.Sleep(time.Second * 5)
 
-	if metricsRecorder.gaugeIterations != 2 {
+	if metricsRecorder.gaugeIterations.Load().(int) != 2 {
 		t.Error("Gauge Task should have ran four time")
 	}
 
-	if metricsRecorder.counterIterations != 2 {
+	if metricsRecorder.counterIterations.Load().(int) != 2 {
 		t.Error("Counter Task should have ran twice")
 	}
 
-	if metricsRecorder.latencyIterations != 2 {
+	if metricsRecorder.latencyIterations.Load().(int) != 2 {
 		t.Error("Latency Task should have ran twice")
 	}
 }

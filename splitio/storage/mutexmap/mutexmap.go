@@ -5,7 +5,6 @@ import (
 
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
-	"github.com/splitio/go-toolkit/deepcopy"
 )
 
 // ** SPLIT STORAGE **
@@ -38,8 +37,7 @@ func (m *MMSplitStorage) _get(splitName string) *dtos.SplitDTO {
 	if !exists {
 		return nil
 	}
-	c := deepcopy.Copy(item).(dtos.SplitDTO)
-	return &c
+	return &item
 }
 
 // Get retrieves a split from the MMSplitStorage
@@ -139,10 +137,7 @@ func (m *MMSplitStorage) GetAll() []dtos.SplitDTO {
 	defer m.mutex.RUnlock()
 	splitList := make([]dtos.SplitDTO, 0)
 	for _, split := range m.data {
-		splitCopy, ok := deepcopy.Copy(split).(dtos.SplitDTO)
-		if ok {
-			splitList = append(splitList, splitCopy)
-		}
+		splitList = append(splitList, split)
 	}
 	return splitList
 }

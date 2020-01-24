@@ -1,6 +1,7 @@
 package mutexmap
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/splitio/go-client/splitio/service/dtos"
@@ -216,6 +217,17 @@ func (m *MMSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	}
 	s := item.Copy().(*set.ThreadUnsafeSet)
 	return s
+}
+
+// SegmentContainsKey returns true if the segment contains a specific key
+func (m *MMSegmentStorage) SegmentContainsKey(segmentName string, key string) (bool, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	item, exists := m.data[segmentName]
+	if !exists {
+		return false, fmt.Errorf("segment %s not found in storage", segmentName)
+	}
+	return item.Has(key), nil
 }
 
 func (m *MMSegmentStorage) _updateTill(name string, till int64) {

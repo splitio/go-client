@@ -242,6 +242,11 @@ func TestMMSegmentStorage(t *testing.T) {
 			if !segment.Has(element) {
 				t.Errorf("%s should be part of set number %d and isn't.", element, i)
 			}
+
+			contained, _ := segmentStorage.SegmentContainsKey(segmentName, element)
+			if !contained {
+				t.Errorf("SegmentContainsKey should return true for segment '%s' and key '%s'", segmentName, element)
+			}
 		}
 	}
 

@@ -275,9 +275,23 @@ func TestSegmentStorage(t *testing.T) {
 		t.Error(segment1)
 	}
 
+	for _, key := range []string{"item1", "item2", "item3"} {
+		contained, _ := segmentStorage.SegmentContainsKey("segment1", key)
+		if !contained {
+			t.Errorf("SegmentContainsKey should return true for segment '%s' and key '%s'", "segment1", key)
+		}
+	}
+
 	segment2 := segmentStorage.Get("segment2")
 	if segment2 == nil || !segment2.IsEqual(set.NewSet("item4", "item5", "item6")) {
 		t.Error("Incorrect segment2")
+	}
+
+	for _, key := range []string{"item4", "item5", "item6"} {
+		contained, _ := segmentStorage.SegmentContainsKey("segment2", key)
+		if !contained {
+			t.Errorf("SegmentContainsKey should return true for segment '%s' and key '%s'", "segment2", key)
+		}
 	}
 
 	if segmentStorage.Till("segment1") != 123 || segmentStorage.Till("segment2") != 124 {

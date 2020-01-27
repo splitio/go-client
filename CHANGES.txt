@@ -1,3 +1,6 @@
+5.1.3 (Jan 27, 2020)
+ - Removed unnecesary SplitClient copy.
+
 5.1.2 (Nov 28, 2019)
  - Several fixes in tests as a result of a locking & race conditions audit
  - Fixed locking issue for .Treatments() && .TreatmentsWithConfig() methods.

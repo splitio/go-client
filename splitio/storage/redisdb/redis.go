@@ -153,6 +153,11 @@ func (r *PrefixedRedisClient) SMembers(key string) ([]string, error) {
 	return r.client.SMembers(r.withPrefix(key)).Result()
 }
 
+// SIsMember returns a slice with all the members of a set
+func (r *PrefixedRedisClient) SIsMember(key string, item interface{}) (bool, error) {
+	return r.client.SIsMember(r.withPrefix(key), item).Result()
+}
+
 // SAdd adds new members to a set
 func (r *PrefixedRedisClient) SAdd(key string, members ...interface{}) (int64, error) {
 	return r.client.SAdd(r.withPrefix(key), members...).Result()

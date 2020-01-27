@@ -242,6 +242,11 @@ func TestMMSegmentStorage(t *testing.T) {
 			if !segment.Has(element) {
 				t.Errorf("%s should be part of set number %d and isn't.", element, i)
 			}
+
+			contained, _ := segmentStorage.SegmentContainsKey(segmentName, element)
+			if !contained {
+				t.Errorf("SegmentContainsKey should return true for segment '%s' and key '%s'", segmentName, element)
+			}
 		}
 	}
 
@@ -387,5 +392,36 @@ func TestTrafficTypes(t *testing.T) {
 	ttStorage.decreaseTrafficTypeCount("mytest")
 	if ttStorage.TrafficTypeExists("mytest") {
 		t.Error("It should not exist")
+	}
+}
+
+func TestMMSplitStorageObjectLivesAfterDeletion(t *testing.T) {
+	splitStorage := NewMMSplitStorage()
+	splits := make([]dtos.SplitDTO, 10)
+	for index := 0; index < 10; index++ {
+		splits = append(splits, dtos.SplitDTO{
+			Name: fmt.Sprintf("SomeSplit_%d", index),
+			Algo: index,
+		})
+	}
+
+	splitStorage.PutMany(splits, 123)
+	someSplit0 := splitStorage.Get("SomeSplit_0")
+	splitStorage.Remove("SomeSplit_0")
+
+	if splitStorage.Get("SomeSplit_0") != nil {
+		t.Error("Should have been deleted")
+	}
+
+	if someSplit0 == nil {
+		t.Error("split0 shouldn't be nil")
+	}
+
+	if someSplit0.Name != "SomeSplit_0" {
+		t.Error("Wrong name")
+	}
+
+	if someSplit0.Algo != 0 {
+		t.Error("Wrong algo")
 	}
 }

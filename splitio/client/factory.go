@@ -245,25 +245,29 @@ func (f *SplitFactory) Destroy() {
 		return
 	}
 
-	// Stop all tasks
+	// Stop tasks that don't require blocking
 	if f.tasks.splits != nil {
-		f.tasks.splits.Stop()
+		f.tasks.splits.Stop(false)
 	}
 	if f.tasks.segments != nil {
-		f.tasks.segments.Stop()
-	}
-
-	if f.tasks.impressions != nil {
-		f.tasks.impressions.Stop()
+		f.tasks.segments.Stop(false)
 	}
 	if f.tasks.gauges != nil {
-		f.tasks.gauges.Stop()
+		f.tasks.gauges.Stop(false)
 	}
 	if f.tasks.counters != nil {
-		f.tasks.counters.Stop()
+		f.tasks.counters.Stop(false)
 	}
 	if f.tasks.latencies != nil {
-		f.tasks.latencies.Stop()
+		f.tasks.latencies.Stop(false)
+	}
+
+	// Stop tasks that need to block destroy blocking
+	if f.tasks.impressions != nil {
+		f.tasks.impressions.Stop(true)
+	}
+	if f.tasks.events != nil {
+		f.tasks.events.Stop(true)
 	}
 }
 

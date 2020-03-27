@@ -132,12 +132,9 @@ func TestMetricsSyncTask(t *testing.T) {
 		t.Error("Not all expected requests received")
 	}
 
-	countersTask.Stop()
-	gaugesTask.Stop()
-	latenciesTask.Stop()
-
-	time.Sleep(time.Second * 10)
-
+	countersTask.Stop(true)
+	gaugesTask.Stop(true)
+	latenciesTask.Stop(true)
 	if countersTask.IsRunning() || gaugesTask.IsRunning() || latenciesTask.IsRunning() {
 		t.Error("Task should be stopped")
 	}
@@ -217,9 +214,9 @@ func TestMetricsFlushWhenTaskIsStopped(t *testing.T) {
 	metricsStorage.IncCounter("c1")
 	metricsStorage.IncLatency("l1", 2)
 
-	gaugeTask.Stop()
-	latencyTask.Stop()
-	counterTask.Stop()
+	gaugeTask.Stop(true)
+	latencyTask.Stop(true)
+	counterTask.Stop(true)
 
 	time.Sleep(time.Second * 5)
 

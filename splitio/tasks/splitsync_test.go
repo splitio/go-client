@@ -89,10 +89,7 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error("Request not received")
 	}
 
-	splitTask.Stop()
-
-	time.Sleep(time.Second * 10)
-
+	splitTask.Stop(true)
 	s1 := splitStorage.Get("split1")
 	if s1 == nil || s1.Name != "split1" || s1.Killed {
 		t.Error("split1 stored/retrieved incorrectly")

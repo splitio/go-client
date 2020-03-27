@@ -149,10 +149,7 @@ func TestSegmentSyncTask(t *testing.T) {
 		t.Error("Request not received")
 	}
 
-	segmentTask.Stop()
-
-	time.Sleep(time.Second * 5)
-
+	segmentTask.Stop(true)
 	// By now, the segment fetching task should have retrieved and stored segments s1 and s2
 	s1 := segmentStorage.Get("s1")
 	if s1 == nil || !s1.Has("item1") {

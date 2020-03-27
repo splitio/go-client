@@ -127,10 +127,7 @@ func TestImpressionSyncTask(t *testing.T) {
 		t.Error("Request not received")
 	}
 
-	impressionTask.Stop()
-
-	time.Sleep(time.Second * 2)
-
+	impressionTask.Stop(true)
 	if impressionTask.IsRunning() {
 		t.Error("Task should be stopped")
 	}
@@ -196,8 +193,7 @@ func TestImpressionsFlushWhenTaskIsStopped(t *testing.T) {
 	impressionStorage.LogImpressions([]storage.Impression{imp2})
 	impressionStorage.LogImpressions([]storage.Impression{imp2})
 	impressionStorage.LogImpressions([]storage.Impression{imp2})
-	impressionTask.Stop()
-	time.Sleep(time.Second * 2)
+	impressionTask.Stop(true)
 	if impressionRecorder.iterations.Load().(int) != 2 {
 		t.Error("Impression Task should have ran twice")
 	}

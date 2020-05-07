@@ -191,27 +191,27 @@ func TestClientDestroy(t *testing.T) {
 	client.Destroy()
 	time.Sleep(1 * time.Second)
 
-	if splitTask.IsRunning() {
+	if splitTask.IsRunning() && !stoppedSplit {
 		t.Error("split task should be stopped")
 	}
 
-	if segmentsTask.IsRunning() {
+	if segmentsTask.IsRunning() && !stoppedSegments {
 		t.Error("segment task should be stopped")
 	}
 
-	if impressionsTask.IsRunning() {
+	if impressionsTask.IsRunning() && !stoppedImpressions {
 		t.Error("impression task should be stopped")
 	}
 
-	if gaugesTask.IsRunning() {
+	if gaugesTask.IsRunning() && !stoppedGauge {
 		t.Error("gauges task should be stopped")
 	}
 
-	if countersTask.IsRunning() {
+	if countersTask.IsRunning() && !stoppedCounters {
 		t.Error("counters task should be stopped")
 	}
 
-	if latenciesTask.IsRunning() {
+	if latenciesTask.IsRunning() && !stoppedLatencies {
 		t.Error("latencies task should be stopped")
 	}
 

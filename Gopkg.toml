@@ -4,4 +4,4 @@
 
 [[constraint]]
   name = "github.com/splitio/go-toolkit"
-  branch = "development"
+  version = "=2.0"

@@ -7,11 +7,12 @@ import (
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-toolkit/redis"
 )
 
 // RedisEventsStorage redis implementation of EventsStorage interface
 type RedisEventsStorage struct {
-	client          *PrefixedRedisClient
+	client          *redis.PrefixedRedisClient
 	mutex           *sync.Mutex
 	logger          logging.LoggerInterface
 	redisKey        string
@@ -19,7 +20,7 @@ type RedisEventsStorage struct {
 }
 
 // NewRedisEventsStorage returns an instance of RedisEventsStorage
-func NewRedisEventsStorage(redisClient *PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisEventsStorage {
+func NewRedisEventsStorage(redisClient *redis.PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisEventsStorage {
 	return &RedisEventsStorage{
 		client:   redisClient,
 		logger:   logger,
@@ -60,30 +61,29 @@ func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 	toReturn := make([]dtos.EventDTO, 0)
 
 	r.mutex.Lock()
-	lrange := r.client.LRange(r.redisKey, 0, n-1)
-	if lrange.Err() != nil {
-		r.logger.Error("Fetching events", lrange.Err().Error())
+	lrange, err := r.client.LRange(r.redisKey, 0, n-1)
+	if err != nil {
+		r.logger.Error("Fetching events", err.Error())
 		r.mutex.Unlock()
-		return nil, lrange.Err()
+		return nil, err
 	}
-	totalFetchedEvents := int64(len(lrange.Val()))
+	totalFetchedEvents := int64(len(lrange))
 
 	idxFrom := n
 	if totalFetchedEvents < n {
 		idxFrom = totalFetchedEvents
 	}
 
-	res := r.client.LTrim(r.redisKey, idxFrom, -1)
-	if res.Err() != nil {
-		r.logger.Error("Trim events", res.Err().Error())
+	err = r.client.LTrim(r.redisKey, idxFrom, -1)
+	if err != nil {
+		r.logger.Error("Trim events", err.Error())
 		r.mutex.Unlock()
-		return nil, res.Err()
+		return nil, err
 	}
 	r.mutex.Unlock()
 
 	//JSON unmarshal
-	listOfEvents := lrange.Val()
-	for _, se := range listOfEvents {
+	for _, se := range lrange {
 		storedEventDTO := dtos.QueueStoredEventDTO{}
 		err := json.Unmarshal([]byte(se), &storedEventDTO)
 		if err != nil {
@@ -102,10 +102,10 @@ func (r *RedisEventsStorage) PopN(n int64) ([]dtos.EventDTO, error) {
 
 // Count returns the number of items in the redis list
 func (r *RedisEventsStorage) Count() int64 {
-	return r.client.LLen(r.redisKey).Val()
+	return r.client.LLen(r.redisKey)
 }
 
 // Empty returns true if redis list is zero length
 func (r *RedisEventsStorage) Empty() bool {
-	return r.client.LLen(r.redisKey).Val() == 0
+	return r.client.LLen(r.redisKey) == 0
 }

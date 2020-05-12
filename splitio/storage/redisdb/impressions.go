@@ -9,11 +9,12 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-toolkit/redis"
 )
 
 // RedisImpressionStorage is a redis-based implementation of split storage
 type RedisImpressionStorage struct {
-	client          *PrefixedRedisClient
+	client          *redis.PrefixedRedisClient
 	mutex           *sync.Mutex
 	logger          logging.LoggerInterface
 	redisKey        string
@@ -22,7 +23,7 @@ type RedisImpressionStorage struct {
 }
 
 // NewRedisImpressionStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisImpressionStorage(client *PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisImpressionStorage {
+func NewRedisImpressionStorage(client *redis.PrefixedRedisClient, metadata *splitio.SdkMetadata, logger logging.LoggerInterface) *RedisImpressionStorage {
 	return &RedisImpressionStorage{
 		client:         client,
 		mutex:          &sync.Mutex{},
@@ -75,7 +76,7 @@ func (r *RedisImpressionStorage) Push(impressions []storage.ImpressionQueueObjec
 	// Checks if expiration needs to be set
 	if inserted == int64(len(impressionsJSON)) {
 		r.logger.Debug("Proceeding to set expiration for: ", r.redisKey)
-		result := r.client.Expire(r.redisKey, time.Duration(r.impressionsTTL)*time.Minute).Val()
+		result := r.client.Expire(r.redisKey, time.Duration(r.impressionsTTL)*time.Minute)
 		if result == false {
 			r.logger.Error("Something were wrong setting expiration", errPush)
 		}
@@ -89,29 +90,28 @@ func (r *RedisImpressionStorage) PopN(n int64) ([]storage.Impression, error) {
 	defer r.mutex.Unlock()
 	toReturn := make([]storage.Impression, 0)
 
-	lrange := r.client.LRange(r.redisKey, 0, n-1)
-	if lrange.Err() != nil {
-		r.logger.Error("Fetching impressions", lrange.Err().Error())
+	lrange, err := r.client.LRange(r.redisKey, 0, n-1)
+	if err != nil {
+		r.logger.Error("Fetching impressions", err.Error())
 		r.mutex.Unlock()
-		return nil, lrange.Err()
+		return nil, err
 	}
-	totalFetchedImpressions := int64(len(lrange.Val()))
+	totalFetchedImpressions := int64(len(lrange))
 
 	idxFrom := n
 	if totalFetchedImpressions < n {
 		idxFrom = totalFetchedImpressions
 	}
 
-	res := r.client.LTrim(r.redisKey, idxFrom, -1)
-	if res.Err() != nil {
-		r.logger.Error("Trim impressions", res.Err().Error())
+	err = r.client.LTrim(r.redisKey, idxFrom, -1)
+	if err != nil {
+		r.logger.Error("Trim impressions", err.Error())
 		r.mutex.Unlock()
-		return nil, res.Err()
+		return nil, err
 	}
 
 	//JSON unmarshal
-	listOfImpressions := lrange.Val()
-	for _, se := range listOfImpressions {
+	for _, se := range lrange {
 		storedImpression := storage.ImpressionQueueObject{}
 		err := json.Unmarshal([]byte(se), &storedImpression)
 		if err != nil {

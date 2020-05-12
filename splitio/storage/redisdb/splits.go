@@ -9,16 +9,17 @@ import (
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-toolkit/redis"
 )
 
 // RedisSplitStorage is a redis-based implementation of split storage
 type RedisSplitStorage struct {
-	client *PrefixedRedisClient
+	client *redis.PrefixedRedisClient
 	logger logging.LoggerInterface
 }
 
 // NewRedisSplitStorage creates a new RedisSplitStorage and returns a reference to it
-func NewRedisSplitStorage(redisClient *PrefixedRedisClient, logger logging.LoggerInterface) *RedisSplitStorage {
+func NewRedisSplitStorage(redisClient *redis.PrefixedRedisClient, logger logging.LoggerInterface) *RedisSplitStorage {
 	return &RedisSplitStorage{
 		client: redisClient,
 		logger: logger,
@@ -51,8 +52,7 @@ func (r *RedisSplitStorage) FetchMany(features []string) map[string]*dtos.SplitD
 	for _, feature := range features {
 		keysToFetch = append(keysToFetch, strings.Replace(redisSplit, "{split}", feature, 1))
 	}
-	rawSplits, err := r.client.Mget(keysToFetch)
-
+	rawSplits, err := r.client.MGet(keysToFetch)
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("Could not fetch features from redis: %s", err.Error()))
 		return nil
@@ -73,36 +73,6 @@ func (r *RedisSplitStorage) FetchMany(features []string) map[string]*dtos.SplitD
 	}
 
 	return splits
-}
-
-// PutMany bulk stores splits in redis
-func (r *RedisSplitStorage) PutMany(splits []dtos.SplitDTO, changeNumber int64) {
-	for _, split := range splits {
-		keyToStore := strings.Replace(redisSplit, "{split}", split.Name, 1)
-		raw, err := json.Marshal(split)
-		if err != nil {
-			r.logger.Error(fmt.Sprintf("Could not dump feature \"%s\" to json", split.Name))
-			continue
-		}
-
-		err = r.client.Set(keyToStore, raw, 0)
-		if err != nil {
-			r.logger.Error(fmt.Sprintf("Could not store split \"%s\" in redis: %s", split.Name, err.Error()))
-		}
-	}
-	err := r.client.Set(redisSplitTill, changeNumber, 0)
-	if err != nil {
-		r.logger.Error("Could not update split changenumber")
-	}
-}
-
-// Remove revemoves a split from redis
-func (r *RedisSplitStorage) Remove(splitName string) {
-	keyToDelete := strings.Replace(redisSplit, "{split}", splitName, 1)
-	_, err := r.client.Del(keyToDelete)
-	if err != nil {
-		r.logger.Error(fmt.Sprintf("Error deleting split \"%s\".", splitName))
-	}
 }
 
 // Till returns the latest split changeNumber
@@ -197,18 +167,6 @@ func (r *RedisSplitStorage) GetAll() []dtos.SplitDTO {
 
 // Clear removes all splits from storage
 func (r *RedisSplitStorage) Clear() {
-	r.client.WrapTransaction(func(t *prefixedTx) error {
-		keys, err := t.Keys(strings.Replace(redisSplit, "{split}", "*", 1))
-		if err != nil {
-			return err
-		}
-
-		if len(keys) > 0 {
-			err = t.Del(keys...)
-		}
-
-		return err
-	})
 }
 
 // TrafficTypeExists returns true or false depending on existence and counter

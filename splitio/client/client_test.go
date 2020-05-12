@@ -25,6 +25,7 @@ import (
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-toolkit/redis"
 )
 
 type mockEvaluator struct{}
@@ -1274,7 +1275,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
-func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
+func getRedisConfWithIP(IPAddressesEnabled bool) *redis.PrefixedRedisClient {
 	// Create prefixed client for adding Split
 	prefixedClient, _ := redisdb.NewPrefixedRedisClient(&conf.RedisConfig{
 		Host:     "localhost",
@@ -1284,8 +1285,12 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
 		Prefix:   "testPrefix",
 	})
 
-	splitStorage := redisdb.NewRedisSplitStorage(prefixedClient, logger)
-	splitStorage.PutMany([]dtos.SplitDTO{*valid}, 1494593336752)
+	raw, err := json.Marshal(*valid)
+	if err != nil {
+		return nil
+	}
+	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
+	prefixedClient.Set("SPLITIO.splits.till", 1494593336752, 0)
 
 	// Set default configs to connect Client with redis
 	cfg := conf.Default()
@@ -1314,7 +1319,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
 	return prefixedClient
 }
 
-func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
+func deleteDataGenerated(prefixedClient *redis.PrefixedRedisClient) {
 	// Deletes generated data
 	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
 	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")
@@ -1324,9 +1329,9 @@ func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
 func TestRedisClientWithIPDisabled(t *testing.T) {
 	prefixedClient := getRedisConfWithIP(false)
 	// Grabs created impression
-	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	json.Unmarshal([]byte(resImpression[0]), &impression)
 	metadata := impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
@@ -1338,9 +1343,9 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 	}
 
 	// Grabs created event
-	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
 	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	json.Unmarshal([]byte(resEvent[0]), &event)
 	metadata = event["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
@@ -1353,9 +1358,9 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 func TestRedisClientWithIPEnabled(t *testing.T) {
 	prefixedClient := getRedisConfWithIP(true)
 	// Grabs created impression
-	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	json.Unmarshal([]byte(resImpression[0]), &impression)
 	metadata := impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
@@ -1367,9 +1372,9 @@ func TestRedisClientWithIPEnabled(t *testing.T) {
 	}
 
 	// Grabs created event
-	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
 	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	json.Unmarshal([]byte(resEvent[0]), &event)
 	metadata = event["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {

@@ -1,8 +1,7 @@
 package service
 
 import (
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/dtos"
 )
 
 // SplitFetcher interface to be implemented by Split Fetchers
@@ -17,7 +16,7 @@ type SegmentFetcher interface {
 
 // ImpressionsRecorder interface to be implemented by Impressions loggers
 type ImpressionsRecorder interface {
-	Record(impressions []storage.Impression) error
+	Record(impressions []dtos.Impression) error
 }
 
 // MetricsRecorder interface to be implemented by Metrics loggers

@@ -3,18 +3,16 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/splitio/go-client/splitio/storage"
-
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-toolkit/logging"
 )
 
 type httpRecorderBase struct {
 	client   *HTTPClient
 	logger   logging.LoggerInterface
-	metadata *splitio.SdkMetadata
+	metadata dtos.Metadata
 }
 
 func (h *httpRecorderBase) recordRaw(url string, data []byte) error {
@@ -49,7 +47,7 @@ type impressionsRecord struct {
 }
 
 // Record sends an array (or slice) of impressionsRecord to the backend
-func (i *HTTPImpressionRecorder) Record(impressions []storage.Impression) error {
+func (i *HTTPImpressionRecorder) Record(impressions []dtos.Impression) error {
 	impressionsToPost := make(map[string][]impressionRecord)
 	for _, impression := range impressions {
 		keyImpression := impressionRecord{
@@ -96,7 +94,7 @@ func (i *HTTPImpressionRecorder) Record(impressions []storage.Impression) error 
 func NewHTTPImpressionRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 	logger logging.LoggerInterface,
 ) *HTTPImpressionRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
@@ -170,7 +168,7 @@ func (m *HTTPMetricsRecorder) RecordGauge(gauge dtos.GaugeDTO) error {
 func NewHTTPMetricsRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 	logger logging.LoggerInterface,
 ) *HTTPMetricsRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
@@ -210,7 +208,7 @@ func (i *HTTPEventsRecorder) Record(events []dtos.EventDTO) error {
 func NewHTTPEventsRecorder(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 	logger logging.LoggerInterface,
 ) *HTTPEventsRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)

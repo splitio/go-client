@@ -16,11 +16,12 @@ import (
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-client/splitio/service/api"
 	"github.com/splitio/go-client/splitio/service/local"
-	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/storage/mutexqueue"
-	"github.com/splitio/go-client/splitio/storage/redisdb"
 	"github.com/splitio/go-client/splitio/tasks"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-split-commons/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/storage/redis"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -53,7 +54,7 @@ type sdkSync struct {
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	metadata              splitio.SdkMetadata
+	metadata              dtos.Metadata
 	tasks                 sdkSync
 	storages              sdkStorages
 	apikey                string
@@ -287,7 +288,7 @@ func setupInMemoryFactory(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	err := api.ValidateApikey(apikey, cfg.Advanced)
 	if err != nil {
@@ -361,7 +362,7 @@ func setupInMemoryFactory(
 	splitFactory := SplitFactory{
 		apikey:                apikey,
 		cfg:                   cfg,
-		metadata:              *metadata,
+		metadata:              metadata,
 		logger:                logger,
 		operationMode:         "inmemory-standalone",
 		storages:              storages,
@@ -380,26 +381,30 @@ func setupRedisFactory(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	redisClient, err := redisdb.NewPrefixedRedisClient(&cfg.Redis)
+	redisClient, err := redis.NewRedisClient(&cfg.Redis, logger)
 	if err != nil {
 		logger.Error("Failed to instantiate redis client.")
 		return nil, err
 	}
 
 	storages := sdkStorages{
-		splits:      redisdb.NewRedisSplitStorage(redisClient, logger),
-		segments:    redisdb.NewRedisSegmentStorage(redisClient, logger),
-		impressions: redisdb.NewRedisImpressionStorage(redisClient, metadata, logger),
-		telemetry:   redisdb.NewRedisMetricsStorage(redisClient, metadata, logger),
-		events:      redisdb.NewRedisEventsStorage(redisClient, metadata, logger),
+		splits:      redis.NewSplitStorage(redisClient, logger),
+		segments:    redis.NewSegmentStorage(redisClient, logger),
+		impressions: redis.NewImpressionStorage(redisClient, metadata, logger),
+		telemetry:   redis.NewMetricsStorage(redisClient, metadata, logger),
+		events:      redis.NewEventsStorage(redisClient, metadata, logger),
 	}
 
 	factory := &SplitFactory{
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              *metadata,
+		apikey: apikey,
+		cfg:    cfg,
+		metadata: dtos.Metadata{
+			MachineIP:   metadata.MachineIP,
+			MachineName: metadata.MachineName,
+			SDKVersion:  metadata.SDKVersion,
+		},
 		logger:                logger,
 		operationMode:         "redis-consumer",
 		storages:              storages,
@@ -413,7 +418,7 @@ func setupLocalhostFactory(
 	apikey string,
 	cfg *conf.SplitSdkConfig,
 	logger logging.LoggerInterface,
-	metadata *splitio.SdkMetadata,
+	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
@@ -423,7 +428,7 @@ func setupLocalhostFactory(
 	splitFactory := &SplitFactory{
 		apikey:   apikey,
 		cfg:      cfg,
-		metadata: *metadata,
+		metadata: metadata,
 		logger:   logger,
 		storages: sdkStorages{
 			splits:      splitStorage,
@@ -449,7 +454,7 @@ func setupLocalhostFactory(
 // newFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
 func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
-	metadata := splitio.SdkMetadata{
+	metadata := dtos.Metadata{
 		SDKVersion:  "go-" + splitio.Version,
 		MachineIP:   cfg.IPAddress,
 		MachineName: cfg.InstanceName,
@@ -460,11 +465,11 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 
 	switch cfg.OperationMode {
 	case "inmemory-standalone":
-		splitFactory, err = setupInMemoryFactory(apikey, cfg, logger, &metadata)
+		splitFactory, err = setupInMemoryFactory(apikey, cfg, logger, metadata)
 	case "redis-consumer":
-		splitFactory, err = setupRedisFactory(apikey, cfg, logger, &metadata)
+		splitFactory, err = setupRedisFactory(apikey, cfg, logger, metadata)
 	case "localhost":
-		splitFactory, err = setupLocalhostFactory(apikey, cfg, logger, &metadata)
+		splitFactory, err = setupLocalhostFactory(apikey, cfg, logger, metadata)
 	default:
 		err = fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}
@@ -476,7 +481,7 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	if cfg.Advanced.ImpressionListener != nil {
 		splitFactory.impressionListener = impressionlistener.NewImpressionListenerWrapper(
 			cfg.Advanced.ImpressionListener,
-			&metadata,
+			metadata,
 		)
 	}
 

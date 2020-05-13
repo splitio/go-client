@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"

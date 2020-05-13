@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-toolkit/logging"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
 	yaml "gopkg.in/yaml.v2"
 )
 

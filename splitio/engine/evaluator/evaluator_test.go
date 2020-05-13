@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )

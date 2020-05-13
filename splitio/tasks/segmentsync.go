@@ -3,13 +3,14 @@ package tasks
 import (
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/splitio/go-client/splitio/service"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/workerpool"
-	"sync"
 )
 
 func updateSegment(

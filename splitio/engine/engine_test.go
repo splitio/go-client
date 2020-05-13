@@ -9,7 +9,7 @@ import (
 
 	"github.com/splitio/go-client/splitio/engine/grammar"
 	"github.com/splitio/go-client/splitio/engine/hash"
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-toolkit/logging"
 )
 

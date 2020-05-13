@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/splitio/go-client/splitio/service"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )

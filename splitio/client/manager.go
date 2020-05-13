@@ -3,8 +3,8 @@ package client
 import (
 	"fmt"
 
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-toolkit/logging"
 )
 

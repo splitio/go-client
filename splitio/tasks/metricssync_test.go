@@ -2,18 +2,18 @@ package tasks
 
 import (
 	"encoding/json"
-	"github.com/splitio/go-client/splitio"
-	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-client/splitio/service/api"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-toolkit/logging"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/service/api"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestMetricsSyncTask(t *testing.T) {
@@ -77,7 +77,7 @@ func TestMetricsSyncTask(t *testing.T) {
 	defer ts.Close()
 
 	logger := logging.NewLogger(&logging.LoggerOptions{})
-	metadata := &splitio.SdkMetadata{
+	metadata := dtos.Metadata{
 		SDKVersion:  "go-0.1",
 		MachineIP:   "192.168.0.123",
 		MachineName: "machine1",

@@ -2,7 +2,8 @@ package matchers
 
 import (
 	"fmt"
-	"github.com/splitio/go-client/splitio/storage"
+
+	"github.com/splitio/go-split-commons/storage"
 )
 
 // InSegmentMatcher matches if the key passed is in the segment which the matcher was constructed with

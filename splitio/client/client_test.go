@@ -17,15 +17,16 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/storage/mutexqueue"
-	"github.com/splitio/go-client/splitio/storage/redisdb"
+	redisCfg "github.com/splitio/go-split-commons/conf"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-split-commons/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/storage/redis"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
-	"github.com/splitio/go-toolkit/redis"
+	predis "github.com/splitio/go-toolkit/redis"
 )
 
 type mockEvaluator struct{}
@@ -490,7 +491,7 @@ func getClientForListener() SplitClient {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, dtos.Metadata{
 		SDKVersion:  "go-" + splitio.Version,
 		MachineIP:   "123.123.123.123",
 		MachineName: "ip-123-123-123-123",
@@ -504,7 +505,7 @@ func getClientForListener() SplitClient {
 			events:      &mockEvents{},
 		},
 		logger: logger,
-		metadata: splitio.SdkMetadata{
+		metadata: dtos.Metadata{
 			SDKVersion: "go-" + splitio.Version,
 		},
 	}
@@ -1275,15 +1276,15 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
-func getRedisConfWithIP(IPAddressesEnabled bool) *redis.PrefixedRedisClient {
+func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	// Create prefixed client for adding Split
-	prefixedClient, _ := redisdb.NewPrefixedRedisClient(&conf.RedisConfig{
+	prefixedClient, _ := redis.NewRedisClient(&redisCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
 		Password: "",
 		Prefix:   "testPrefix",
-	})
+	}, logger)
 
 	raw, err := json.Marshal(*valid)
 	if err != nil {
@@ -1298,7 +1299,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redis.PrefixedRedisClient {
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.OperationMode = "redis-consumer"
-	cfg.Redis = conf.RedisConfig{
+	cfg.Redis = redisCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1319,7 +1320,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redis.PrefixedRedisClient {
 	return prefixedClient
 }
 
-func deleteDataGenerated(prefixedClient *redis.PrefixedRedisClient) {
+func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
 	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
 	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")

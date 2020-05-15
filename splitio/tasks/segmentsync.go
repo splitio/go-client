@@ -18,7 +18,7 @@ func updateSegment(
 	segmentStorage storage.SegmentStorage,
 	name string,
 ) (bool, error) {
-	till := segmentStorage.Till(name)
+	till, _ := segmentStorage.ChangeNumber(name)
 	segmentChanges, err := segmentFetcher.Fetch(name, till)
 	if err != nil {
 		return false, err

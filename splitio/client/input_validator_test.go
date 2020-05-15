@@ -46,10 +46,10 @@ func (tt *mockSplitStorage) TrafficTypeExists(trafficType string) bool {
 		return false
 	}
 }
-func (tt *mockSplitStorage) Get(splitName string) *dtos.SplitDTO { return nil }
-func (tt *mockSplitStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
-func (tt *mockSplitStorage) SplitNames() []string                { return []string{} }
-func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
+func (tt *mockSplitStorage) Split(splitName string) *dtos.SplitDTO { return nil }
+func (tt *mockSplitStorage) All() []dtos.SplitDTO                  { return []dtos.SplitDTO{} }
+func (tt *mockSplitStorage) SplitNames() []string                  { return []string{} }
+func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet    { return nil }
 func (tt *mockSplitStorage) FetchMany(features []string) map[string]*dtos.SplitDTO {
 	return make(map[string]*dtos.SplitDTO)
 }

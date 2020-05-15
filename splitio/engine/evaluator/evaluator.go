@@ -119,7 +119,7 @@ func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature s
 // EvaluateFeature returns a struct with the resulting treatment and extra information for the impression
 func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	before := time.Now()
-	splitDto := e.splitStorage.Get(feature)
+	splitDto := e.splitStorage.Split(feature)
 
 	if bucketingKey == nil {
 		bucketingKey = &key

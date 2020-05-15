@@ -69,7 +69,7 @@ func (m *SplitManager) Splits() []SplitView {
 	}
 
 	splitViews := make([]SplitView, 0)
-	splits := m.splitStorage.GetAll()
+	splits := m.splitStorage.All()
 	for _, split := range splits {
 		splitViews = append(splitViews, *newSplitView(&split))
 	}
@@ -93,7 +93,7 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		return nil
 	}
 
-	split := m.splitStorage.Get(feature)
+	split := m.splitStorage.Split(feature)
 	if split != nil {
 		return newSplitView(split)
 	}

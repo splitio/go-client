@@ -104,12 +104,12 @@ func Default() *SplitSdkConfig {
 		LoggerConfig:       logging.LoggerOptions{},
 		SplitFile:          splitFile,
 		Redis: conf.RedisConfig{
-			Database:  0,
-			Host:      "localhost",
-			Password:  "",
-			Port:      6379,
-			Prefix:    "",
-			TLSConfig: nil,
+			Database: 0,
+			Host:     "localhost",
+			Password: "",
+			Port:     6379,
+			Prefix:   "",
+			TLS:      false,
 		},
 		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,

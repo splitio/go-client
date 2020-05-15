@@ -90,7 +90,7 @@ func TestSplitSyncTask(t *testing.T) {
 	}
 
 	splitTask.Stop(true)
-	s1 := splitStorage.Get("split1")
+	s1 := splitStorage.Split("split1")
 	if s1 == nil || s1.Name != "split1" || s1.Killed {
 		t.Error("split1 stored/retrieved incorrectly")
 		t.Error(s1)
@@ -100,13 +100,13 @@ func TestSplitSyncTask(t *testing.T) {
 		t.Error("It should exists")
 	}
 
-	s2 := splitStorage.Get("split2")
+	s2 := splitStorage.Split("split2")
 	if s2 == nil || s2.Name != "split2" || !s2.Killed {
 		t.Error("split2 stored/retrieved incorrectly")
 		t.Error(s2)
 	}
 
-	s3 := splitStorage.Get("split3")
+	s3 := splitStorage.Split("split3")
 	if s3 != nil {
 		t.Error("split3 should have been removed")
 	}
@@ -207,24 +207,24 @@ func TestSplitSyncTaskStatus(t *testing.T) {
 
 	updateSplits(splitStorage, splitFetcher2)
 
-	s1 := splitStorage.Get("split1")
+	s1 := splitStorage.Split("split1")
 	if s1 != nil {
 		t.Error("split1 should have been removed")
 	}
 
-	s2 := splitStorage.Get("split2")
+	s2 := splitStorage.Split("split2")
 	if s2 == nil || s2.Name != "split2" || !s2.Killed {
 		t.Error("split2 stored/retrieved incorrectly")
 		t.Error(s2)
 	}
 
-	s4 := splitStorage.Get("split4")
+	s4 := splitStorage.Split("split4")
 	if s4 == nil || s4.Name != "split4" || s4.Killed {
 		t.Error("split4 stored/retrieved incorrectly")
 		t.Error(s4)
 	}
 
-	s3 := splitStorage.Get("split3")
+	s3 := splitStorage.Split("split3")
 	if s3 != nil {
 		t.Error("split3 should have been removed")
 	}

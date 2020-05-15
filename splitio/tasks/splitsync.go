@@ -9,7 +9,7 @@ import (
 )
 
 func updateSplits(splitStorage storage.SplitStorageProducer, splitFetcher service.SplitFetcher) (bool, error) {
-	till := splitStorage.Till()
+	till, _ := splitStorage.ChangeNumber()
 	if till == 0 {
 		till = -1
 	}

@@ -14,14 +14,14 @@ import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-client/splitio/service/api"
-	"github.com/splitio/go-client/splitio/service/local"
-	"github.com/splitio/go-client/splitio/tasks"
 	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/service/api"
+	"github.com/splitio/go-split-commons/service/local"
 	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
+	"github.com/splitio/go-split-commons/tasks"
 	"github.com/splitio/go-toolkit/asynctask"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -310,7 +310,7 @@ func setupInMemoryFactory(
 	syncTasks := sdkSync{
 		splits: tasks.NewFetchSplitsTask(
 			storages.splits.(storage.SplitStorage),
-			api.NewHTTPSplitFetcher(apikey, cfg, logger),
+			api.NewHTTPSplitFetcher(apikey, &cfg.Advanced, splitio.Version, logger),
 			cfg.TaskPeriods.SplitSync,
 			logger,
 			readyChannel,
@@ -318,7 +318,7 @@ func setupInMemoryFactory(
 		segments: tasks.NewFetchSegmentsTask(
 			storages.splits.(storage.SplitStorage),
 			storages.segments.(storage.SegmentStorage),
-			api.NewHTTPSegmentFetcher(apikey, cfg, logger),
+			api.NewHTTPSegmentFetcher(apikey, &cfg.Advanced, logger),
 			cfg.TaskPeriods.SegmentSync,
 			cfg.Advanced.SegmentWorkers,
 			cfg.Advanced.SegmentQueueSize,
@@ -327,32 +327,32 @@ func setupInMemoryFactory(
 		),
 		impressions: tasks.NewRecordImpressionsTask(
 			storages.impressions.(storage.ImpressionStorage),
-			api.NewHTTPImpressionRecorder(apikey, cfg, metadata, logger),
+			api.NewHTTPImpressionRecorder(apikey, &cfg.Advanced, metadata, splitio.Version, logger),
 			cfg.TaskPeriods.ImpressionSync,
 			logger,
 			cfg.Advanced.ImpressionsBulkSize,
 		),
 		counters: tasks.NewRecordCountersTask(
 			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, cfg, metadata, logger),
+			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
 			cfg.TaskPeriods.CounterSync,
 			logger,
 		),
 		gauges: tasks.NewRecordGaugesTask(
 			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, cfg, metadata, logger),
+			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
 			cfg.TaskPeriods.GaugeSync,
 			logger,
 		),
 		latencies: tasks.NewRecordLatenciesTask(
 			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, cfg, metadata, logger),
+			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
 			cfg.TaskPeriods.LatencySync,
 			logger,
 		),
 		events: tasks.NewRecordEventsTask(
 			storages.events.(storage.EventsStorage),
-			api.NewHTTPEventsRecorder(apikey, cfg, metadata, logger),
+			api.NewHTTPEventsRecorder(apikey, &cfg.Advanced, metadata, splitio.Version, logger),
 			cfg.Advanced.EventsBulkSize,
 			cfg.TaskPeriods.EventsSync,
 			logger,

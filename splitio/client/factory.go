@@ -93,7 +93,7 @@ func (f *SplitFactory) Manager() *SplitManager {
 	}
 }
 
-// IsDestroyed returns true if tbe client has been destroyed
+// IsDestroyed returns true if the client has been destroyed
 func (f *SplitFactory) IsDestroyed() bool {
 	return f.status.Load() == sdkStatusDestroyed
 }

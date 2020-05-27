@@ -2,16 +2,22 @@ package client
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
-
-	"testing"
 )
 
 func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	sdkConf := conf.Default()
-	sdkConf.Logger = logging.NewLogger(options)
+	sdkConf.Logger = logging.NewLogger(&logging.LoggerOptions{
+		LogLevel:      5,
+		ErrorWriter:   &mW,
+		WarningWriter: &mW,
+		InfoWriter:    &mW,
+		DebugWriter:   &mW,
+		VerboseWriter: &mW,
+	})
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
 
 	delete(factoryInstances, "localhost")

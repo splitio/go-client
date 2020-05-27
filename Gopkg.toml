@@ -1,7 +1,7 @@
 [[constraint]]
   name = "github.com/splitio/go-toolkit"
-  revision = "b3b0f86e735a9db5ced273c272cbb2f84ba8ffdf"
+  branch = "development"
 
 [[constraint]]
   name = "github.com/splitio/go-split-commons"
-  branch = "storages"
+  branch = "tests"

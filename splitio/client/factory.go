@@ -14,15 +14,16 @@ import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
+	config "github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/service"
 	"github.com/splitio/go-split-commons/service/api"
 	"github.com/splitio/go-split-commons/service/local"
 	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
-	"github.com/splitio/go-split-commons/tasks"
-	"github.com/splitio/go-toolkit/asynctask"
+	synchronizer "github.com/splitio/go-split-commons/sync"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -35,27 +36,16 @@ const (
 )
 
 type sdkStorages struct {
-	splits      storage.SplitStorageConsumer
-	segments    storage.SegmentStorageConsumer
-	impressions storage.ImpressionStorageProducer
-	events      storage.EventStorageProducer
-	telemetry   storage.MetricsStorageProducer
-}
-
-type sdkSync struct {
-	splits      *asynctask.AsyncTask
-	segments    *asynctask.AsyncTask
-	impressions *asynctask.AsyncTask
-	gauges      *asynctask.AsyncTask
-	counters    *asynctask.AsyncTask
-	latencies   *asynctask.AsyncTask
-	events      *asynctask.AsyncTask
+	splits      storage.SplitStorage
+	segments    storage.SegmentStorage
+	impressions storage.ImpressionStorage
+	events      storage.EventsStorage
+	telemetry   storage.MetricsStorage
 }
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
 	metadata              dtos.Metadata
-	tasks                 sdkSync
 	storages              sdkStorages
 	apikey                string
 	status                atomic.Value
@@ -65,6 +55,7 @@ type SplitFactory struct {
 	cfg                   *conf.SplitSdkConfig
 	impressionListener    *impressionlistener.WrapperImpressionListener
 	logger                logging.LoggerInterface
+	syncManager           *synchronizer.SynchronizerManager
 }
 
 // Client returns the split client instantiated by the factory
@@ -105,62 +96,23 @@ func (f *SplitFactory) IsReady() bool {
 }
 
 // initializates task for localhost mode
-func (f *SplitFactory) initializationLocalhost(readyChannel chan string, syncTasks *sdkSync) {
-	syncTasks.splits.Start()
+func (f *SplitFactory) initializationLocalhost(readyChannel chan string) {
+	f.syncManager.Start()
 
 	<-readyChannel
 	f.broadcastReadiness(sdkStatusReady)
 }
 
 // initializates tasks for in-memory mode
-func (f *SplitFactory) initializationInMemory(readyChannel chan string, syncTasks *sdkSync) {
-	// Start split fetching task
-	syncTasks.splits.Start()
-
+func (f *SplitFactory) initializationInMemory(readyChannel chan string) {
+	f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
-	case "SPLITS_READY":
-		// Once splits are ready, start segment fetching task
-		syncTasks.segments.Start()
-		break
-	case "SPLITS_ERROR":
-		// Broadcast on error
-		f.broadcastReadiness(sdkInitializationFailed)
-		return
-	}
-
-	msg = <-readyChannel
-	switch msg {
-	case "SEGMENTS_READY":
-		// Once segments are ready, start impressions and metrics recording tasks
-		syncTasks.impressions.Start()
-		syncTasks.latencies.Start()
-		syncTasks.counters.Start()
-		syncTasks.gauges.Start()
-		syncTasks.events.Start()
+	case "READY":
 		// Broadcast ready status for SDK
 		f.broadcastReadiness(sdkStatusReady)
-	}
-}
-
-func dataFlusher(syncTasks *sdkSync, inMememoryFullQueue chan string, logger logging.LoggerInterface) {
-	for true {
-		msg := <-inMememoryFullQueue
-		switch msg {
-		case "EVENTS_FULL":
-			logger.Debug("FLUSHING storage queue")
-			errWakeUp := syncTasks.events.WakeUp()
-			if errWakeUp != nil {
-				logger.Error("Error flushing storage queue", errWakeUp)
-			}
-			break
-		case "IMPRESSIONS_FULL":
-			logger.Debug("FLUSHING storage queue")
-			errWakeUp := syncTasks.impressions.WakeUp()
-			if errWakeUp != nil {
-				logger.Error("Error flushing storage queue", errWakeUp)
-			}
-		}
+	default:
+		f.broadcastReadiness(sdkInitializationFailed)
 	}
 }
 
@@ -246,30 +198,7 @@ func (f *SplitFactory) Destroy() {
 		return
 	}
 
-	// Stop tasks that don't require blocking
-	if f.tasks.splits != nil {
-		f.tasks.splits.Stop(false)
-	}
-	if f.tasks.segments != nil {
-		f.tasks.segments.Stop(false)
-	}
-	if f.tasks.gauges != nil {
-		f.tasks.gauges.Stop(false)
-	}
-	if f.tasks.counters != nil {
-		f.tasks.counters.Stop(false)
-	}
-	if f.tasks.latencies != nil {
-		f.tasks.latencies.Stop(false)
-	}
-
-	// Stop tasks that need to block destroy blocking
-	if f.tasks.impressions != nil {
-		f.tasks.impressions.Stop(true)
-	}
-	if f.tasks.events != nil {
-		f.tasks.events.Stop(true)
-	}
+	f.syncManager.Stop()
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user
@@ -290,7 +219,19 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	err := api.ValidateApikey(apikey, cfg.Advanced)
+	advanced := &config.AdvancedConfig{
+		EventsQueueSize:      cfg.Advanced.EventsQueueSize,
+		EventsBulkSize:       cfg.Advanced.EventsBulkSize,
+		EventsURL:            cfg.Advanced.EventsURL,
+		HTTPTimeout:          cfg.Advanced.HTTPTimeout,
+		ImpressionsBulkSize:  cfg.Advanced.ImpressionsBulkSize,
+		ImpressionsQueueSize: cfg.Advanced.ImpressionsQueueSize,
+		SdkURL:               cfg.Advanced.SdkURL,
+		SegmentQueueSize:     cfg.Advanced.SegmentQueueSize,
+		SegmentWorkers:       cfg.Advanced.SegmentWorkers,
+	}
+
+	err := api.ValidateApikey(apikey, *advanced)
 	if err != nil {
 		return nil, err
 	}
@@ -307,57 +248,34 @@ func setupInMemoryFactory(
 
 	readyChannel := make(chan string, 1)
 
-	syncTasks := sdkSync{
-		splits: tasks.NewFetchSplitsTask(
-			storages.splits.(storage.SplitStorage),
-			api.NewHTTPSplitFetcher(apikey, &cfg.Advanced, splitio.Version, logger),
-			cfg.TaskPeriods.SplitSync,
-			logger,
-			readyChannel,
-		),
-		segments: tasks.NewFetchSegmentsTask(
-			storages.splits.(storage.SplitStorage),
-			storages.segments.(storage.SegmentStorage),
-			api.NewHTTPSegmentFetcher(apikey, &cfg.Advanced, logger),
-			cfg.TaskPeriods.SegmentSync,
-			cfg.Advanced.SegmentWorkers,
-			cfg.Advanced.SegmentQueueSize,
-			logger,
-			readyChannel,
-		),
-		impressions: tasks.NewRecordImpressionsTask(
-			storages.impressions.(storage.ImpressionStorage),
-			api.NewHTTPImpressionRecorder(apikey, &cfg.Advanced, metadata, splitio.Version, logger),
-			cfg.TaskPeriods.ImpressionSync,
-			logger,
-			cfg.Advanced.ImpressionsBulkSize,
-		),
-		counters: tasks.NewRecordCountersTask(
-			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
-			cfg.TaskPeriods.CounterSync,
-			logger,
-		),
-		gauges: tasks.NewRecordGaugesTask(
-			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
-			cfg.TaskPeriods.GaugeSync,
-			logger,
-		),
-		latencies: tasks.NewRecordLatenciesTask(
-			storages.telemetry.(storage.MetricsStorage),
-			api.NewHTTPMetricsRecorder(apikey, &cfg.Advanced, metadata, logger),
-			cfg.TaskPeriods.LatencySync,
-			logger,
-		),
-		events: tasks.NewRecordEventsTask(
-			storages.events.(storage.EventsStorage),
-			api.NewHTTPEventsRecorder(apikey, &cfg.Advanced, metadata, splitio.Version, logger),
-			cfg.Advanced.EventsBulkSize,
-			cfg.TaskPeriods.EventsSync,
-			logger,
-		),
-	}
+	splitAPI := service.NewSplitAPI(apikey, splitio.Version, advanced, logger)
+
+	syncImpl := synchronizer.NewSynchronizerImpl(
+		config.TaskPeriods{
+			CounterSync:    cfg.TaskPeriods.CounterSync,
+			EventsSync:     cfg.TaskPeriods.EventsSync,
+			GaugeSync:      cfg.TaskPeriods.GaugeSync,
+			ImpressionSync: cfg.TaskPeriods.ImpressionSync,
+			LatencySync:    cfg.TaskPeriods.LatencySync,
+			SegmentSync:    cfg.TaskPeriods.SegmentSync,
+			SplitSync:      cfg.TaskPeriods.SplitSync,
+		},
+		*advanced,
+		splitAPI,
+		storages.splits,
+		storages.segments,
+		storages.telemetry,
+		storages.impressions,
+		storages.events,
+		logger,
+		inMememoryFullQueue,
+	)
+
+	syncManager := synchronizer.NewSynchronizerManager(
+		syncImpl,
+		logger,
+		readyChannel,
+	)
 
 	splitFactory := SplitFactory{
 		apikey:                apikey,
@@ -366,23 +284,17 @@ func setupInMemoryFactory(
 		logger:                logger,
 		operationMode:         "inmemory-standalone",
 		storages:              storages,
-		tasks:                 syncTasks,
 		readinessSubscriptors: make(map[int]chan int),
+		syncManager:           syncManager,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
-	go splitFactory.initializationInMemory(readyChannel, &syncTasks)
-	go dataFlusher(&syncTasks, inMememoryFullQueue, logger)
+	go splitFactory.initializationInMemory(readyChannel)
 
 	return &splitFactory, nil
 }
 
-func setupRedisFactory(
-	apikey string,
-	cfg *conf.SplitSdkConfig,
-	logger logging.LoggerInterface,
-	metadata dtos.Metadata,
-) (*SplitFactory, error) {
+func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface, metadata dtos.Metadata) (*SplitFactory, error) {
 	redisClient, err := redis.NewRedisClient(&cfg.Redis, logger)
 	if err != nil {
 		logger.Error("Failed to instantiate redis client.")
@@ -398,13 +310,9 @@ func setupRedisFactory(
 	}
 
 	factory := &SplitFactory{
-		apikey: apikey,
-		cfg:    cfg,
-		metadata: dtos.Metadata{
-			MachineIP:   metadata.MachineIP,
-			MachineName: metadata.MachineName,
-			SDKVersion:  metadata.SDKVersion,
-		},
+		apikey:                apikey,
+		cfg:                   cfg,
+		metadata:              metadata,
 		logger:                logger,
 		operationMode:         "redis-consumer",
 		storages:              storages,
@@ -421,9 +329,21 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitFetcher := local.NewFileSplitFetcher(cfg.SplitFile, logger)
 	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan string, 1)
+
+	syncManager := synchronizer.NewSynchronizerManager(
+		synchronizer.NewLocalSynchronizerImpl(
+			splitPeriod,
+			&service.SplitAPI{
+				SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger),
+			},
+			splitStorage,
+			logger,
+		),
+		logger,
+		readyChannel,
+	)
 
 	splitFactory := &SplitFactory{
 		apikey:   apikey,
@@ -437,16 +357,13 @@ func setupLocalhostFactory(
 			events:      mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger),
 			segments:    mutexmap.NewMMSegmentStorage(),
 		},
-		tasks: sdkSync{
-			splits: tasks.NewFetchSplitsTask(splitStorage, splitFetcher, splitPeriod, logger, readyChannel),
-		},
-
 		readinessSubscriptors: make(map[int]chan int),
+		syncManager:           syncManager,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
 	// Call fetching tasks as goroutine
-	go splitFactory.initializationLocalhost(readyChannel, &splitFactory.tasks)
+	go splitFactory.initializationLocalhost(readyChannel)
 
 	return splitFactory, nil
 }

@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
@@ -41,7 +42,7 @@ type SplitSdkConfig struct {
 	Logger             logging.LoggerInterface
 	LoggerConfig       logging.LoggerOptions
 	TaskPeriods        TaskPeriods
-	Advanced           conf.AdvancedConfig
+	Advanced           AdvancedConfig
 	Redis              conf.RedisConfig
 }
 
@@ -54,6 +55,24 @@ type TaskPeriods struct {
 	CounterSync    int
 	LatencySync    int
 	EventsSync     int
+}
+
+// AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
+// - ImpressionListener - struct that will be notified each time an impression bulk is ready
+// - HTTPTimeout - Timeout for HTTP requests when doing synchronization
+// - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
+// - SegmentWorkers - How many workers will be used when performing segments sync.
+type AdvancedConfig struct {
+	ImpressionListener   impressionlistener.ImpressionListener
+	HTTPTimeout          int
+	SegmentQueueSize     int
+	SegmentWorkers       int
+	SdkURL               string
+	EventsURL            string
+	EventsBulkSize       int64
+	EventsQueueSize      int
+	ImpressionsQueueSize int
+	ImpressionsBulkSize  int64
 }
 
 // Default returns a config struct with all the default values
@@ -101,7 +120,7 @@ func Default() *SplitSdkConfig {
 			SplitSync:      defaultFeatureRefreshRate,
 			EventsSync:     defaultTaskPeriod,
 		},
-		Advanced: conf.AdvancedConfig{
+		Advanced: AdvancedConfig{
 			EventsURL:            "",
 			SdkURL:               "",
 			HTTPTimeout:          0,

@@ -1,5 +1,8 @@
+5.2.0 (, 2020)
+ - Added split-commons library.
+
 5.1.2 (Nov 28, 2019)
- - Several fixes in tests as a result of a locking & race conditions audit
+ - Several fixes in tests as a result of a locking & race conditions audit/
  - Fixed locking issue for .Treatments() && .TreatmentsWithConfig() methods.
 
 5.1.1 (Oct 15, 2019)

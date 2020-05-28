@@ -248,7 +248,7 @@ func setupInMemoryFactory(
 
 	readyChannel := make(chan string, 1)
 
-	splitAPI := service.NewSplitAPI(apikey, splitio.Version, advanced, logger)
+	splitAPI := service.NewSplitAPI(apikey, splitio.Version, advanced, logger, metadata)
 
 	syncImpl := synchronizer.NewSynchronizer(
 		config.TaskPeriods{

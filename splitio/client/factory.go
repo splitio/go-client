@@ -250,7 +250,7 @@ func setupInMemoryFactory(
 
 	splitAPI := service.NewSplitAPI(apikey, splitio.Version, advanced, logger)
 
-	syncImpl := synchronizer.NewSynchronizerImpl(
+	syncImpl := synchronizer.NewSynchronizer(
 		config.TaskPeriods{
 			CounterSync:    cfg.TaskPeriods.CounterSync,
 			EventsSync:     cfg.TaskPeriods.EventsSync,
@@ -333,7 +333,7 @@ func setupLocalhostFactory(
 	readyChannel := make(chan string, 1)
 
 	syncManager := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocalSynchronizerImpl(
+		synchronizer.NewLocalSynchronizer(
 			splitPeriod,
 			&service.SplitAPI{
 				SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger),

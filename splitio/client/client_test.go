@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
+	"github.com/splitio/go-split-commons/sync"
+	syncMock "github.com/splitio/go-split-commons/sync/mocks"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	predis "github.com/splitio/go-toolkit/redis"
@@ -257,74 +260,24 @@ func TestClientPanicking(t *testing.T) {
 	expectedTreatment(client.Treatment("key", "some", nil), evaluator.Control, t)
 }
 
-/*
 func TestClientDestroy(t *testing.T) {
+	var periodicDataRecordingStopped int64
+	var periodicDataFetchingStopped int64
 	logger := logging.NewLogger(nil)
-	resSplits := atomic.Value{}
-	resSplits.Store(0)
-	resSegments := atomic.Value{}
-	resSegments.Store(0)
-	resImpressions := atomic.Value{}
-	resImpressions.Store(0)
-	resGauge := atomic.Value{}
-	resGauge.Store(0)
-	resCounters := atomic.Value{}
-	resCounters.Store(0)
-	resLatencies := atomic.Value{}
-	resLatencies.Store(0)
-
-	stoppedSplits := atomic.Value{}
-	stoppedSplits.Store(false)
-	stoppedSegments := atomic.Value{}
-	stoppedSegments.Store(false)
-	stoppedImpressions := atomic.Value{}
-	stoppedImpressions.Store(false)
-	stoppedGauge := atomic.Value{}
-	stoppedGauge.Store(false)
-	stoppedCounters := atomic.Value{}
-	stoppedCounters.Store(false)
-	stoppedLatencies := atomic.Value{}
-	stoppedLatencies.Store(false)
-
-	splitSync := func(l logging.LoggerInterface) error { resSplits.Store(resSplits.Load().(int) + 1); return nil }
-	splitStop := func(l logging.LoggerInterface) { stoppedSplits.Store(true) }
-	segmentSync := func(l logging.LoggerInterface) error { resSegments.Store(resSegments.Load().(int) + 1); return nil }
-	segmentStop := func(l logging.LoggerInterface) { stoppedSegments.Store(true) }
-	impressionSync := func(l logging.LoggerInterface) error {
-		resImpressions.Store(resImpressions.Load().(int) + 1)
-		return nil
-	}
-	impressionStop := func(l logging.LoggerInterface) { stoppedImpressions.Store(true) }
-	gaugeSync := func(l logging.LoggerInterface) error { resGauge.Store(resGauge.Load().(int) + 1); return nil }
-	gaugeStop := func(l logging.LoggerInterface) { stoppedGauge.Store(true) }
-	counterSync := func(l logging.LoggerInterface) error { resCounters.Store(resCounters.Load().(int) + 1); return nil }
-	counterStop := func(l logging.LoggerInterface) { stoppedCounters.Store(true) }
-	latencySync := func(l logging.LoggerInterface) error { resLatencies.Store(resLatencies.Load().(int) + 1); return nil }
-	latencyStop := func(l logging.LoggerInterface) { stoppedLatencies.Store(true) }
-
-	splitTask := asynctask.NewAsyncTask("splits", splitSync, 100, nil, splitStop, logger)
-	segmentsTask := asynctask.NewAsyncTask("segments", segmentSync, 100, nil, segmentStop, logger)
-	impressionsTask := asynctask.NewAsyncTask("impressions", impressionSync, 100, nil, impressionStop, logger)
-	gaugesTask := asynctask.NewAsyncTask("gauges", gaugeSync, 100, nil, gaugeStop, logger)
-	countersTask := asynctask.NewAsyncTask("counters", counterSync, 100, nil, counterStop, logger)
-	latenciesTask := asynctask.NewAsyncTask("latencies", latencySync, 100, nil, latencyStop, logger)
-
-	splitTask.Start()
-	segmentsTask.Start()
-	impressionsTask.Start()
-	gaugesTask.Start()
-	countersTask.Start()
-	latenciesTask.Start()
 
 	factory := &SplitFactory{
-		tasks: sdkSync{
-			counters:    countersTask,
-			gauges:      gaugesTask,
-			impressions: impressionsTask,
-			latencies:   latenciesTask,
-			segments:    segmentsTask,
-			splits:      splitTask,
-		},
+		syncManager: sync.NewSynchronizerManager(
+			syncMock.MockSynchronizer{
+				StopPeriodicDataRecordingCall: func() {
+					atomic.AddInt64(&periodicDataRecordingStopped, 1)
+				},
+				StopPeriodicFetchingCall: func() {
+					atomic.AddInt64(&periodicDataFetchingStopped, 1)
+				},
+			},
+			logger,
+			make(chan string, 1),
+		),
 		cfg: conf.Default(),
 	}
 	client := SplitClient{
@@ -336,86 +289,8 @@ func TestClientDestroy(t *testing.T) {
 	client.Destroy()
 	time.Sleep(1 * time.Second)
 
-	if splitTask.IsRunning() {
-		t.Error("split task should be stopped")
-	}
-
-	if segmentsTask.IsRunning() {
-		t.Error("segment task should be stopped")
-	}
-
-	if impressionsTask.IsRunning() {
-		t.Error("impression task should be stopped")
-	}
-
-	if gaugesTask.IsRunning() {
-		t.Error("gauges task should be stopped")
-	}
-
-	if countersTask.IsRunning() {
-		t.Error("counters task should be stopped")
-	}
-
-	if latenciesTask.IsRunning() {
-		t.Error("latencies task should be stopped")
-	}
-
-	// -----
-
-	if resSplits.Load().(int) != 1 {
-		t.Error("Splits should have run once")
-	}
-
-	if resSegments.Load().(int) != 1 {
-		t.Error("Segments should have run once")
-	}
-
-	if resImpressions.Load().(int) != 1 {
-		t.Error("Impressions should have run once")
-	}
-
-	if resGauge.Load().(int) != 1 {
-		t.Error("Gauge should have run once")
-	}
-
-	if resCounters.Load().(int) != 1 {
-		t.Error("Conters should have run once")
-	}
-
-	if resLatencies.Load().(int) != 1 {
-		t.Error("Latencies should have run once")
-	}
-
-	if !client.isDestroyed() {
-		t.Error("Client should be destroyed")
-	}
-
 	if client.Treatment("key", "feature", nil) != evaluator.Control {
 		t.Error("Single .Treatment() call should return control")
-	}
-
-	if !stoppedCounters.Load().(bool) {
-		t.Error("Counters should be stopped")
-	}
-
-	if !stoppedGauge.Load().(bool) {
-		t.Error("Gauge should be stopped")
-	}
-
-	if !stoppedImpressions.Load().(bool) {
-		t.Error("Impressions should be stopped")
-	}
-
-	if !stoppedLatencies.Load().(bool) {
-		t.Error("Latencies should be stopped")
-	}
-
-	if !stoppedSegments.Load().(bool) {
-		t.Error("Segments should be stopped")
-	}
-
-	if !stoppedSplits.Load().(bool) {
-		t.Error("Split should be stopped")
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
@@ -434,8 +309,19 @@ func TestClientDestroy(t *testing.T) {
 	if treatments["feature3"] != evaluator.Control {
 		t.Error("Wrong treatment result")
 	}
+
+	if !factory.IsDestroyed() {
+		t.Error("It should be destroyed")
+	}
+
+	if periodicDataRecordingStopped != 1 {
+		t.Error("It should call StopPeriodicDataRecordingCall")
+	}
+
+	if periodicDataFetchingStopped != 1 {
+		t.Error("It should call StopPeriodicFetchingCall")
+	}
 }
-*/
 
 // TEST CLIENT WITH IMPRESSION LISTENER //
 type ImpressionListenerTest struct {

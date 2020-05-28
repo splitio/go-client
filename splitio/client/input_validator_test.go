@@ -245,7 +245,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	factory := &SplitFactory{
 		cfg: conf.Default(),
 		syncManager: sync.NewSynchronizerManager(
-			sync.NewLocalSynchronizerImpl(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+			sync.NewLocalSynchronizer(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
 			logger,
 			nil,
 		),

@@ -109,7 +109,6 @@ func Default() *SplitSdkConfig {
 			Password: "",
 			Port:     6379,
 			Prefix:   "",
-			TLS:      false,
 		},
 		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,

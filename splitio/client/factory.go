@@ -23,7 +23,7 @@ import (
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
-	synchronizer "github.com/splitio/go-split-commons/sync"
+	"github.com/splitio/go-split-commons/synchronizer"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -55,7 +55,7 @@ type SplitFactory struct {
 	cfg                   *conf.SplitSdkConfig
 	impressionListener    *impressionlistener.WrapperImpressionListener
 	logger                logging.LoggerInterface
-	syncManager           *synchronizer.SynchronizerManager
+	syncManager           *synchronizer.Manager
 }
 
 // Client returns the split client instantiated by the factory
@@ -248,7 +248,7 @@ func setupInMemoryFactory(
 
 	readyChannel := make(chan string, 1)
 
-	splitAPI := service.NewSplitAPI(apikey, splitio.Version, advanced, logger, metadata)
+	splitAPI := service.NewSplitAPI(apikey, advanced, logger)
 
 	syncImpl := synchronizer.NewSynchronizer(
 		config.TaskPeriods{
@@ -269,6 +269,7 @@ func setupInMemoryFactory(
 		storages.events,
 		logger,
 		inMememoryFullQueue,
+		&metadata,
 	)
 
 	syncManager := synchronizer.NewSynchronizerManager(
@@ -333,7 +334,7 @@ func setupLocalhostFactory(
 	readyChannel := make(chan string, 1)
 
 	syncManager := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocalSynchronizer(
+		synchronizer.NewLocal(
 			splitPeriod,
 			&service.SplitAPI{
 				SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger),

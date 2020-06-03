@@ -8,9 +8,9 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-client/splitio/util/metrics"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-split-commons/util"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -123,7 +123,7 @@ func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[st
 
 	// Store latency
 	if c.metrics != nil {
-		bucket := metrics.Bucket(evaluationTimeNs)
+		bucket := util.Bucket(evaluationTimeNs)
 		c.metrics.IncLatency(metricsLabel, bucket)
 	} else {
 		c.logger.Warning("No metrics storage set in client. Not sending latencies!")

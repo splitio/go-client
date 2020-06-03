@@ -13,7 +13,7 @@ import (
 	"github.com/splitio/go-split-commons/storage/mocks"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
-	"github.com/splitio/go-split-commons/sync"
+	"github.com/splitio/go-split-commons/synchronizer"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -244,8 +244,8 @@ func TestValidatorOnDestroy(t *testing.T) {
 	logger := getMockedLogger()
 	factory := &SplitFactory{
 		cfg: conf.Default(),
-		syncManager: sync.NewSynchronizerManager(
-			sync.NewLocalSynchronizer(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+		syncManager: synchronizer.NewSynchronizerManager(
+			synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
 			logger,
 			nil,
 		),

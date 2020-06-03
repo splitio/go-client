@@ -25,8 +25,8 @@ import (
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
-	"github.com/splitio/go-split-commons/sync"
-	syncMock "github.com/splitio/go-split-commons/sync/mocks"
+	"github.com/splitio/go-split-commons/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/synchronizer/mocks"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	predis "github.com/splitio/go-toolkit/redis"
@@ -266,7 +266,7 @@ func TestClientDestroy(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	factory := &SplitFactory{
-		syncManager: sync.NewSynchronizerManager(
+		syncManager: synchronizer.NewSynchronizerManager(
 			syncMock.MockSynchronizer{
 				StopPeriodicDataRecordingCall: func() {
 					atomic.AddInt64(&periodicDataRecordingStopped, 1)
@@ -1023,7 +1023,7 @@ func TestClient(t *testing.T) {
 			},
 		},
 		mocks.MockSegmentStorage{
-			GetCall: func(segmentName string) *set.ThreadUnsafeSet {
+			KeysCall: func(segmentName string) *set.ThreadUnsafeSet {
 				switch segmentName {
 				default:
 				case "employees":

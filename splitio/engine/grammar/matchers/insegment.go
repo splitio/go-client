@@ -20,7 +20,7 @@ func (m *InSegmentMatcher) Match(key string, attributes map[string]interface{}, 
 		return false
 	}
 
-	segment := segmentStorage.Get(m.segmentName)
+	segment := segmentStorage.Keys(m.segmentName)
 	if segment == nil {
 		m.logger.Error(fmt.Printf("InSegmentMatcher: Segment %s not found", m.segmentName))
 		return false

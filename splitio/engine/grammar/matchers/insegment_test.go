@@ -24,7 +24,7 @@ func TestInSegmentMatcher(t *testing.T) {
 	segmentKeys.Add("item1", "item2")
 
 	segmentStorage := mutexmap.NewMMSegmentStorage()
-	segmentStorage.Put("segmentito", segmentKeys, 123)
+	segmentStorage.Update("segmentito", segmentKeys, set.NewSet(), 123)
 
 	ctx := injection.NewContext()
 	ctx.AddDependency("segmentStorage", segmentStorage)
@@ -48,7 +48,7 @@ func TestInSegmentMatcher(t *testing.T) {
 		t.Error("Should not match a key not present in the segment")
 	}
 
-	segmentStorage.Remove("segmentito")
+	segmentStorage.Update("segmentito", set.NewSet(), segmentKeys, 123)
 	if matcher.Match("item1", nil, nil) {
 		t.Error("Should return false for a nonexistent segment")
 	}

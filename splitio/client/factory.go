@@ -36,11 +36,11 @@ const (
 )
 
 type sdkStorages struct {
-	splits      storage.SplitStorage
-	segments    storage.SegmentStorage
-	impressions storage.ImpressionStorage
-	events      storage.EventsStorage
-	telemetry   storage.MetricsStorage
+	splits      storage.SplitStorageConsumer
+	segments    storage.SegmentStorageConsumer
+	impressions storage.ImpressionStorageProducer
+	events      storage.EventStorageProducer
+	telemetry   storage.MetricsStorageProducer
 }
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
@@ -238,13 +238,11 @@ func setupInMemoryFactory(
 
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 
-	storages := sdkStorages{
-		splits:      mutexmap.NewMMSplitStorage(),
-		segments:    mutexmap.NewMMSegmentStorage(),
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger),
-		telemetry:   mutexmap.NewMMMetricsStorage(),
-		events:      mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger),
-	}
+	splitsStorage := mutexmap.NewMMSplitStorage()
+	segmentsStorage := mutexmap.NewMMSegmentStorage()
+	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger)
+	telemetryStorage := mutexmap.NewMMMetricsStorage()
+	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 
 	readyChannel := make(chan string, 1)
 
@@ -262,11 +260,11 @@ func setupInMemoryFactory(
 		},
 		*advanced,
 		splitAPI,
-		storages.splits,
-		storages.segments,
-		storages.telemetry,
-		storages.impressions,
-		storages.events,
+		splitsStorage,
+		segmentsStorage,
+		telemetryStorage,
+		impressionsStorage,
+		eventsStorage,
 		logger,
 		inMememoryFullQueue,
 		&metadata,
@@ -279,12 +277,18 @@ func setupInMemoryFactory(
 	)
 
 	splitFactory := SplitFactory{
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              metadata,
-		logger:                logger,
-		operationMode:         "inmemory-standalone",
-		storages:              storages,
+		apikey:        apikey,
+		cfg:           cfg,
+		metadata:      metadata,
+		logger:        logger,
+		operationMode: "inmemory-standalone",
+		storages: sdkStorages{
+			splits:      splitsStorage,
+			events:      eventsStorage,
+			impressions: impressionsStorage,
+			segments:    segmentsStorage,
+			telemetry:   telemetryStorage,
+		},
 		readinessSubscriptors: make(map[int]chan int),
 		syncManager:           syncManager,
 	}

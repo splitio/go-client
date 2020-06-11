@@ -270,7 +270,7 @@ func setupInMemoryFactory(
 		&metadata,
 	)
 
-	syncManager := synchronizer.NewSynchronizerManager(
+	syncManager, _ := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,
 		readyChannel,
@@ -337,7 +337,7 @@ func setupLocalhostFactory(
 	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan string, 1)
 
-	syncManager := synchronizer.NewSynchronizerManager(
+	syncManager, err := synchronizer.NewSynchronizerManager(
 		synchronizer.NewLocal(
 			splitPeriod,
 			&service.SplitAPI{
@@ -349,6 +349,10 @@ func setupLocalhostFactory(
 		logger,
 		readyChannel,
 	)
+
+	if err != nil {
+		return nil, err
+	}
 
 	splitFactory := &SplitFactory{
 		apikey:   apikey,

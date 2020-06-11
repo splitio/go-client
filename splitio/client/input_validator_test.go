@@ -242,13 +242,14 @@ func TestTreatmentsValidator(t *testing.T) {
 
 func TestValidatorOnDestroy(t *testing.T) {
 	logger := getMockedLogger()
+	sync, _ := synchronizer.NewSynchronizerManager(
+		synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+		logger,
+		make(chan string, 1),
+	)
 	factory := &SplitFactory{
-		cfg: conf.Default(),
-		syncManager: synchronizer.NewSynchronizerManager(
-			synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
-			logger,
-			nil,
-		),
+		cfg:         conf.Default(),
+		syncManager: sync,
 	}
 	factory.status.Store(sdkStatusReady)
 	var client2 = SplitClient{

@@ -265,20 +265,22 @@ func TestClientDestroy(t *testing.T) {
 	var periodicDataFetchingStopped int64
 	logger := logging.NewLogger(nil)
 
-	factory := &SplitFactory{
-		syncManager: synchronizer.NewSynchronizerManager(
-			syncMock.MockSynchronizer{
-				StopPeriodicDataRecordingCall: func() {
-					atomic.AddInt64(&periodicDataRecordingStopped, 1)
-				},
-				StopPeriodicFetchingCall: func() {
-					atomic.AddInt64(&periodicDataFetchingStopped, 1)
-				},
+	sync, _ := synchronizer.NewSynchronizerManager(
+		syncMock.MockSynchronizer{
+			StopPeriodicDataRecordingCall: func() {
+				atomic.AddInt64(&periodicDataRecordingStopped, 1)
 			},
-			logger,
-			make(chan string, 1),
-		),
-		cfg: conf.Default(),
+			StopPeriodicFetchingCall: func() {
+				atomic.AddInt64(&periodicDataFetchingStopped, 1)
+			},
+		},
+		logger,
+		make(chan string, 1),
+	)
+
+	factory := &SplitFactory{
+		syncManager: sync,
+		cfg:         conf.Default(),
 	}
 	client := SplitClient{
 		logger:  logger,

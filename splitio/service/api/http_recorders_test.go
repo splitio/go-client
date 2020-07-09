@@ -18,7 +18,7 @@ import (
 
 func TestImpressionRecord(t *testing.T) {
 	impressionTXT := `{"keyName":"some_key","treatment":"off","time":1234567890,"changeNumber":55555555,"label":"some label","bucketingKey":"some_bucket_key"}`
-	impressionRecord := &impressionRecord{
+	impressionRecord := &dtos.ImpressionRecord{
 		KeyName:      "some_key",
 		Treatment:    "off",
 		Time:         1234567890,
@@ -39,6 +39,7 @@ func TestImpressionRecord(t *testing.T) {
 func TestPostImpressions(t *testing.T) {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 
+	var expectedPT int64
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		sdkVersion := r.Header.Get("SplitSDKVersion")
@@ -59,7 +60,7 @@ func TestPostImpressions(t *testing.T) {
 		}
 
 		rBody, _ := ioutil.ReadAll(r.Body)
-		var impressionsInPost []impressionsRecord
+		var impressionsInPost []dtos.ImpressionsRecord
 		err := json.Unmarshal(rBody, &impressionsInPost)
 		if err != nil {
 			t.Error(err)
@@ -70,6 +71,14 @@ func TestPostImpressions(t *testing.T) {
 			impressionsInPost[0].KeyImpressions[0].KeyName != "some_key_1" ||
 			impressionsInPost[0].KeyImpressions[1].KeyName != "some_key_2" {
 			t.Error("Posted impressions arrived mal-formed")
+		}
+
+		for _, ti := range impressionsInPost {
+			for _, ki := range ti.KeyImpressions {
+				if ki.Pt != expectedPT {
+					t.Error("incorrect pt")
+				}
+			}
 		}
 
 		fmt.Fprintln(w, "ok")
@@ -113,7 +122,15 @@ func TestPostImpressions(t *testing.T) {
 		},
 		logger,
 	)
+
+	expectedPT = 0
 	err2 := impressionRecorder.Record(impressions)
+	if err2 != nil {
+		t.Error(err2)
+	}
+
+	expectedPT = imp1.Time
+	err2 = impressionRecorder.Record(impressions)
 	if err2 != nil {
 		t.Error(err2)
 	}

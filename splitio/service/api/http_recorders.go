@@ -7,8 +7,13 @@ import (
 
 	"github.com/splitio/go-client/splitio"
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/provisional"
 	"github.com/splitio/go-client/splitio/service/dtos"
 	"github.com/splitio/go-toolkit/logging"
+)
+
+const (
+	maxImpressionCacheSize = 500000
 )
 
 type httpRecorderBase struct {
@@ -32,27 +37,14 @@ func (h *httpRecorderBase) recordRaw(url string, data []byte) error {
 // HTTPImpressionRecorder is a struct responsible for submitting impression bulks to the backend
 type HTTPImpressionRecorder struct {
 	httpRecorderBase
-}
-
-type impressionRecord struct {
-	KeyName      string `json:"keyName"`
-	Treatment    string `json:"treatment"`
-	Time         int64  `json:"time"`
-	ChangeNumber int64  `json:"changeNumber"`
-	Label        string `json:"label"`
-	BucketingKey string `json:"bucketingKey,omitempty"`
-}
-
-type impressionsRecord struct {
-	TestName       string             `json:"testName"`
-	KeyImpressions []impressionRecord `json:"keyImpressions"`
+	impressionObserver provisional.ImpressionObserver
 }
 
 // Record sends an array (or slice) of impressionsRecord to the backend
 func (i *HTTPImpressionRecorder) Record(impressions []storage.Impression) error {
-	impressionsToPost := make(map[string][]impressionRecord)
+	impressionsToPost := make(map[string][]dtos.ImpressionRecord)
 	for _, impression := range impressions {
-		keyImpression := impressionRecord{
+		keyImpression := dtos.ImpressionRecord{
 			KeyName:      impression.KeyName,
 			Treatment:    impression.Treatment,
 			Time:         impression.Time,
@@ -60,18 +52,19 @@ func (i *HTTPImpressionRecorder) Record(impressions []storage.Impression) error 
 			Label:        impression.Label,
 			BucketingKey: impression.BucketingKey,
 		}
+		keyImpression.Pt, _ = i.impressionObserver.TestAndSet(impression.FeatureName, &keyImpression)
 		v, ok := impressionsToPost[impression.FeatureName]
 		if ok {
 			v = append(v, keyImpression)
 		} else {
-			v = []impressionRecord{keyImpression}
+			v = []dtos.ImpressionRecord{keyImpression}
 		}
 		impressionsToPost[impression.FeatureName] = v
 	}
 
-	bulkImpressions := make([]impressionsRecord, 0)
+	bulkImpressions := make([]dtos.ImpressionsRecord, 0)
 	for testName, testImpressions := range impressionsToPost {
-		bulkImpressions = append(bulkImpressions, impressionsRecord{
+		bulkImpressions = append(bulkImpressions, dtos.ImpressionsRecord{
 			TestName:       testName,
 			KeyImpressions: testImpressions,
 		})
@@ -100,6 +93,7 @@ func NewHTTPImpressionRecorder(
 	logger logging.LoggerInterface,
 ) *HTTPImpressionRecorder {
 	_, eventsURL := getUrls(&cfg.Advanced)
+	observer, _ := provisional.NewImpressionObserver(maxImpressionCacheSize)
 	client := NewHTTPClient(apikey, cfg, eventsURL, splitio.Version, logger)
 	return &HTTPImpressionRecorder{
 		httpRecorderBase: httpRecorderBase{
@@ -107,6 +101,7 @@ func NewHTTPImpressionRecorder(
 			logger:   logger,
 			metadata: metadata,
 		},
+		impressionObserver: observer,
 	}
 }
 

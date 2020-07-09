@@ -104,7 +104,7 @@ func (f *SplitFactory) initializationLocalhost(readyChannel chan int) {
 
 // initializates tasks for in-memory mode
 func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
-	f.syncManager.Start()
+	go f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
 	case synchronizer.Ready:
@@ -219,15 +219,18 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced := &config.AdvancedConfig{
-		EventsQueueSize:      cfg.Advanced.EventsQueueSize,
-		EventsBulkSize:       cfg.Advanced.EventsBulkSize,
-		EventsURL:            cfg.Advanced.EventsURL,
-		HTTPTimeout:          cfg.Advanced.HTTPTimeout,
-		ImpressionsBulkSize:  cfg.Advanced.ImpressionsBulkSize,
-		ImpressionsQueueSize: cfg.Advanced.ImpressionsQueueSize,
-		SdkURL:               cfg.Advanced.SdkURL,
-		SegmentQueueSize:     cfg.Advanced.SegmentQueueSize,
-		SegmentWorkers:       cfg.Advanced.SegmentWorkers,
+		EventsQueueSize:        cfg.Advanced.EventsQueueSize,
+		EventsBulkSize:         cfg.Advanced.EventsBulkSize,
+		EventsURL:              cfg.Advanced.EventsURL,
+		HTTPTimeout:            cfg.Advanced.HTTPTimeout,
+		ImpressionsBulkSize:    cfg.Advanced.ImpressionsBulkSize,
+		ImpressionsQueueSize:   cfg.Advanced.ImpressionsQueueSize,
+		SdkURL:                 cfg.Advanced.SdkURL,
+		SegmentQueueSize:       cfg.Advanced.SegmentQueueSize,
+		SegmentWorkers:         cfg.Advanced.SegmentWorkers,
+		StreamingEnabled:       true,
+		SplitUpdateQueueSize:   5000,
+		SegmentUpdateQueueSize: 5000,
 	}
 
 	/*
@@ -271,7 +274,7 @@ func setupInMemoryFactory(
 		&metadata,
 	)
 
-	syncManager, _ := synchronizer.NewSynchronizerManager(
+	syncManager, err := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,
 		*advanced,
@@ -279,6 +282,9 @@ func setupInMemoryFactory(
 		splitsStorage,
 		readyChannel,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	splitFactory := SplitFactory{
 		apikey:        apikey,

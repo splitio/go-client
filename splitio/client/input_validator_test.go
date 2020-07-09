@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
+	spConf "github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/service"
+	authMocks "github.com/splitio/go-split-commons/service/mocks"
 	"github.com/splitio/go-split-commons/storage/mocks"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
@@ -245,7 +247,10 @@ func TestValidatorOnDestroy(t *testing.T) {
 	sync, _ := synchronizer.NewSynchronizerManager(
 		synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
 		logger,
-		make(chan string, 1),
+		spConf.AdvancedConfig{},
+		authMocks.MockAuthClient{},
+		mocks.MockSplitStorage{},
+		make(chan int, 1),
 	)
 	factory := &SplitFactory{
 		cfg:         conf.Default(),

@@ -20,6 +20,7 @@ import (
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	redisCfg "github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-split-commons/dtos"
+	authMocks "github.com/splitio/go-split-commons/service/mocks"
 	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/storage/mocks"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
@@ -207,7 +208,10 @@ func TestLocalhostMode(t *testing.T) {
 
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, err := NewSplitFactory("localhost", sdkConf)
+	if err != nil {
+		t.Error(err)
+	}
 	client := factory.Client()
 	client.BlockUntilReady(1)
 
@@ -275,7 +279,10 @@ func TestClientDestroy(t *testing.T) {
 			},
 		},
 		logger,
-		make(chan string, 1),
+		redisCfg.AdvancedConfig{},
+		authMocks.MockAuthClient{},
+		mocks.MockSplitStorage{},
+		make(chan int, 1),
 	)
 
 	factory := &SplitFactory{

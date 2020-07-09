@@ -17,7 +17,6 @@ import (
 	config "github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/service"
-	"github.com/splitio/go-split-commons/service/api"
 	"github.com/splitio/go-split-commons/service/local"
 	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
@@ -96,7 +95,7 @@ func (f *SplitFactory) IsReady() bool {
 }
 
 // initializates task for localhost mode
-func (f *SplitFactory) initializationLocalhost(readyChannel chan string) {
+func (f *SplitFactory) initializationLocalhost(readyChannel chan int) {
 	f.syncManager.Start()
 
 	<-readyChannel
@@ -104,11 +103,11 @@ func (f *SplitFactory) initializationLocalhost(readyChannel chan string) {
 }
 
 // initializates tasks for in-memory mode
-func (f *SplitFactory) initializationInMemory(readyChannel chan string) {
+func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
 	f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
-	case "READY":
+	case synchronizer.Ready:
 		// Broadcast ready status for SDK
 		f.broadcastReadiness(sdkStatusReady)
 	default:
@@ -231,10 +230,12 @@ func setupInMemoryFactory(
 		SegmentWorkers:       cfg.Advanced.SegmentWorkers,
 	}
 
-	err := api.ValidateApikey(apikey, *advanced)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		err := api.ValidateApikey(apikey, *advanced)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 
@@ -244,7 +245,7 @@ func setupInMemoryFactory(
 	telemetryStorage := mutexmap.NewMMMetricsStorage()
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 
-	readyChannel := make(chan string, 1)
+	readyChannel := make(chan int, 1)
 
 	splitAPI := service.NewSplitAPI(apikey, advanced, logger)
 
@@ -273,6 +274,9 @@ func setupInMemoryFactory(
 	syncManager, _ := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,
+		*advanced,
+		splitAPI.AuthClient,
+		splitsStorage,
 		readyChannel,
 	)
 
@@ -335,7 +339,7 @@ func setupLocalhostFactory(
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splitPeriod := cfg.TaskPeriods.SplitSync
-	readyChannel := make(chan string, 1)
+	readyChannel := make(chan int, 1)
 
 	syncManager, err := synchronizer.NewSynchronizerManager(
 		synchronizer.NewLocal(
@@ -347,6 +351,9 @@ func setupLocalhostFactory(
 			logger,
 		),
 		logger,
+		config.AdvancedConfig{},
+		nil,
+		splitStorage,
 		readyChannel,
 	)
 

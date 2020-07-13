@@ -1268,7 +1268,6 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.LoggerConfig.LogLevel = logging.LevelDebug
 	cfg.TaskPeriods.ImpressionSync = 3
 	cfg.TaskPeriods.EventsSync = 3
 

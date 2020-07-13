@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
@@ -19,23 +20,37 @@ import (
 	"github.com/splitio/go-toolkit/logging"
 )
 
-var strMsg string
-
 type MockWriter struct {
+	mutex  sync.RWMutex
+	strMsg string
 }
 
 func (m *MockWriter) Write(p []byte) (n int, err error) {
-	strMsg = string(p[:])
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.strMsg = string(p[:])
 	return 0, nil
+}
+
+func (m *MockWriter) Reset() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.strMsg = ""
+}
+
+func (m *MockWriter) Get() string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.strMsg
 }
 
 var mW MockWriter
 
 func expectedLogMessage(expectedMessage string, t *testing.T) {
-	if !strings.Contains(strMsg, expectedMessage) {
-		t.Error("Message error is different from the expected: " + strMsg)
+	if !strings.Contains(mW.strMsg, expectedMessage) {
+		t.Error("Message error is different from the expected: " + mW.Get())
 	}
-	strMsg = ""
+	mW.Reset()
 }
 
 func getMockedLogger() logging.LoggerInterface {
@@ -43,7 +58,7 @@ func getMockedLogger() logging.LoggerInterface {
 		LogLevel:      5,
 		ErrorWriter:   &mW,
 		WarningWriter: &mW,
-		InfoWriter:    &mW,
+		InfoWriter:    nil,
 		DebugWriter:   &mW,
 		VerboseWriter: &mW,
 	})
@@ -91,10 +106,10 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 	}
 
 	expected := "Factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
-	if !strings.Contains(strMsg, expected) {
-		t.Error("Error is distinct from the expected one")
+	if !strings.Contains(mW.Get(), expected) {
+		t.Error("Error is distinct from the expected one", mW.Get())
 	}
-	strMsg = ""
+	mW.Reset()
 }
 
 func getLongKey() string {

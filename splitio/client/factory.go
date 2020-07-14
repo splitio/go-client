@@ -5,6 +5,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -220,6 +221,9 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced := utils.NormalizeSDKConf(cfg.Advanced)
+	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
+		advanced.StreamingEnabled = false
+	}
 
 	/*
 		err := api.ValidateApikey(apikey, *advanced)

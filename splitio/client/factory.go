@@ -15,6 +15,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	config "github.com/splitio/go-split-commons/conf"
+	"github.com/splitio/go-split-commons/conf/utils"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/service"
 	"github.com/splitio/go-split-commons/service/local"
@@ -218,20 +219,7 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	advanced := &config.AdvancedConfig{
-		EventsQueueSize:        cfg.Advanced.EventsQueueSize,
-		EventsBulkSize:         cfg.Advanced.EventsBulkSize,
-		EventsURL:              cfg.Advanced.EventsURL,
-		HTTPTimeout:            cfg.Advanced.HTTPTimeout,
-		ImpressionsBulkSize:    cfg.Advanced.ImpressionsBulkSize,
-		ImpressionsQueueSize:   cfg.Advanced.ImpressionsQueueSize,
-		SdkURL:                 cfg.Advanced.SdkURL,
-		SegmentQueueSize:       cfg.Advanced.SegmentQueueSize,
-		SegmentWorkers:         cfg.Advanced.SegmentWorkers,
-		StreamingEnabled:       true,
-		SplitUpdateQueueSize:   5000,
-		SegmentUpdateQueueSize: 5000,
-	}
+	advanced := utils.NormalizeSDKConf(cfg.Advanced)
 
 	/*
 		err := api.ValidateApikey(apikey, *advanced)
@@ -262,7 +250,7 @@ func setupInMemoryFactory(
 			SegmentSync:    cfg.TaskPeriods.SegmentSync,
 			SplitSync:      cfg.TaskPeriods.SplitSync,
 		},
-		*advanced,
+		advanced,
 		splitAPI,
 		splitsStorage,
 		segmentsStorage,
@@ -277,7 +265,7 @@ func setupInMemoryFactory(
 	syncManager, err := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,
-		*advanced,
+		advanced,
 		splitAPI.AuthClient,
 		splitsStorage,
 		readyChannel,

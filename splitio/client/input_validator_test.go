@@ -59,8 +59,8 @@ func getMockedLogger() logging.LoggerInterface {
 		ErrorWriter:   &mW,
 		WarningWriter: &mW,
 		InfoWriter:    nil,
-		DebugWriter:   &mW,
-		VerboseWriter: &mW,
+		DebugWriter:   nil,
+		VerboseWriter: nil,
 	})
 }
 

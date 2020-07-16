@@ -16,7 +16,6 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	config "github.com/splitio/go-split-commons/conf"
-	"github.com/splitio/go-split-commons/conf/utils"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/service"
 	"github.com/splitio/go-split-commons/service/local"
@@ -220,7 +219,7 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	advanced := utils.NormalizeSDKConf(cfg.Advanced)
+	advanced := conf.NormalizeSDKConf(cfg.Advanced)
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
 		advanced.StreamingEnabled = false
 	}

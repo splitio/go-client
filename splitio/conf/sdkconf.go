@@ -73,6 +73,7 @@ type AdvancedConfig struct {
 	EventsQueueSize      int
 	ImpressionsQueueSize int
 	ImpressionsBulkSize  int64
+	StreamingEnabled     bool
 }
 
 // Default returns a config struct with all the default values
@@ -130,6 +131,7 @@ func Default() *SplitSdkConfig {
 			EventsQueueSize:      10000,
 			ImpressionsQueueSize: 10000,
 			ImpressionsBulkSize:  5000,
+			StreamingEnabled:     true,
 		},
 	}
 }

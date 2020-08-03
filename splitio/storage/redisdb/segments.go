@@ -41,6 +41,12 @@ func (r *RedisSegmentStorage) Get(segmentName string) *set.ThreadUnsafeSet {
 	return segment
 }
 
+// SegmentContainsKey returns true if the segment contains a specific key
+func (r *RedisSegmentStorage) SegmentContainsKey(segmentName string, key string) (bool, error) {
+	segmentKey := strings.Replace(redisSegment, "{segment}", segmentName, 1)
+	return r.client.SIsMember(segmentKey, key)
+}
+
 // Put (over)writes a segment in redis with the one passed to this function
 func (r *RedisSegmentStorage) Put(name string, segment *set.ThreadUnsafeSet, changeNumber int64) {
 	segmentKey := strings.Replace(redisSegment, "{segment}", name, 1)

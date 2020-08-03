@@ -19,13 +19,11 @@ func (m *InSegmentMatcher) Match(key string, attributes map[string]interface{}, 
 		return false
 	}
 
-	segment := segmentStorage.Get(m.segmentName)
-	if segment == nil {
+	isInSegment, err := segmentStorage.SegmentContainsKey(m.segmentName, key)
+	if err != nil {
 		m.logger.Error(fmt.Printf("InSegmentMatcher: Segment %s not found", m.segmentName))
-		return false
 	}
-
-	return segment.Has(key)
+	return isInSegment
 }
 
 // NewInSegmentMatcher instantiates a new InSegmentMatcher

@@ -1145,6 +1145,17 @@ func (i *mockSegmentStorage) Get(feature string) *set.ThreadUnsafeSet {
 	return nil
 }
 
+func (i *mockSegmentStorage) SegmentContainsKey(s string, k string) (bool, error) {
+	if s != "employees" {
+		return false, fmt.Errorf("segment not found")
+	}
+
+	if k == "user1" {
+		return true, nil
+	}
+	return false, nil
+}
+
 func isInvalidImpression(client SplitClient, key string, feature string, treatment string) bool {
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
 	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)

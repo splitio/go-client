@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -318,6 +317,8 @@ func makeBigString(length int) string {
 	return string(asRuneSlice)
 }
 
+/*
+@TODO: Move to Set log writer
 func TestTrackValidators(t *testing.T) {
 	client := getClient()
 	// Empty key
@@ -378,6 +379,7 @@ func TestTrackValidators(t *testing.T) {
 		t.Error("Should not return error")
 	}
 }
+*/
 
 func TestLocalhostTrafficType(t *testing.T) {
 	sdkConf := conf.Default()

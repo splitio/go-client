@@ -8,9 +8,9 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/util/metrics"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-split-commons/util"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -85,7 +85,7 @@ func (c *SplitClient) createImpression(
 	matchingKey string,
 	treatment string,
 	changeNumber int64,
-) storage.Impression {
+) dtos.Impression {
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
@@ -96,7 +96,7 @@ func (c *SplitClient) createImpression(
 		impressionBucketingKey = *bucketingKey
 	}
 
-	return storage.Impression{
+	return dtos.Impression{
 		FeatureName:  feature,
 		BucketingKey: impressionBucketingKey,
 		ChangeNumber: changeNumber,
@@ -108,7 +108,7 @@ func (c *SplitClient) createImpression(
 }
 
 // storeData stores impression, runs listener and stores metrics
-func (c *SplitClient) storeData(impressions []storage.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTimeNs int64) {
+func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTimeNs int64) {
 	// Store impression
 	if c.impressions != nil {
 		c.impressions.LogImpressions(impressions)
@@ -123,7 +123,7 @@ func (c *SplitClient) storeData(impressions []storage.Impression, attributes map
 
 	// Store latency
 	if c.metrics != nil {
-		bucket := metrics.Bucket(evaluationTimeNs)
+		bucket := util.Bucket(evaluationTimeNs)
 		c.metrics.IncLatency(metricsLabel, bucket)
 	} else {
 		c.logger.Warning("No metrics storage set in client. Not sending latencies!")
@@ -181,7 +181,7 @@ func (c *SplitClient) doTreatmentCall(
 	}
 
 	c.storeData(
-		[]storage.Impression{c.createImpression(feature, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
+		[]dtos.Impression{c.createImpression(feature, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTimeNs,
@@ -261,7 +261,7 @@ func (c *SplitClient) doTreatmentsCall(
 		return map[string]TreatmentResult{}
 	}
 
-	var bulkImpressions []storage.Impression
+	var bulkImpressions []dtos.Impression
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 	for feature, evaluation := range evaluationsResult.Evaluations {
 		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {

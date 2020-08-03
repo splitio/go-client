@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )

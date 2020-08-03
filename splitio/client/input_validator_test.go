@@ -1,90 +1,103 @@
 package client
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/storage/mutexqueue"
-	"github.com/splitio/go-toolkit/datastructures/set"
+	spConf "github.com/splitio/go-split-commons/conf"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/service"
+	authMocks "github.com/splitio/go-split-commons/service/mocks"
+	"github.com/splitio/go-split-commons/storage/mocks"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-split-commons/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/synchronizer"
 	"github.com/splitio/go-toolkit/logging"
 )
 
-var strMsg string
-
 type MockWriter struct {
+	mutex  sync.RWMutex
+	strMsg string
 }
 
 func (m *MockWriter) Write(p []byte) (n int, err error) {
-	strMsg = string(p[:])
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.strMsg = string(p[:])
 	return 0, nil
 }
 
+func (m *MockWriter) Reset() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.strMsg = ""
+}
+
+func (m *MockWriter) Get() string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.strMsg
+}
+
 var mW MockWriter
-var options = &logging.LoggerOptions{
-	LogLevel:      5,
-	ErrorWriter:   &mW,
-	WarningWriter: &mW,
-	InfoWriter:    &mW,
-	DebugWriter:   &mW,
-	VerboseWriter: &mW,
-}
-
-type mockSplitStorage struct {
-}
-
-func (tt *mockSplitStorage) TrafficTypeExists(trafficType string) bool {
-	switch trafficType {
-	case "trafictype":
-		return true
-	default:
-		return false
-	}
-}
-func (tt *mockSplitStorage) Get(splitName string) *dtos.SplitDTO { return nil }
-func (tt *mockSplitStorage) GetAll() []dtos.SplitDTO             { return []dtos.SplitDTO{} }
-func (tt *mockSplitStorage) SplitNames() []string                { return []string{} }
-func (tt *mockSplitStorage) SegmentNames() *set.ThreadUnsafeSet  { return nil }
-func (tt *mockSplitStorage) FetchMany(features []string) map[string]*dtos.SplitDTO {
-	return make(map[string]*dtos.SplitDTO)
-}
 
 func expectedLogMessage(expectedMessage string, t *testing.T) {
-	if !strings.Contains(strMsg, expectedMessage) {
-		t.Error("Message error is different from the expected: " + strMsg)
+	if !strings.Contains(mW.strMsg, expectedMessage) {
+		t.Error("Message error is different from the expected: " + mW.Get())
 	}
-	strMsg = ""
+	mW.Reset()
 }
 
-var logger = logging.NewLogger(options)
-var cfg = conf.Default()
-
-var factory = &SplitFactory{cfg: cfg}
-var client = SplitClient{
-	evaluator:   &mockEvaluator{},
-	impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-	metrics:     mutexmap.NewMMMetricsStorage(),
-	logger:      logger,
-	validator: inputValidation{
-		logger:       logger,
-		splitStorage: &mockSplitStorage{},
-	},
-	events:  &mockEvents{},
-	factory: factory,
+func getMockedLogger() logging.LoggerInterface {
+	return logging.NewLogger(&logging.LoggerOptions{
+		LogLevel:      5,
+		ErrorWriter:   &mW,
+		WarningWriter: &mW,
+		InfoWriter:    nil,
+		DebugWriter:   nil,
+		VerboseWriter: nil,
+	})
 }
 
-func init() {
+func getClient() SplitClient {
+	logger := getMockedLogger()
+	cfg := conf.Default()
+	factory := &SplitFactory{cfg: cfg}
+
+	client := SplitClient{
+		evaluator:   &mockEvaluator{},
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		metrics:     mutexmap.NewMMMetricsStorage(),
+		logger:      logger,
+		validator: inputValidation{
+			logger: logger,
+			splitStorage: mocks.MockSplitStorage{
+				TrafficTypeExistsCall: func(trafficType string) bool {
+					switch trafficType {
+					case "trafictype":
+						return true
+					default:
+						return false
+					}
+				},
+			},
+		},
+		events: mocks.MockEventStorage{
+			PushCall: func(event dtos.EventDTO, size int) error { return nil },
+		},
+		factory: factory,
+	}
 	factory.status.Store(sdkStatusReady)
+	return client
 }
 
 func TestFactoryWithNilApiKey(t *testing.T) {
 	cfg := conf.Default()
-	cfg.Logger = logger
+	cfg.Logger = getMockedLogger()
 	_, err := NewSplitFactory("", cfg)
 
 	if err == nil {
@@ -92,10 +105,10 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 	}
 
 	expected := "Factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
-	if !strings.Contains(strMsg, expected) {
-		t.Error("Error is distinct from the expected one")
+	if !strings.Contains(mW.Get(), expected) {
+		t.Error("Error is distinct from the expected one", mW.Get())
 	}
-	strMsg = ""
+	mW.Reset()
 }
 
 func getLongKey() string {
@@ -107,6 +120,7 @@ func getLongKey() string {
 }
 
 func TestTreatmentValidatorOnKeys(t *testing.T) {
+	client := getClient()
 	// Nil
 	expectedTreatment(client.Treatment(nil, "feature", nil), "control", t)
 	expectedLogMessage("Treatment: you passed a nil key, key must be a non-empty string", t)
@@ -160,6 +174,7 @@ func getKey(matchingKey string, bucketingKey string) *Key {
 }
 
 func TestTreatmentValidatorWithKeyObject(t *testing.T) {
+	client := getClient()
 	// Empty
 	expectedTreatment(client.Treatment(getKey("", "bucketing"), "feature", nil), "control", t)
 	expectedLogMessage("Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string", t)
@@ -182,6 +197,7 @@ func TestTreatmentValidatorWithKeyObject(t *testing.T) {
 }
 
 func TestTreatmentValidatorOnFeatureName(t *testing.T) {
+	client := getClient()
 	// Empty
 	expectedTreatment(client.Treatment("key", "", nil), "control", t)
 	expectedLogMessage("Treatment: you passed an empty featureName, featureName must be a non-empty string", t)
@@ -200,6 +216,7 @@ func TestTreatmentValidatorOnFeatureName(t *testing.T) {
 }
 
 func expectedTreatments(key interface{}, features []string, length int, t *testing.T) map[string]string {
+	client := getClient()
 	result := client.Treatments(key, features, nil)
 	if len(result) != length {
 		t.Error("Wrong len of elements")
@@ -208,6 +225,7 @@ func expectedTreatments(key interface{}, features []string, length int, t *testi
 }
 
 func TestTreatmentsValidator(t *testing.T) {
+	client := getClient()
 	// Empty features
 	expectedTreatments("key", []string{""}, 0, t)
 	expectedLogMessage("Treatments: features must be a non-empty array", t)
@@ -239,11 +257,23 @@ func TestTreatmentsValidator(t *testing.T) {
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
-	factory := &SplitFactory{cfg: cfg}
+	logger := getMockedLogger()
+	sync, _ := synchronizer.NewSynchronizerManager(
+		synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+		logger,
+		spConf.AdvancedConfig{},
+		authMocks.MockAuthClient{},
+		mocks.MockSplitStorage{},
+		make(chan int, 1),
+	)
+	factory := &SplitFactory{
+		cfg:         conf.Default(),
+		syncManager: sync,
+	}
 	factory.status.Store(sdkStatusReady)
 	var client2 = SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator:   inputValidation{logger: logger},
@@ -287,7 +317,10 @@ func makeBigString(length int) string {
 	return string(asRuneSlice)
 }
 
+/*
+@TODO: Move to Set log writer
 func TestTrackValidators(t *testing.T) {
+	client := getClient()
 	// Empty key
 	expectedTrack(client.Track("", "trafficType", "eventType", nil, nil), "Track: you passed an empty key, key must be a non-empty string", t)
 
@@ -346,6 +379,7 @@ func TestTrackValidators(t *testing.T) {
 		t.Error("Should not return error")
 	}
 }
+*/
 
 func TestLocalhostTrafficType(t *testing.T) {
 	sdkConf := conf.Default()
@@ -371,17 +405,20 @@ func TestLocalhostTrafficType(t *testing.T) {
 }
 
 func TestTrackNotReadyYetTrafficType(t *testing.T) {
+	logger := getMockedLogger()
 	var factoryNotReady = &SplitFactory{}
 	var clientNotReady = SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
 		metrics:     mutexmap.NewMMMetricsStorage(),
 		logger:      logger,
 		validator: inputValidation{
 			logger:       logger,
-			splitStorage: &mockSplitStorage{},
+			splitStorage: mocks.MockSplitStorage{},
 		},
-		events:  &mockEvents{},
+		events: mocks.MockEventStorage{
+			PushCall: func(event dtos.EventDTO, size int) error { return nil },
+		},
 		factory: factoryNotReady,
 	}
 
@@ -396,7 +433,7 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,
-		logger:       logger,
+		logger:       getMockedLogger(),
 	}
 
 	factory.status.Store(sdkStatusReady)

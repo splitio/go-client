@@ -2,16 +2,22 @@ package client
 
 import (
 	"strings"
+	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-toolkit/logging"
-
-	"testing"
 )
 
 func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	sdkConf := conf.Default()
-	sdkConf.Logger = logging.NewLogger(options)
+	sdkConf.Logger = logging.NewLogger(&logging.LoggerOptions{
+		LogLevel:      5,
+		ErrorWriter:   &mW,
+		WarningWriter: &mW,
+		InfoWriter:    &mW,
+		DebugWriter:   &mW,
+		VerboseWriter: &mW,
+	})
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
 
 	delete(factoryInstances, "localhost")
@@ -32,20 +38,20 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	}
 	expected := "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if !strings.Contains(strMsg, expected) {
+	if !strings.Contains(mW.Get(), expected) {
 		t.Error("Error is distinct from the expected one")
 	}
-	strMsg = ""
+	mW.Reset()
 
 	factory4, _ := NewSplitFactory("asdadd", sdkConf)
 	client2 := factory4.Client()
 	expected = "Factory Instantiation: You already have an instance of the Split factory. Make sure you definitely want " +
 		"this additional instance. We recommend keeping only one instance of the factory at all times (Singleton pattern) and " +
 		"reusing it throughout your application."
-	if !strings.Contains(strMsg, expected) {
+	if !strings.Contains(mW.Get(), expected) {
 		t.Error("Error is distinct from the expected one")
 	}
-	strMsg = ""
+	mW.Reset()
 
 	client.Destroy()
 
@@ -74,10 +80,10 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	_ = factory3.Client()
 	expected = "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if !strings.Contains(strMsg, expected) {
+	if !strings.Contains(mW.Get(), expected) {
 		t.Error("Error is distinct from the expected one")
 	}
-	strMsg = ""
+	mW.Reset()
 
 	if factoryInstances["localhost"] != 2 {
 		t.Error("It should be 2")
@@ -87,10 +93,10 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	_ = factory5.Client()
 	expected = "Factory Instantiation: You already have 2 factories with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
-	if !strings.Contains(strMsg, expected) {
+	if !strings.Contains(mW.Get(), expected) {
 		t.Error("Error is distinct from the expected one")
 	}
-	strMsg = ""
+	mW.Reset()
 	if factoryInstances["localhost"] != 3 {
 		t.Error("It should be 3")
 	}

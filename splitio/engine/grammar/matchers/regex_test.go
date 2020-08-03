@@ -2,13 +2,14 @@ package matchers
 
 import (
 	"bufio"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-toolkit/logging"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestRegexMatcher(t *testing.T) {

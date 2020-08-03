@@ -1,9 +1,10 @@
 package grammar
 
 import (
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-toolkit/logging"
 	"testing"
+
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestSplitCreation(t *testing.T) {

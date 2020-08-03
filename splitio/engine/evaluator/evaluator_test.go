@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-client/splitio/service/dtos"
+	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 )
@@ -187,7 +187,7 @@ var mysplittest4 = &dtos.SplitDTO{
 	},
 }
 
-func (s *mockStorage) Get(
+func (s *mockStorage) Split(
 	feature string,
 ) *dtos.SplitDTO {
 	switch feature {
@@ -214,7 +214,7 @@ func (s *mockStorage) FetchMany(
 	splits["mysplittest5"] = nil
 	return splits
 }
-func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([]dtos.SplitDTO, 0) }
+func (s *mockStorage) All() []dtos.SplitDTO                      { return make([]dtos.SplitDTO, 0) }
 func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
 func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
 func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }

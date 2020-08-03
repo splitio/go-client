@@ -1,13 +1,12 @@
 package impressionlistener
 
 import (
-	"github.com/splitio/go-client/splitio"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/dtos"
 )
 
 // ILObject struct to map entire data for listener
 type ILObject struct {
-	Impression         storage.Impression
+	Impression         dtos.Impression
 	Attributes         map[string]interface{}
 	InstanceID         string
 	SDKLanguageVersion string
@@ -16,11 +15,11 @@ type ILObject struct {
 // WrapperImpressionListener struct
 type WrapperImpressionListener struct {
 	ImpressionListener ImpressionListener
-	metadata           *splitio.SdkMetadata
+	metadata           dtos.Metadata
 }
 
 // NewImpressionListenerWrapper instantiates a new ImpressionListenerWrapper
-func NewImpressionListenerWrapper(impressionListener ImpressionListener, metadata *splitio.SdkMetadata) *WrapperImpressionListener {
+func NewImpressionListenerWrapper(impressionListener ImpressionListener, metadata dtos.Metadata) *WrapperImpressionListener {
 	return &WrapperImpressionListener{
 		ImpressionListener: impressionListener,
 		metadata:           metadata,
@@ -28,7 +27,7 @@ func NewImpressionListenerWrapper(impressionListener ImpressionListener, metadat
 }
 
 // SendDataToClient sends the data to client
-func (i *WrapperImpressionListener) SendDataToClient(impressions []storage.Impression, attributes map[string]interface{}) {
+func (i *WrapperImpressionListener) SendDataToClient(impressions []dtos.Impression, attributes map[string]interface{}) {
 	for _, impression := range impressions {
 		datToSend := ILObject{
 			Impression:         impression,

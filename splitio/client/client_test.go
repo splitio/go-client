@@ -16,20 +16,24 @@ import (
 	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	evaluatorMock "github.com/splitio/go-client/splitio/engine/evaluator/mocks"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
-	"github.com/splitio/go-client/splitio/storage/mutexmap"
-	"github.com/splitio/go-client/splitio/storage/mutexqueue"
-	"github.com/splitio/go-client/splitio/storage/redisdb"
-	"github.com/splitio/go-toolkit/asynctask"
+	redisCfg "github.com/splitio/go-split-commons/conf"
+	"github.com/splitio/go-split-commons/dtos"
+	authMocks "github.com/splitio/go-split-commons/service/mocks"
+	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-split-commons/storage/mocks"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-split-commons/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/storage/redis"
+	"github.com/splitio/go-split-commons/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/synchronizer/mocks"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
+	predis "github.com/splitio/go-toolkit/redis"
 )
 
 type mockEvaluator struct{}
-type mockEvents struct{}
-type mockEventsPanic struct{}
 
 func (e *mockEvaluator) EvaluateFeature(
 	key string,
@@ -117,25 +121,6 @@ func (e *mockEvaluator) EvaluateFeatures(
 	return results
 }
 
-func (e *mockEventsPanic) EvaluateFeature(
-	key string,
-	bucketingKey *string,
-	feature string,
-	attributes map[string]interface{},
-) *evaluator.Result {
-	panic("Testing panicking")
-}
-func (e *mockEventsPanic) EvaluateFeatures(
-	key string,
-	bucketingKey *string,
-	features []string,
-	attributes map[string]interface{},
-) evaluator.Results {
-	panic("Testing panicking")
-}
-
-func (s *mockEvents) Push(event dtos.EventDTO, size int) error { return nil }
-
 func getFactory() SplitFactory {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
@@ -146,7 +131,7 @@ func getFactory() SplitFactory {
 		storages: sdkStorages{
 			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 			telemetry:   mutexmap.NewMMMetricsStorage(),
-			events:      &mockEvents{},
+			events:      mocks.MockEventStorage{},
 		},
 		logger: logger,
 	}
@@ -182,7 +167,7 @@ func TestClientGetTreatment(t *testing.T) {
 
 	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
-	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	impressions, _ := impressionsQueue.PopN(5000)
 	impression := impressions[0]
 	if impression.Label != "aLabel" {
 		t.Error("Impression should have label when labelsEnabled is true")
@@ -191,7 +176,7 @@ func TestClientGetTreatment(t *testing.T) {
 	client.factory.cfg.LabelsEnabled = false
 	expectedTreatment(client.Treatment("key", "feature2", nil), "TreatmentB", t)
 
-	impressions, _ = impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	impressions, _ = impressionsQueue.PopN(5000)
 	impression = impressions[0]
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
@@ -223,7 +208,10 @@ func TestLocalhostMode(t *testing.T) {
 
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, err := NewSplitFactory("localhost", sdkConf)
+	if err != nil {
+		t.Error(err)
+	}
 	client := factory.Client()
 	client.BlockUntilReady(1)
 
@@ -263,80 +251,43 @@ func TestClientPanicking(t *testing.T) {
 	factory := getFactory()
 
 	client := factory.Client()
-	client.evaluator = &mockEventsPanic{}
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureCall: func(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *evaluator.Result {
+			panic("Testing panicking")
+		},
+		EvaluateFeaturesCall: func(key string, bucketingKey *string, features []string, attributes map[string]interface{}) evaluator.Results {
+			panic("Testing panicking")
+		},
+	}
 	factory.status.Store(sdkStatusReady)
 
 	expectedTreatment(client.Treatment("key", "some", nil), evaluator.Control, t)
 }
 
 func TestClientDestroy(t *testing.T) {
+	var periodicDataRecordingStopped int64
+	var periodicDataFetchingStopped int64
 	logger := logging.NewLogger(nil)
-	resSplits := atomic.Value{}
-	resSplits.Store(0)
-	resSegments := atomic.Value{}
-	resSegments.Store(0)
-	resImpressions := atomic.Value{}
-	resImpressions.Store(0)
-	resGauge := atomic.Value{}
-	resGauge.Store(0)
-	resCounters := atomic.Value{}
-	resCounters.Store(0)
-	resLatencies := atomic.Value{}
-	resLatencies.Store(0)
 
-	stoppedSplits := atomic.Value{}
-	stoppedSplits.Store(false)
-	stoppedSegments := atomic.Value{}
-	stoppedSegments.Store(false)
-	stoppedImpressions := atomic.Value{}
-	stoppedImpressions.Store(false)
-	stoppedGauge := atomic.Value{}
-	stoppedGauge.Store(false)
-	stoppedCounters := atomic.Value{}
-	stoppedCounters.Store(false)
-	stoppedLatencies := atomic.Value{}
-	stoppedLatencies.Store(false)
-
-	splitSync := func(l logging.LoggerInterface) error { resSplits.Store(resSplits.Load().(int) + 1); return nil }
-	splitStop := func(l logging.LoggerInterface) { stoppedSplits.Store(true) }
-	segmentSync := func(l logging.LoggerInterface) error { resSegments.Store(resSegments.Load().(int) + 1); return nil }
-	segmentStop := func(l logging.LoggerInterface) { stoppedSegments.Store(true) }
-	impressionSync := func(l logging.LoggerInterface) error {
-		resImpressions.Store(resImpressions.Load().(int) + 1)
-		return nil
-	}
-	impressionStop := func(l logging.LoggerInterface) { stoppedImpressions.Store(true) }
-	gaugeSync := func(l logging.LoggerInterface) error { resGauge.Store(resGauge.Load().(int) + 1); return nil }
-	gaugeStop := func(l logging.LoggerInterface) { stoppedGauge.Store(true) }
-	counterSync := func(l logging.LoggerInterface) error { resCounters.Store(resCounters.Load().(int) + 1); return nil }
-	counterStop := func(l logging.LoggerInterface) { stoppedCounters.Store(true) }
-	latencySync := func(l logging.LoggerInterface) error { resLatencies.Store(resLatencies.Load().(int) + 1); return nil }
-	latencyStop := func(l logging.LoggerInterface) { stoppedLatencies.Store(true) }
-
-	splitTask := asynctask.NewAsyncTask("splits", splitSync, 100, nil, splitStop, logger)
-	segmentsTask := asynctask.NewAsyncTask("segments", segmentSync, 100, nil, segmentStop, logger)
-	impressionsTask := asynctask.NewAsyncTask("impressions", impressionSync, 100, nil, impressionStop, logger)
-	gaugesTask := asynctask.NewAsyncTask("gauges", gaugeSync, 100, nil, gaugeStop, logger)
-	countersTask := asynctask.NewAsyncTask("counters", counterSync, 100, nil, counterStop, logger)
-	latenciesTask := asynctask.NewAsyncTask("latencies", latencySync, 100, nil, latencyStop, logger)
-
-	splitTask.Start()
-	segmentsTask.Start()
-	impressionsTask.Start()
-	gaugesTask.Start()
-	countersTask.Start()
-	latenciesTask.Start()
+	sync, _ := synchronizer.NewSynchronizerManager(
+		syncMock.MockSynchronizer{
+			StopPeriodicDataRecordingCall: func() {
+				atomic.AddInt64(&periodicDataRecordingStopped, 1)
+			},
+			StopPeriodicFetchingCall: func() {
+				atomic.AddInt64(&periodicDataFetchingStopped, 1)
+			},
+		},
+		logger,
+		redisCfg.AdvancedConfig{},
+		authMocks.MockAuthClient{},
+		mocks.MockSplitStorage{},
+		make(chan int, 1),
+	)
 
 	factory := &SplitFactory{
-		tasks: sdkSync{
-			counters:    countersTask,
-			gauges:      gaugesTask,
-			impressions: impressionsTask,
-			latencies:   latenciesTask,
-			segments:    segmentsTask,
-			splits:      splitTask,
-		},
-		cfg: conf.Default(),
+		syncManager: sync,
+		cfg:         conf.Default(),
 	}
 	client := SplitClient{
 		logger:  logger,
@@ -347,86 +298,8 @@ func TestClientDestroy(t *testing.T) {
 	client.Destroy()
 	time.Sleep(1 * time.Second)
 
-	if splitTask.IsRunning() {
-		t.Error("split task should be stopped")
-	}
-
-	if segmentsTask.IsRunning() {
-		t.Error("segment task should be stopped")
-	}
-
-	if impressionsTask.IsRunning() {
-		t.Error("impression task should be stopped")
-	}
-
-	if gaugesTask.IsRunning() {
-		t.Error("gauges task should be stopped")
-	}
-
-	if countersTask.IsRunning() {
-		t.Error("counters task should be stopped")
-	}
-
-	if latenciesTask.IsRunning() {
-		t.Error("latencies task should be stopped")
-	}
-
-	// -----
-
-	if resSplits.Load().(int) != 1 {
-		t.Error("Splits should have run once")
-	}
-
-	if resSegments.Load().(int) != 1 {
-		t.Error("Segments should have run once")
-	}
-
-	if resImpressions.Load().(int) != 1 {
-		t.Error("Impressions should have run once")
-	}
-
-	if resGauge.Load().(int) != 1 {
-		t.Error("Gauge should have run once")
-	}
-
-	if resCounters.Load().(int) != 1 {
-		t.Error("Conters should have run once")
-	}
-
-	if resLatencies.Load().(int) != 1 {
-		t.Error("Latencies should have run once")
-	}
-
-	if !client.isDestroyed() {
-		t.Error("Client should be destroyed")
-	}
-
 	if client.Treatment("key", "feature", nil) != evaluator.Control {
 		t.Error("Single .Treatment() call should return control")
-	}
-
-	if !stoppedCounters.Load().(bool) {
-		t.Error("Counters should be stopped")
-	}
-
-	if !stoppedGauge.Load().(bool) {
-		t.Error("Gauge should be stopped")
-	}
-
-	if !stoppedImpressions.Load().(bool) {
-		t.Error("Impressions should be stopped")
-	}
-
-	if !stoppedLatencies.Load().(bool) {
-		t.Error("Latencies should be stopped")
-	}
-
-	if !stoppedSegments.Load().(bool) {
-		t.Error("Segments should be stopped")
-	}
-
-	if !stoppedSplits.Load().(bool) {
-		t.Error("Split should be stopped")
 	}
 
 	treatments := client.Treatments("key", []string{"feature1", "feature2", "feature3"}, nil)
@@ -444,6 +317,18 @@ func TestClientDestroy(t *testing.T) {
 
 	if treatments["feature3"] != evaluator.Control {
 		t.Error("Wrong treatment result")
+	}
+
+	if !factory.IsDestroyed() {
+		t.Error("It should be destroyed")
+	}
+
+	if periodicDataRecordingStopped != 1 {
+		t.Error("It should call StopPeriodicDataRecordingCall")
+	}
+
+	if periodicDataFetchingStopped != 1 {
+		t.Error("It should call StopPeriodicFetchingCall")
 	}
 }
 
@@ -489,7 +374,7 @@ func getClientForListener() SplitClient {
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
-	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, &splitio.SdkMetadata{
+	impresionL := impressionlistener.NewImpressionListenerWrapper(impTest, dtos.Metadata{
 		SDKVersion:  "go-" + splitio.Version,
 		MachineIP:   "123.123.123.123",
 		MachineName: "ip-123-123-123-123",
@@ -500,10 +385,10 @@ func getClientForListener() SplitClient {
 		storages: sdkStorages{
 			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 			telemetry:   mutexmap.NewMMMetricsStorage(),
-			events:      &mockEvents{},
+			events:      mocks.MockEventStorage{},
 		},
 		logger: logger,
-		metadata: splitio.SdkMetadata{
+		metadata: dtos.Metadata{
 			SDKVersion: "go-" + splitio.Version,
 		},
 	}
@@ -523,6 +408,7 @@ func getClientForListener() SplitClient {
 }
 func TestImpressionListener(t *testing.T) {
 	client := getClientForListener()
+	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -540,6 +426,7 @@ func TestImpressionListener(t *testing.T) {
 
 func TestImpressionListenerForTreatments(t *testing.T) {
 	client := getClientForListener()
+	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -774,7 +661,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	}
 
 	expectedTreatment(client.Treatment("not_ready", "not_ready", attributes), evaluator.Control, t)
-	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 
 	}
@@ -796,7 +683,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Wrong error")
 	}
 
-	err = client.BlockUntilReady(1)
+	err = client.BlockUntilReady(2)
 	if err == nil {
 		t.Error("It should return error")
 	}
@@ -907,13 +794,13 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 	}
 
 	expectedTreatment(client.Treatment("not_ready2", "not_ready2", attributes), evaluator.Control, t)
-	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
 
 	result := client.Treatments("not_ready3", []string{"not_ready3"}, attributes)
 	expectedTreatment(result["not_ready3"], evaluator.Control, t)
-	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -1100,65 +987,9 @@ var noConfig = &dtos.SplitDTO{
 	},
 }
 
-type mockStorage struct{}
-
-func (s *mockStorage) Get(
-	feature string,
-) *dtos.SplitDTO {
-	switch feature {
-	default:
-	case "valid":
-		return valid
-	case "killed":
-		return killed
-	}
-	return nil
-}
-func (s *mockStorage) GetAll() []dtos.SplitDTO                   { return make([]dtos.SplitDTO, 0) }
-func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
-func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
-func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }
-func (s *mockStorage) FetchMany(features []string) map[string]*dtos.SplitDTO {
-	splits := make(map[string]*dtos.SplitDTO)
-	for _, feature := range features {
-		switch feature {
-		default:
-		case "valid":
-			splits[feature] = valid
-			break
-		case "killed":
-			splits["killed"] = killed
-			break
-		}
-	}
-	return splits
-}
-
-type mockSegmentStorage struct{}
-
-func (i *mockSegmentStorage) Get(feature string) *set.ThreadUnsafeSet {
-	switch feature {
-	default:
-	case "employees":
-		return set.NewSet("user1")
-	}
-	return nil
-}
-
-func (i *mockSegmentStorage) SegmentContainsKey(s string, k string) (bool, error) {
-	if s != "employees" {
-		return false, fmt.Errorf("segment not found")
-	}
-
-	if k == "user1" {
-		return true, nil
-	}
-	return false, nil
-}
-
 func isInvalidImpression(client SplitClient, key string, feature string, treatment string) bool {
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
-	impressions, _ := impressionsQueue.PopN(cfg.Advanced.ImpressionsBulkSize)
+	impressions, _ := impressionsQueue.PopN(5000)
 	i := impressions[0]
 
 	if i.FeatureName != feature || i.KeyName != key || treatment != i.Treatment {
@@ -1173,8 +1004,53 @@ func TestClient(t *testing.T) {
 	logger := logging.NewLogger(nil)
 
 	evaluator := evaluator.NewEvaluator(
-		&mockStorage{},
-		&mockSegmentStorage{},
+		mocks.MockSplitStorage{
+			SplitCall: func(splitName string) *dtos.SplitDTO {
+				switch splitName {
+				default:
+				case "valid":
+					return valid
+				case "killed":
+					return killed
+				}
+				return nil
+			},
+			FetchManyCall: func(splitNames []string) map[string]*dtos.SplitDTO {
+				splits := make(map[string]*dtos.SplitDTO)
+				for _, feature := range splitNames {
+					switch feature {
+					default:
+					case "valid":
+						splits[feature] = valid
+						break
+					case "killed":
+						splits["killed"] = killed
+						break
+					}
+				}
+				return splits
+			},
+		},
+		mocks.MockSegmentStorage{
+			KeysCall: func(segmentName string) *set.ThreadUnsafeSet {
+				switch segmentName {
+				default:
+				case "employees":
+					return set.NewSet("user1")
+				}
+				return nil
+			},
+			SegmentContainsKeyCall: func(segmentName, key string) (bool, error) {
+				if segmentName != "employees" {
+					return false, fmt.Errorf("segment not found")
+				}
+
+				if key == "user1" {
+					return true, nil
+				}
+				return false, nil
+			},
+		},
 		nil,
 		logger,
 	)
@@ -1285,18 +1161,22 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
-func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
+func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	// Create prefixed client for adding Split
-	prefixedClient, _ := redisdb.NewPrefixedRedisClient(&conf.RedisConfig{
+	prefixedClient, _ := redis.NewRedisClient(&redisCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
 		Password: "",
 		Prefix:   "testPrefix",
-	})
+	}, logging.NewLogger(&logging.LoggerOptions{}))
 
-	splitStorage := redisdb.NewRedisSplitStorage(prefixedClient, logger)
-	splitStorage.PutMany([]dtos.SplitDTO{*valid}, 1494593336752)
+	raw, err := json.Marshal(*valid)
+	if err != nil {
+		return nil
+	}
+	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
+	prefixedClient.Set("SPLITIO.splits.till", 1494593336752, 0)
 
 	// Set default configs to connect Client with redis
 	cfg := conf.Default()
@@ -1304,7 +1184,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.OperationMode = "redis-consumer"
-	cfg.Redis = conf.RedisConfig{
+	cfg.Redis = redisCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1325,7 +1205,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *redisdb.PrefixedRedisClient {
 	return prefixedClient
 }
 
-func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
+func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
 	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
 	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")
@@ -1335,9 +1215,9 @@ func deleteDataGenerated(prefixedClient *redisdb.PrefixedRedisClient) {
 func TestRedisClientWithIPDisabled(t *testing.T) {
 	prefixedClient := getRedisConfWithIP(false)
 	// Grabs created impression
-	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	json.Unmarshal([]byte(resImpression[0]), &impression)
 	metadata := impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
@@ -1349,9 +1229,9 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 	}
 
 	// Grabs created event
-	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
 	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	json.Unmarshal([]byte(resEvent[0]), &event)
 	metadata = event["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
@@ -1364,9 +1244,9 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 func TestRedisClientWithIPEnabled(t *testing.T) {
 	prefixedClient := getRedisConfWithIP(true)
 	// Grabs created impression
-	jsonImpr, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1).Result()
+	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonImpr[0]), &impression)
+	json.Unmarshal([]byte(resImpression[0]), &impression)
 	metadata := impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
@@ -1378,9 +1258,9 @@ func TestRedisClientWithIPEnabled(t *testing.T) {
 	}
 
 	// Grabs created event
-	jsonEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1).Result()
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
 	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(jsonEvent[0]), &event)
+	json.Unmarshal([]byte(resEvent[0]), &event)
 	metadata = event["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
@@ -1398,7 +1278,6 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.LoggerConfig.LogLevel = logging.LevelDebug
 	cfg.TaskPeriods.ImpressionSync = 3
 	cfg.TaskPeriods.EventsSync = 3
 

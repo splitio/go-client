@@ -1,5 +1,6 @@
-5.2.0 (, 2020)
+5.2.0 (Aug 3, 2020)
  - Added split-commons library.
+ - Added Streaming support.
 
 5.1.2 (Nov 28, 2019)
  - Several fixes in tests as a result of a locking & race conditions audit/

@@ -1040,6 +1040,16 @@ func TestClient(t *testing.T) {
 				}
 				return nil
 			},
+			SegmentContainsKeyCall: func(segmentName, key string) (bool, error) {
+				if segmentName != "employees" {
+					return false, fmt.Errorf("segment not found")
+				}
+
+				if key == "user1" {
+					return true, nil
+				}
+				return false, nil
+			},
 		},
 		nil,
 		logger,

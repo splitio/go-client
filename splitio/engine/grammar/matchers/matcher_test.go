@@ -1,11 +1,12 @@
 package matchers
 
 import (
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-toolkit/injection"
-	"github.com/splitio/go-toolkit/logging"
 	"reflect"
 	"testing"
+
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestMatcherConstruction(t *testing.T) {

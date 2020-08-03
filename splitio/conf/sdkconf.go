@@ -2,7 +2,6 @@
 package conf
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"os/user"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-toolkit/datastructures/set"
 	"github.com/splitio/go-toolkit/logging"
 	"github.com/splitio/go-toolkit/nethelpers"
@@ -43,7 +43,7 @@ type SplitSdkConfig struct {
 	LoggerConfig       logging.LoggerOptions
 	TaskPeriods        TaskPeriods
 	Advanced           AdvancedConfig
-	Redis              RedisConfig
+	Redis              conf.RedisConfig
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -55,16 +55,6 @@ type TaskPeriods struct {
 	CounterSync    int
 	LatencySync    int
 	EventsSync     int
-}
-
-// RedisConfig struct is used to cofigure the redis parameters
-type RedisConfig struct {
-	Host      string
-	Port      int
-	Database  int
-	Password  string
-	Prefix    string
-	TLSConfig *tls.Config
 }
 
 // AdvancedConfig exposes more configurable parameters that can be used to further tailor the sdk to the user's needs
@@ -83,6 +73,7 @@ type AdvancedConfig struct {
 	EventsQueueSize      int
 	ImpressionsQueueSize int
 	ImpressionsBulkSize  int64
+	StreamingEnabled     bool
 }
 
 // Default returns a config struct with all the default values
@@ -113,13 +104,12 @@ func Default() *SplitSdkConfig {
 		Logger:             nil,
 		LoggerConfig:       logging.LoggerOptions{},
 		SplitFile:          splitFile,
-		Redis: RedisConfig{
-			Database:  0,
-			Host:      "localhost",
-			Password:  "",
-			Port:      6379,
-			Prefix:    "",
-			TLSConfig: nil,
+		Redis: conf.RedisConfig{
+			Database: 0,
+			Host:     "localhost",
+			Password: "",
+			Port:     6379,
+			Prefix:   "",
 		},
 		TaskPeriods: TaskPeriods{
 			CounterSync:    defaultTaskPeriod,
@@ -141,6 +131,7 @@ func Default() *SplitSdkConfig {
 			EventsQueueSize:      10000,
 			ImpressionsQueueSize: 10000,
 			ImpressionsBulkSize:  5000,
+			StreamingEnabled:     true,
 		},
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/splitio/go-client/splitio/engine"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	"github.com/splitio/go-client/splitio/engine/grammar"
-	"github.com/splitio/go-client/splitio/service/dtos"
-	"github.com/splitio/go-client/splitio/storage"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
 
 	"github.com/splitio/go-toolkit/injection"
 	"github.com/splitio/go-toolkit/logging"
@@ -119,7 +119,7 @@ func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature s
 // EvaluateFeature returns a struct with the resulting treatment and extra information for the impression
 func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
 	before := time.Now()
-	splitDto := e.splitStorage.Get(feature)
+	splitDto := e.splitStorage.Split(feature)
 
 	if bucketingKey == nil {
 		bucketingKey = &key

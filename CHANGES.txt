@@ -1,3 +1,6 @@
+5.2.1 (TBD)
+ - Added Impression observer
+
 5.2.0 (Aug 3, 2020)
  - Added split-commons library.
  - Added Streaming support.

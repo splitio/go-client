@@ -42,3 +42,66 @@ func TestSdkConfNormalization(t *testing.T) {
 		t.Error("Should not be NA")
 	}
 }
+
+func TestValidRates(t *testing.T) {
+	cfg := Default()
+	err := Normalize("asd", cfg)
+	if err != nil {
+		t.Error("It should not return err")
+	}
+
+	cfg.TaskPeriods.CounterSync = 0
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "CounterSync must be >= 30. Actual is: 0" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.LatencySync = 10
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "LatencySync must be >= 30. Actual is: 10" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.GaugeSync = 20
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "GaugeSync must be >= 30. Actual is: 20" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.SplitSync = 4
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "SplitSync must be >= 5. Actual is: 4" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.SegmentSync = 29
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "SegmentSync must be >= 30. Actual is: 29" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.ImpressionSync = 0
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "ImpressionSync must be >= 1. Actual is: 0" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.TaskPeriods.EventsSync = 0
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "EventsSync must be >= 1. Actual is: 0" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default()
+	cfg.Advanced.SegmentWorkers = 0
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "Number of workers for fetching segments MUST be greater than zero" {
+		t.Error("It should return err")
+	}
+}

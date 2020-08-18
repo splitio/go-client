@@ -218,6 +218,8 @@ func (s *mockStorage) All() []dtos.SplitDTO                      { return make([
 func (s *mockStorage) SegmentNames() *set.ThreadUnsafeSet        { return nil }
 func (s *mockStorage) SplitNames() []string                      { return make([]string, 0) }
 func (s *mockStorage) TrafficTypeExists(trafficType string) bool { return true }
+func (s *mockStorage) ChangeNumber() (int64, error)              { return 0, nil }
+
 func TestSplitWithoutConfigurations(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true

@@ -24,6 +24,12 @@ import (
 	"github.com/splitio/go-split-commons/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/storage/redis"
 	"github.com/splitio/go-split-commons/synchronizer"
+	"github.com/splitio/go-split-commons/synchronizer/worker/event"
+	"github.com/splitio/go-split-commons/synchronizer/worker/impression"
+	"github.com/splitio/go-split-commons/synchronizer/worker/metric"
+	"github.com/splitio/go-split-commons/synchronizer/worker/segment"
+	"github.com/splitio/go-split-commons/synchronizer/worker/split"
+	"github.com/splitio/go-split-commons/tasks"
 	"github.com/splitio/go-toolkit/logging"
 )
 
@@ -232,39 +238,38 @@ func setupInMemoryFactory(
 	*/
 
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
-
 	splitsStorage := mutexmap.NewMMSplitStorage()
 	segmentsStorage := mutexmap.NewMMSegmentStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger)
 	telemetryStorage := mutexmap.NewMMMetricsStorage()
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
+	metricsWrapper := storage.NewMetricWrapper(telemetryStorage, nil, logger)
 
-	readyChannel := make(chan int, 1)
-
-	splitAPI := service.NewSplitAPI(apikey, advanced, logger)
+	splitAPI := service.NewSplitAPI(apikey, advanced, logger, metadata)
+	workers := synchronizer.Workers{
+		SplitFetcher:       split.NewSplitFetcher(splitsStorage, splitAPI.SplitFetcher, metricsWrapper, logger),
+		SegmentFetcher:     segment.NewSegmentFetcher(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, metricsWrapper, logger),
+		EventRecorder:      event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, metricsWrapper, logger, metadata),
+		ImpressionRecorder: impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, metricsWrapper, logger, metadata),
+		TelemetryRecorder:  metric.NewRecorderSingle(telemetryStorage, splitAPI.MetricRecorder, metadata),
+	}
+	splitTasks := synchronizer.SplitTasks{
+		SplitSyncTask:      tasks.NewFetchSplitsTask(workers.SplitFetcher, cfg.TaskPeriods.SplitSync, logger),
+		SegmentSyncTask:    tasks.NewFetchSegmentsTask(workers.SegmentFetcher, cfg.TaskPeriods.SegmentSync, advanced.SegmentWorkers, advanced.SegmentQueueSize, logger),
+		EventSyncTask:      tasks.NewRecordEventsTask(workers.EventRecorder, advanced.EventsBulkSize, cfg.TaskPeriods.EventsSync, logger),
+		ImpressionSyncTask: tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize),
+		TelemetrySyncTask:  tasks.NewRecordTelemetryTask(workers.TelemetryRecorder, cfg.TaskPeriods.LatencySync, logger),
+	}
 
 	syncImpl := synchronizer.NewSynchronizer(
-		config.TaskPeriods{
-			CounterSync:    cfg.TaskPeriods.CounterSync,
-			EventsSync:     cfg.TaskPeriods.EventsSync,
-			GaugeSync:      cfg.TaskPeriods.GaugeSync,
-			ImpressionSync: cfg.TaskPeriods.ImpressionSync,
-			LatencySync:    cfg.TaskPeriods.LatencySync,
-			SegmentSync:    cfg.TaskPeriods.SegmentSync,
-			SplitSync:      cfg.TaskPeriods.SplitSync,
-		},
 		advanced,
-		splitAPI,
-		splitsStorage,
-		segmentsStorage,
-		telemetryStorage,
-		impressionsStorage,
-		eventsStorage,
+		splitTasks,
+		workers,
 		logger,
 		inMememoryFullQueue,
-		&metadata,
 	)
 
+	readyChannel := make(chan int, 1)
 	syncManager, err := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,

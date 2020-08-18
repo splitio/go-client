@@ -36,6 +36,12 @@ func NormalizeSDKConf(sdkConfig AdvancedConfig) conf.AdvancedConfig {
 	if strings.TrimSpace(sdkConfig.SdkURL) != "" {
 		config.SdkURL = sdkConfig.SdkURL
 	}
+	if strings.TrimSpace(sdkConfig.AuthServiceURL) != "" {
+		config.AuthServiceURL = sdkConfig.AuthServiceURL
+	}
+	if strings.TrimSpace(sdkConfig.StreamingServiceURL) != "" {
+		config.StreamingServiceURL = sdkConfig.StreamingServiceURL
+	}
 	config.StreamingEnabled = sdkConfig.StreamingEnabled
 
 	return config

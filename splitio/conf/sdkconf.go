@@ -67,8 +67,10 @@ type AdvancedConfig struct {
 	HTTPTimeout          int
 	SegmentQueueSize     int
 	SegmentWorkers       int
+	AuthServiceURL       string
 	SdkURL               string
 	EventsURL            string
+	StreamingServiceURL  string
 	EventsBulkSize       int64
 	EventsQueueSize      int
 	ImpressionsQueueSize int
@@ -78,7 +80,6 @@ type AdvancedConfig struct {
 
 // Default returns a config struct with all the default values
 func Default() *SplitSdkConfig {
-
 	instanceName := "unknown"
 	ipAddress, err := nethelpers.ExternalIP()
 	if err != nil {
@@ -112,17 +113,19 @@ func Default() *SplitSdkConfig {
 			Prefix:   "",
 		},
 		TaskPeriods: TaskPeriods{
-			CounterSync:    defaultTaskPeriod,
 			GaugeSync:      defaultTaskPeriod,
+			CounterSync:    defaultTaskPeriod,
 			LatencySync:    defaultTaskPeriod,
 			ImpressionSync: defaultTaskPeriod,
 			SegmentSync:    defaultTaskPeriod,
-			SplitSync:      defaultFeatureRefreshRate,
+			SplitSync:      defaultTaskPeriod,
 			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{
+			AuthServiceURL:       "",
 			EventsURL:            "",
 			SdkURL:               "",
+			StreamingServiceURL:  "",
 			HTTPTimeout:          0,
 			ImpressionListener:   nil,
 			SegmentQueueSize:     500,
@@ -134,6 +137,34 @@ func Default() *SplitSdkConfig {
 			StreamingEnabled:     true,
 		},
 	}
+}
+
+func validConfigRates(cfg *SplitSdkConfig) error {
+	if cfg.TaskPeriods.SplitSync < minSplitSync {
+		return fmt.Errorf("SplitSync must be >= %d. Actual is: %d", minSplitSync, cfg.TaskPeriods.SplitSync)
+	}
+	if cfg.TaskPeriods.SegmentSync < minSegmentSync {
+		return fmt.Errorf("SegmentSync must be >= %d. Actual is: %d", minSegmentSync, cfg.TaskPeriods.SegmentSync)
+	}
+	if cfg.TaskPeriods.ImpressionSync < minImpressionSync {
+		return fmt.Errorf("ImpressionSync must be >= %d. Actual is: %d", minImpressionSync, cfg.TaskPeriods.ImpressionSync)
+	}
+	if cfg.TaskPeriods.EventsSync < minEventSync {
+		return fmt.Errorf("EventsSync must be >= %d. Actual is: %d", minEventSync, cfg.TaskPeriods.EventsSync)
+	}
+	if cfg.TaskPeriods.LatencySync < minTelemetrySync {
+		return fmt.Errorf("LatencySync must be >= %d. Actual is: %d", minTelemetrySync, cfg.TaskPeriods.LatencySync)
+	}
+	if cfg.TaskPeriods.GaugeSync < minTelemetrySync {
+		return fmt.Errorf("GaugeSync must be >= %d. Actual is: %d", minTelemetrySync, cfg.TaskPeriods.GaugeSync)
+	}
+	if cfg.TaskPeriods.CounterSync < minTelemetrySync {
+		return fmt.Errorf("CounterSync must be >= %d. Actual is: %d", minTelemetrySync, cfg.TaskPeriods.CounterSync)
+	}
+	if cfg.Advanced.SegmentWorkers <= 0 {
+		return errors.New("Number of workers for fetching segments MUST be greater than zero")
+	}
+	return nil
 }
 
 // Normalize checks that the parameters passed by the user are correct and updates parameters if necessary.
@@ -163,8 +194,10 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	}
 
 	if cfg.SplitSyncProxyURL != "" {
+		cfg.Advanced.AuthServiceURL = cfg.SplitSyncProxyURL
 		cfg.Advanced.SdkURL = cfg.SplitSyncProxyURL
 		cfg.Advanced.EventsURL = cfg.SplitSyncProxyURL
+		cfg.Advanced.StreamingServiceURL = cfg.SplitSyncProxyURL
 	}
 
 	if !cfg.IPAddressesEnabled {
@@ -172,5 +205,5 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 		cfg.InstanceName = "NA"
 	}
 
-	return nil
+	return validConfigRates(cfg)
 }

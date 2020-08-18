@@ -1,3 +1,7 @@
+5.2.1 (Aug 19, 2020)
+- Added rates validation.
+- Updated with latest version in go-split-commons.
+
 5.2.0 (Aug 3, 2020)
  - Added split-commons library.
  - Added Streaming support.

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -20,37 +21,41 @@ import (
 )
 
 type MockWriter struct {
-	mutex  sync.RWMutex
-	strMsg string
+	mutex    sync.RWMutex
+	messages []string
 }
 
 func (m *MockWriter) Write(p []byte) (n int, err error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.strMsg = string(p[:])
+	if m.messages == nil {
+		m.messages = make([]string, 0)
+	}
+	m.messages = append(m.messages, string(p[:]))
 	return 0, nil
 }
 
 func (m *MockWriter) Reset() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.strMsg = ""
+	m.messages = make([]string, 0)
 }
 
-func (m *MockWriter) Get() string {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.strMsg
+func (m *MockWriter) Matches(expected string) bool {
+	m.mutex.Lock()
+	defer func() {
+		m.messages = make([]string, 0)
+		m.mutex.Unlock()
+	}()
+	for _, msg := range m.messages {
+		if strings.Contains(msg, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 var mW MockWriter
-
-func expectedLogMessage(expectedMessage string, t *testing.T) {
-	if !strings.Contains(mW.strMsg, expectedMessage) {
-		t.Error("Message error is different from the expected: " + mW.Get())
-	}
-	mW.Reset()
-}
 
 func getMockedLogger() logging.LoggerInterface {
 	return logging.NewLogger(&logging.LoggerOptions{
@@ -105,10 +110,9 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 	}
 
 	expected := "Factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
-	if !strings.Contains(mW.Get(), expected) {
-		t.Error("Error is distinct from the expected one", mW.Get())
+	if !mW.Matches(expected) {
+		t.Error("Error is distinct from the expected one")
 	}
-	mW.Reset()
 }
 
 func getLongKey() string {
@@ -123,47 +127,71 @@ func TestTreatmentValidatorOnKeys(t *testing.T) {
 	client := getClient()
 	// Nil
 	expectedTreatment(client.Treatment(nil, "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed a nil key, key must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed a nil key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Boolean
 	expectedTreatment(client.Treatment(true, "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an invalid key, key must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Trimmed
 	expectedTreatment(client.Treatment("     ", "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an empty key, key must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an empty key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Long
 	expectedTreatment(client.Treatment(getLongKey(), "feature", nil), "control", t)
-	expectedLogMessage("Treatment: key too long - must be 250 characters or less", t)
+	if !mW.Matches("Treatment: key too long - must be 250 characters or less") {
+		t.Error("Wrong message")
+	}
 
 	// String
+	mW.Reset()
 	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
-	expectedLogMessage("", t)
+	if len(mW.messages) > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
 
 	// Int
 	expectedTreatment(client.Treatment(123, "feature", nil), "TreatmentA", t)
-	expectedLogMessage("Treatment: key %!s(int=123) is not of type string, converting", t)
+	if !mW.Matches("Treatment: key %!s(int=123) is not of type string, converting") {
+		t.Error("Wrong message")
+	}
 
 	// Int32
 	expectedTreatment(client.Treatment(int32(123), "feature", nil), "TreatmentA", t)
-	expectedLogMessage("Treatment: key %!s(int32=123) is not of type string, converting", t)
+	if !mW.Matches("Treatment: key %!s(int32=123) is not of type string, converting") {
+		t.Error("Wrong message")
+	}
 
 	// Int 64
 	expectedTreatment(client.Treatment(int64(123), "feature", nil), "TreatmentA", t)
-	expectedLogMessage("Treatment: key %!s(int64=123) is not of type string, converting", t)
+	if !mW.Matches("Treatment: key %!s(int64=123) is not of type string, converting") {
+		t.Error("Wrong message")
+	}
 
 	// Float
 	expectedTreatment(client.Treatment(1.3, "feature", nil), "TreatmentA", t)
-	expectedLogMessage("Treatment: key %!s(float64=1.3) is not of type string, converting", t)
+	if !mW.Matches("Treatment: key %!s(float64=1.3) is not of type string, converting") {
+		t.Error("Wrong message")
+	}
 
 	// NaN
 	expectedTreatment(client.Treatment(math.NaN, "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an invalid key, key must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Inf
 	expectedTreatment(client.Treatment(math.Inf, "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an invalid key, key must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 }
 
 func getKey(matchingKey string, bucketingKey string) *Key {
@@ -177,42 +205,62 @@ func TestTreatmentValidatorWithKeyObject(t *testing.T) {
 	client := getClient()
 	// Empty
 	expectedTreatment(client.Treatment(getKey("", "bucketing"), "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Long
 	expectedTreatment(client.Treatment(getKey(getLongKey(), "bucketing"), "feature", nil), "control", t)
-	expectedLogMessage("Treatment: matchingKey too long - must be 250 characters or less", t)
+	if !mW.Matches("Treatment: matchingKey too long - must be 250 characters or less") {
+		t.Error("Wrong message")
+	}
 
 	// Empty Bucketing
 	expectedTreatment(client.Treatment(getKey("matching", ""), "feature", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an empty bucketingKey, bucketingKey must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an empty bucketingKey, bucketingKey must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Long Bucketing
 	expectedTreatment(client.Treatment(getKey("matching", getLongKey()), "feature", nil), "control", t)
-	expectedLogMessage("Treatment: bucketingKey too long - must be 250 characters or less", t)
+	if !mW.Matches("Treatment: bucketingKey too long - must be 250 characters or less") {
+		t.Error("Wrong message")
+	}
 
 	// Ok
+	mW.Reset()
 	expectedTreatment(client.Treatment(getKey("matching", "bucketing"), "feature", nil), "TreatmentA", t)
-	expectedLogMessage("", t)
+	if len(mW.messages) > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
 }
 
 func TestTreatmentValidatorOnFeatureName(t *testing.T) {
 	client := getClient()
 	// Empty
 	expectedTreatment(client.Treatment("key", "", nil), "control", t)
-	expectedLogMessage("Treatment: you passed an empty featureName, featureName must be a non-empty string", t)
+	if !mW.Matches("Treatment: you passed an empty featureName, featureName must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Trimmed
 	expectedTreatment(client.Treatment("key", "  feature   ", nil), "TreatmentA", t)
-	expectedLogMessage("Treatment: split name '  feature   ' has extra whitespace, trimming", t)
+	if !mW.Matches("Treatment: split name '  feature   ' has extra whitespace, trimming") {
+		t.Error("Wrong message")
+	}
 
 	// Non Existent
 	expectedTreatment(client.Treatment("key", "feature_non_existent", nil), "control", t)
-	expectedLogMessage("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
+	if !mW.Matches("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+		t.Error("Wrong message")
+	}
 
 	// Non Existent
 	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_non_existent", nil), "control", "", t)
-	expectedLogMessage("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
+	if !mW.Matches("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+		t.Error("Wrong message")
+	}
 }
 
 func expectedTreatments(key interface{}, features []string, length int, t *testing.T) map[string]string {
@@ -228,32 +276,44 @@ func TestTreatmentsValidator(t *testing.T) {
 	client := getClient()
 	// Empty features
 	expectedTreatments("key", []string{""}, 0, t)
-	expectedLogMessage("Treatments: features must be a non-empty array", t)
+	if !mW.Matches("Treatments: features must be a non-empty array") {
+		t.Error("Wrong message")
+	}
 
 	// Inf
 	result := expectedTreatments(math.Inf, []string{"feature"}, 1, t)
 	expectedTreatment(result["feature"], "control", t)
-	expectedLogMessage("Treatments: you passed an invalid key, key must be a non-empty string", t)
+	if !mW.Matches("Treatments: you passed an invalid key, key must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	// Float
 	result = expectedTreatments(1.3, []string{"feature"}, 1, t)
 	expectedTreatment(result["feature"], "TreatmentA", t)
-	expectedLogMessage("Treatments: key %!s(float64=1.3) is not of type string, converting", t)
+	if !mW.Matches("Treatments: key %!s(float64=1.3) is not of type string, converting") {
+		t.Error("Wrong message")
+	}
 
 	// Trimmed
 	result = expectedTreatments("key", []string{" some_feature  "}, 1, t)
 	expectedTreatment(result["some_feature"], "control", t)
-	expectedLogMessage("Treatments: split name ' some_feature  ' has extra whitespace, trimming", t)
+	if !mW.Matches("Treatments: split name ' some_feature  ' has extra whitespace, trimming") {
+		t.Error("Wrong message")
+	}
 
 	// Non Existent
 	result = expectedTreatments("key", []string{"feature_non_existent"}, 1, t)
 	expectedTreatment(result["feature_non_existent"], "control", t)
-	expectedLogMessage("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
+	if !mW.Matches("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+		t.Error("Wrong message")
+	}
 
 	// Non Existent Config
 	resultWithConfig := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
 	expectedTreatmentAndConfig(resultWithConfig["feature_non_existent"], "control", "", t)
-	expectedLogMessage("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
+	if !mW.Matches("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+		t.Error("Wrong message")
+	}
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
@@ -289,23 +349,31 @@ func TestValidatorOnDestroy(t *testing.T) {
 	client2.Destroy()
 
 	expectedTreatment(client2.Treatment("key", "  feature   ", nil), "control", t)
-	expectedLogMessage("Client has already been destroyed - no calls possible", t)
+	if !mW.Matches("Client has already been destroyed - no calls possible") {
+		t.Error("Wrong message")
+	}
 
 	result := client2.Treatments("key", []string{"some_feature"}, nil)
 	expectedTreatment(result["some_feature"], "control", t)
-	expectedLogMessage("Client has already been destroyed - no calls possible", t)
+	if !mW.Matches("Client has already been destroyed - no calls possible") {
+		t.Error("Wrong message")
+	}
 
 	expectedTrack(client2.Track("key", "trafficType", "eventType", 0, nil), "Client has already been destroyed - no calls possible", t)
 
 	manager.Split("feature")
-	expectedLogMessage("Client has already been destroyed - no calls possible", t)
+	if !mW.Matches("Client has already been destroyed - no calls possible") {
+		t.Error("Wrong message")
+	}
 }
 
 func expectedTrack(err error, expected string, t *testing.T) {
 	if err != nil && err.Error() != expected {
 		t.Error("Wrong error", err.Error())
 	}
-	expectedLogMessage(expected, t)
+	if !mW.Matches(expected) {
+		t.Error("Wrong message")
+	}
 }
 
 func makeBigString(length int) string {
@@ -317,8 +385,6 @@ func makeBigString(length int) string {
 	return string(asRuneSlice)
 }
 
-/*
-@TODO: Move to Set log writer
 func TestTrackValidators(t *testing.T) {
 	client := getClient()
 	// Empty key
@@ -350,7 +416,9 @@ func TestTrackValidators(t *testing.T) {
 
 	// Traffic Type No Ocurrences
 	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil, nil)
-	expectedLogMessage("Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console", t)
+	if !mW.Matches("Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console") {
+		t.Error("Wrong message")
+	}
 	if err != nil {
 		t.Error("Should not be error")
 	}
@@ -379,7 +447,6 @@ func TestTrackValidators(t *testing.T) {
 		t.Error("Should not return error")
 	}
 }
-*/
 
 func TestLocalhostTrafficType(t *testing.T) {
 	sdkConf := conf.Default()
@@ -401,7 +468,11 @@ func TestLocalhostTrafficType(t *testing.T) {
 		t.Error("It should not inform any err")
 	}
 
-	expectedLogMessage("", t)
+	mW.Reset()
+	if len(mW.messages) > 0 {
+		t.Error("Wrong message", mW.messages)
+	}
+	mW.Reset()
 }
 
 func TestTrackNotReadyYetTrafficType(t *testing.T) {
@@ -440,8 +511,12 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	manager.factory = &factory
 
 	manager.Split("")
-	expectedLogMessage("Split: you passed an empty split name, split name must be a non-empty string", t)
+	if !mW.Matches("Split: you passed an empty split name, split name must be a non-empty string") {
+		t.Error("Wrong message")
+	}
 
 	manager.Split("non_existent")
-	expectedLogMessage("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console", t)
+	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+		t.Error("Wrong message")
+	}
 }

@@ -1,3 +1,6 @@
+5.2.2 (Sep 10, 2020)
+- Fix possible issue with SSE client using 100% cpu
+
 5.2.1 (Aug 31, 2020)
 - Added impression observer.
 - Added rates validation.

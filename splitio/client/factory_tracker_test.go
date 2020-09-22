@@ -3,8 +3,8 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-client/v6/splitio/conf"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 func TestFactoryTrackerMultipleInstantiation(t *testing.T) {

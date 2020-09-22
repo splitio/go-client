@@ -8,16 +8,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/splitio/go-client/splitio/conf"
-	spConf "github.com/splitio/go-split-commons/conf"
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/service"
-	authMocks "github.com/splitio/go-split-commons/service/mocks"
-	"github.com/splitio/go-split-commons/storage/mocks"
-	"github.com/splitio/go-split-commons/storage/mutexmap"
-	"github.com/splitio/go-split-commons/storage/mutexqueue"
-	"github.com/splitio/go-split-commons/synchronizer"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-client/v6/splitio/conf"
+	spConf "github.com/splitio/go-split-commons/v2/conf"
+	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/service"
+	authMocks "github.com/splitio/go-split-commons/v2/service/mocks"
+	"github.com/splitio/go-split-commons/v2/storage/mocks"
+	"github.com/splitio/go-split-commons/v2/storage/mutexmap"
+	"github.com/splitio/go-split-commons/v2/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/v2/synchronizer"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 type MockWriter struct {

@@ -1,10 +1,10 @@
 package grammar
 
 import (
-	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-toolkit/injection"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers"
+	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-toolkit/v3/injection"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 // Condition struct with added logic that wraps around a DTO

@@ -3,9 +3,9 @@ package client
 import (
 	"fmt"
 
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/storage"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/storage"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 // SplitManager provides information of the currently stored splits

@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-toolkit/injection"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-toolkit/v3/injection"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 func TestMatcherConstruction(t *testing.T) {

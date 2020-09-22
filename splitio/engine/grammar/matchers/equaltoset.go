@@ -1,7 +1,7 @@
 package matchers
 
 import (
-	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/v3/datastructures/set"
 )
 
 // EqualToSetMatcher matches if the set supplied to the getTreatment is equal to the one in the split

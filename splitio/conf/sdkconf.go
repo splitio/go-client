@@ -8,11 +8,11 @@ import (
 	"path"
 	"strings"
 
-	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/conf"
-	"github.com/splitio/go-toolkit/datastructures/set"
-	"github.com/splitio/go-toolkit/logging"
-	"github.com/splitio/go-toolkit/nethelpers"
+	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
+	"github.com/splitio/go-split-commons/v2/conf"
+	"github.com/splitio/go-toolkit/v3/datastructures/set"
+	"github.com/splitio/go-toolkit/v3/logging"
+	"github.com/splitio/go-toolkit/v3/nethelpers"
 )
 
 // SplitSdkConfig struct ...

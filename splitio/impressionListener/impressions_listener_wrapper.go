@@ -1,7 +1,7 @@
 package impressionlistener
 
 import (
-	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/v2/dtos"
 )
 
 // ILObject struct to map entire data for listener

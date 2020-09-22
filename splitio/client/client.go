@@ -5,13 +5,13 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/splitio/go-client/splitio/engine/evaluator"
-	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
-	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/storage"
-	"github.com/splitio/go-split-commons/util"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
+	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
+	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
+	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/storage"
+	"github.com/splitio/go-split-commons/v2/util"
+	"github.com/splitio/go-toolkit/v3/logging"
 )
 
 // SplitClient is the entry-point of the split SDK.

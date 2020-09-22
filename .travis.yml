@@ -12,12 +12,6 @@ addons:
 git:
   depth: false
 
-before_install:
- - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
-install:
- - dep ensure
-
 script:
   - go test -v -coverprofile=coverage.out $(go list ./... | grep -v /vendor/)
 

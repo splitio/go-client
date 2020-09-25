@@ -390,6 +390,7 @@ func getClientForListener() SplitClient {
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
 		ImpressionsMode: cfg.ImpressionsMode,
 		OperationMode:   cfg.OperationMode,
+		ListenerEnabled: true,
 	}, provisional.NewImpressionsCounter())
 	factory := &SplitFactory{
 		cfg: cfg,

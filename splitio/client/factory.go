@@ -252,6 +252,7 @@ func setupInMemoryFactory(
 	managerConfig := config.ManagerConfig{
 		ImpressionsMode: cfg.ImpressionsMode,
 		OperationMode:   cfg.OperationMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
 	}
 	splitAPI := service.NewSplitAPI(apikey, advanced, logger, metadata)
 	workers := synchronizer.Workers{
@@ -351,6 +352,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
 	}, nil)
 	if err != nil {
 		return nil, err
@@ -410,6 +412,7 @@ func setupLocalhostFactory(
 	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
 	}, nil)
 	if err != nil {
 		return nil, err

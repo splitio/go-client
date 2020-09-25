@@ -44,6 +44,7 @@ type SplitSdkConfig struct {
 	TaskPeriods        TaskPeriods
 	Advanced           AdvancedConfig
 	Redis              conf.RedisConfig
+	ImpressionsMode    string
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -105,6 +106,7 @@ func Default() *SplitSdkConfig {
 		Logger:             nil,
 		LoggerConfig:       logging.LoggerOptions{},
 		SplitFile:          splitFile,
+		ImpressionsMode:    conf.ImpressionsModeOptimized,
 		Redis: conf.RedisConfig{
 			Database: 0,
 			Host:     "localhost",

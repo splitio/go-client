@@ -9,6 +9,7 @@ import (
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
 	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/provisional"
 	"github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/util"
 	"github.com/splitio/go-toolkit/logging"
@@ -24,6 +25,7 @@ type SplitClient struct {
 	validator          inputValidation
 	factory            *SplitFactory
 	impressionListener *impressionlistener.WrapperImpressionListener
+	impressionManager  provisional.ImpressionManager
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -111,11 +113,12 @@ func (c *SplitClient) createImpression(
 func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTimeNs int64) {
 	// Store impression
 	if c.impressions != nil {
-		c.impressions.LogImpressions(impressions)
+		forLog, forListener := c.impressionManager.ProcessImpressions(impressions)
+		c.impressions.LogImpressions(forLog)
 
 		// Custom Impression Listener
 		if c.impressionListener != nil {
-			c.impressionListener.SendDataToClient(impressions, attributes)
+			c.impressionListener.SendDataToClient(forListener, attributes)
 		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")

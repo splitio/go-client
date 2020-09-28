@@ -2,6 +2,8 @@ package conf
 
 import (
 	"testing"
+
+	"github.com/splitio/go-split-commons/conf"
 )
 
 func TestSdkConfNormalization(t *testing.T) {
@@ -84,10 +86,25 @@ func TestValidRates(t *testing.T) {
 		t.Error("It should return err")
 	}
 
-	cfg = Default()
-	cfg.TaskPeriods.ImpressionSync = 0
+	cfg = Default() // Optimized by Default
+	cfg.TaskPeriods.ImpressionSync = 59
 	err = Normalize("asd", cfg)
-	if err == nil || err.Error() != "ImpressionSync must be >= 1. Actual is: 0" {
+	if err == nil || err.Error() != "ImpressionSync must be >= 60. Actual is: 59" {
+		t.Error("It should return err")
+	}
+
+	cfg = Default() // Optimized by Default
+	cfg.TaskPeriods.ImpressionSync = 75
+	err = Normalize("asd", cfg)
+	if err != nil || cfg.TaskPeriods.ImpressionSync != 75 {
+		t.Error("It should match")
+	}
+
+	cfg = Default() // Debug
+	cfg.TaskPeriods.ImpressionSync = -1
+	cfg.ImpressionsMode = conf.ImpressionsModeDebug
+	err = Normalize("asd", cfg)
+	if err == nil || err.Error() != "ImpressionSync must be >= 1. Actual is: -1" {
 		t.Error("It should return err")
 	}
 

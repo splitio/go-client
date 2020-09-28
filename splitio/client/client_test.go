@@ -1299,6 +1299,7 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.TaskPeriods.ImpressionSync = 3
 	cfg.TaskPeriods.EventsSync = 3
+	cfg.ImpressionsMode = "Debug"
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
@@ -1588,7 +1589,7 @@ func TestClientDebug(t *testing.T) {
 				if len(dataInPost) != 1 {
 					t.Error("It should send two impressions in optimized mode")
 				}
-				if len(dataInPost[0]["keyImpressions"].([]interface{})) != 3 {
+				if len(dataInPost[0]["i"].([]interface{})) != 3 {
 					t.Error("It should send only one impression per featureName")
 				}
 			}

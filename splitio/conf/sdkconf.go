@@ -4,6 +4,7 @@ package conf
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os/user"
 	"path"
 	"strings"
@@ -118,7 +119,7 @@ func Default() *SplitSdkConfig {
 			GaugeSync:      defaultTaskPeriod,
 			CounterSync:    defaultTaskPeriod,
 			LatencySync:    defaultTaskPeriod,
-			ImpressionSync: defaultTaskPeriod,
+			ImpressionSync: defaultImpressionSyncOptimized,
 			SegmentSync:    defaultTaskPeriod,
 			SplitSync:      defaultTaskPeriod,
 			EventsSync:     defaultTaskPeriod,
@@ -148,9 +149,30 @@ func validConfigRates(cfg *SplitSdkConfig) error {
 	if cfg.TaskPeriods.SegmentSync < minSegmentSync {
 		return fmt.Errorf("SegmentSync must be >= %d. Actual is: %d", minSegmentSync, cfg.TaskPeriods.SegmentSync)
 	}
-	if cfg.TaskPeriods.ImpressionSync < minImpressionSync {
-		return fmt.Errorf("ImpressionSync must be >= %d. Actual is: %d", minImpressionSync, cfg.TaskPeriods.ImpressionSync)
+
+	switch cfg.ImpressionsMode {
+	case conf.ImpressionsModeOptimized:
+		if cfg.TaskPeriods.ImpressionSync == 0 {
+			cfg.TaskPeriods.ImpressionSync = defaultImpressionSyncOptimized
+		} else {
+			if cfg.TaskPeriods.ImpressionSync < minImpressionSyncOptimized {
+				return fmt.Errorf("ImpressionSync must be >= %d. Actual is: %d", minImpressionSyncOptimized, cfg.TaskPeriods.ImpressionSync)
+			}
+			cfg.TaskPeriods.ImpressionSync = int(math.Max(float64(minImpressionSyncOptimized), float64(cfg.TaskPeriods.ImpressionSync)))
+		}
+	case conf.ImpressionsModeDebug:
+		fallthrough
+	default:
+		if cfg.TaskPeriods.ImpressionSync == 0 {
+			cfg.TaskPeriods.ImpressionSync = defaultImpressionSyncDebug
+		} else {
+			if cfg.TaskPeriods.ImpressionSync < minImpressionSync {
+				return fmt.Errorf("ImpressionSync must be >= %d. Actual is: %d", minImpressionSync, cfg.TaskPeriods.ImpressionSync)
+			}
+			cfg.TaskPeriods.ImpressionSync = int(math.Max(float64(defaultTaskPeriod), float64(cfg.TaskPeriods.ImpressionSync)))
+		}
 	}
+
 	if cfg.TaskPeriods.EventsSync < minEventSync {
 		return fmt.Errorf("EventsSync must be >= %d. Actual is: %d", minEventSync, cfg.TaskPeriods.EventsSync)
 	}

@@ -130,6 +130,17 @@ func getLongKey() string {
 	return m
 }
 
+func TestValidationEmpty(t *testing.T) {
+	client := getClient()
+	// String
+	mW.Reset()
+	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
+	if len(mW.messages) > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
+}
+
 func TestTreatmentValidatorOnKeys(t *testing.T) {
 	client := getClient()
 	// Nil
@@ -155,14 +166,6 @@ func TestTreatmentValidatorOnKeys(t *testing.T) {
 	if !mW.Matches("Treatment: key too long - must be 250 characters or less") {
 		t.Error("Wrong message")
 	}
-
-	// String
-	mW.Reset()
-	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
-	if len(mW.messages) > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
 
 	// Int
 	expectedTreatment(client.Treatment(123, "feature", nil), "TreatmentA", t)

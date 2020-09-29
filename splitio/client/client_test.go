@@ -1488,7 +1488,7 @@ func TestClientOptimized(t *testing.T) {
 				}
 
 				for _, v := range dataInPost["pf"] {
-					if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UnixNano()) {
+					if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
 						t.Error("Wrong timeFrame")
 					}
 					switch v["f"] {
@@ -1496,7 +1496,7 @@ func TestClientOptimized(t *testing.T) {
 						if v["rc"].(float64) != 3 {
 							t.Error("Wrong rc")
 						}
-						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UnixNano()) {
+						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
 							t.Error("Wrong timeFrame")
 						}
 					case "DEMO_MURMUR":

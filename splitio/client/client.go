@@ -105,7 +105,7 @@ func (c *SplitClient) createImpression(
 		KeyName:      matchingKey,
 		Label:        label,
 		Treatment:    treatment,
-		Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+		Time:         time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
 	}
 }
 
@@ -371,7 +371,7 @@ func (c *SplitClient) Track(
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,
 		Value:           value,
-		Timestamp:       time.Now().UnixNano() / 1000000,
+		Timestamp:       time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
 		Properties:      properties,
 	}, size)
 

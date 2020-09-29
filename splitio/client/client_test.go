@@ -1297,9 +1297,10 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.TaskPeriods.ImpressionSync = 3
-	cfg.TaskPeriods.EventsSync = 3
+	cfg.TaskPeriods.ImpressionSync = 1
+	cfg.TaskPeriods.EventsSync = 1
 	cfg.ImpressionsMode = "Debug"
+	cfg.Advanced.StreamingEnabled = false
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
@@ -1325,10 +1326,6 @@ func TestClientWithIPEnabled(t *testing.T) {
 			fmt.Fprintln(gzw, "Hello, client")
 			return
 		case "/testImpressions/bulk":
-			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeOptimized {
-				t.Error("Wrong header")
-			}
-			fallthrough
 		case "/events/bulk":
 			if r.Header.Get("SplitSDKMachineIP") == "NA" || r.Header.Get("SplitSDKMachineName") == "NA" {
 				t.Error("It should not be NA when IPAddressesEnabled has been set")

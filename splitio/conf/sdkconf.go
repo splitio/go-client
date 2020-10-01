@@ -193,6 +193,7 @@ func validConfigRates(cfg *SplitSdkConfig) error {
 		}
 	default:
 		fmt.Println(`You passed an invalid impressionsMode, impressionsMode should be one of the following values: 'debug' or 'optimized'. Defaulting to 'optimized' mode.`)
+		cfg.ImpressionsMode = conf.ImpressionsModeOptimized
 		err := checkImpressionSync(cfg)
 		if err != nil {
 			return err

@@ -121,4 +121,11 @@ func TestValidRates(t *testing.T) {
 	if err == nil || err.Error() != "Number of workers for fetching segments MUST be greater than zero" {
 		t.Error("It should return err")
 	}
+
+	cfg = Default()
+	cfg.ImpressionsMode = "some"
+	err = Normalize("asd", cfg)
+	if err != nil || cfg.ImpressionsMode != conf.ImpressionsModeOptimized {
+		t.Error("It should not return err")
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/splitio/go-client/splitio/conf"
 	"github.com/splitio/go-client/splitio/engine/evaluator"
 	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
@@ -354,7 +355,7 @@ func (c *SplitClient) Track(
 		trafficType,
 		eventType,
 		value,
-		c.isReady() && c.factory.apikey != "localhost",
+		c.isReady() && c.factory.apikey != conf.Localhost,
 	)
 	if err != nil {
 		c.logger.Error(err.Error())

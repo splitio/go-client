@@ -204,7 +204,7 @@ func (f *SplitFactory) Destroy() {
 	}
 	f.status.Store(sdkStatusDestroyed)
 
-	if f.cfg.OperationMode == "redis-consumer" {
+	if f.cfg.OperationMode == conf.RedisConsumer {
 		return
 	}
 
@@ -306,7 +306,7 @@ func setupInMemoryFactory(
 		cfg:           cfg,
 		metadata:      metadata,
 		logger:        logger,
-		operationMode: "inmemory-standalone",
+		operationMode: conf.InMemoryStandAlone,
 		storages: sdkStorages{
 			splits:      splitsStorage,
 			events:      eventsStorage,
@@ -345,7 +345,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		cfg:                   cfg,
 		metadata:              metadata,
 		logger:                logger,
-		operationMode:         "redis-consumer",
+		operationMode:         conf.RedisConsumer,
 		storages:              storages,
 		readinessSubscriptors: make(map[int]chan int),
 	}
@@ -438,11 +438,11 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	var err error
 
 	switch cfg.OperationMode {
-	case "inmemory-standalone":
+	case conf.InMemoryStandAlone:
 		splitFactory, err = setupInMemoryFactory(apikey, cfg, logger, metadata)
-	case "redis-consumer":
+	case conf.RedisConsumer:
 		splitFactory, err = setupRedisFactory(apikey, cfg, logger, metadata)
-	case "localhost":
+	case conf.Localhost:
 		splitFactory, err = setupLocalhostFactory(apikey, cfg, logger, metadata)
 	default:
 		err = fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)

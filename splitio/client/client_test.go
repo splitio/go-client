@@ -215,14 +215,14 @@ func TestLocalhostMode(t *testing.T) {
 
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
-	factory, err := NewSplitFactory("localhost", sdkConf)
+	factory, err := NewSplitFactory(conf.Localhost, sdkConf)
 	if err != nil {
 		t.Error(err)
 	}
 	client := factory.Client()
 	client.BlockUntilReady(1)
 
-	if factory.cfg.OperationMode != "localhost" {
+	if factory.cfg.OperationMode != conf.Localhost {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
@@ -484,7 +484,7 @@ func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	err = client.BlockUntilReady(-1)
@@ -516,7 +516,7 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	manager := factory.Manager()
@@ -581,7 +581,7 @@ func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	manager := factory.Manager()
@@ -626,7 +626,7 @@ func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 
 func TestBlockUntilReadyRedis(t *testing.T) {
 	sdkConf := conf.Default()
-	sdkConf.OperationMode = "redis-consumer"
+	sdkConf.OperationMode = conf.RedisConsumer
 
 	factory, _ := NewSplitFactory("something", sdkConf)
 
@@ -1141,7 +1141,7 @@ func TestClient(t *testing.T) {
 func TestLocalhostModeYAML(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
 	manager := factory.Manager()
 
@@ -1151,7 +1151,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 		t.Error("Localhost should be ready")
 	}
 
-	if client.factory.cfg.OperationMode != "localhost" {
+	if client.factory.cfg.OperationMode != conf.Localhost {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
@@ -1202,7 +1202,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	cfg.LabelsEnabled = true
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.OperationMode = "redis-consumer"
+	cfg.OperationMode = conf.RedisConsumer
 	cfg.Redis = commonsCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,

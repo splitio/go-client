@@ -586,14 +586,6 @@ func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 	client := factory.Client()
 	manager := factory.Manager()
 
-	if len(manager.SplitNames()) != 0 {
-		t.Error("It should not return splits")
-	}
-
-	if client.factory.IsReady() {
-		t.Error("Client should not be ready")
-	}
-
 	err = client.BlockUntilReady(1)
 	if err != nil {
 		t.Error("Error was not expected")

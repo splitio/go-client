@@ -461,7 +461,7 @@ func TestTrackValidators(t *testing.T) {
 func TestLocalhostTrafficType(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
 
 	_ = client.BlockUntilReady(1)

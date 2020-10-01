@@ -1,5 +1,5 @@
-5.2.3 (Sep XX, 2020)
-- Added impressions deduping logic.
+5.2.3 (Oct XX, 2020)
+- Added local impressions deduping (enabled by default).
 
 5.2.2 (Sep 10, 2020)
 - Fixed possible issue with SSE client using 100% cpu.

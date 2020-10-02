@@ -1,4 +1,4 @@
-5.2.3 (Oct XX, 2020)
+5.3.0 (Oct 5, 2020)
 - Added local impressions deduping (enabled by default).
 
 5.2.2 (Sep 10, 2020)

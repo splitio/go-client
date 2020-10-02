@@ -40,6 +40,7 @@ const (
 // - TaskPeriods: (Optional) How often should each task run
 // - Redis: (Required for "redis-consumer". Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
+// - ImpressionsMode (Optional) Flag for enabling local impressions dedupe - Possible values <'optimized'|'debug'>
 type SplitSdkConfig struct {
 	OperationMode      string
 	InstanceName       string
@@ -189,7 +190,6 @@ func validConfigRates(cfg *SplitSdkConfig) error {
 			if cfg.TaskPeriods.ImpressionSync < minImpressionSync {
 				return fmt.Errorf("ImpressionSync must be >= %d. Actual is: %d", minImpressionSync, cfg.TaskPeriods.ImpressionSync)
 			}
-			cfg.TaskPeriods.ImpressionSync = int(math.Max(float64(defaultTaskPeriod), float64(cfg.TaskPeriods.ImpressionSync)))
 		}
 	default:
 		fmt.Println(`You passed an invalid impressionsMode, impressionsMode should be one of the following values: 'debug' or 'optimized'. Defaulting to 'optimized' mode.`)

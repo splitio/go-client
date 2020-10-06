@@ -16,4 +16,4 @@ script:
   - go test -v -coverprofile=coverage.out $(go list ./... | grep -v /vendor/)
 
 after_success:
-  - bash sonar-scanner.sh
+  - bash build-utils/sonar-scanner

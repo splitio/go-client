@@ -18,8 +18,9 @@ import (
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
 	evaluatorMock "github.com/splitio/go-client/v6/splitio/engine/evaluator/mocks"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	redisCfg "github.com/splitio/go-split-commons/v2/conf"
+	commonsCfg "github.com/splitio/go-split-commons/v2/conf"
 	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/provisional"
 	authMocks "github.com/splitio/go-split-commons/v2/service/mocks"
 	"github.com/splitio/go-split-commons/v2/storage"
 	"github.com/splitio/go-split-commons/v2/storage/mocks"
@@ -28,6 +29,7 @@ import (
 	"github.com/splitio/go-split-commons/v2/storage/redis"
 	"github.com/splitio/go-split-commons/v2/synchronizer"
 	syncMock "github.com/splitio/go-split-commons/v2/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v2/util"
 	"github.com/splitio/go-toolkit/v3/datastructures/set"
 	"github.com/splitio/go-toolkit/v3/logging"
 	predis "github.com/splitio/go-toolkit/v3/redis"
@@ -125,6 +127,10 @@ func getFactory() SplitFactory {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
+	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
+		ImpressionsMode: cfg.ImpressionsMode,
+		OperationMode:   cfg.OperationMode,
+	}, provisional.NewImpressionsCounter())
 
 	return SplitFactory{
 		cfg: cfg,
@@ -133,7 +139,8 @@ func getFactory() SplitFactory {
 			telemetry:   mutexmap.NewMMMetricsStorage(),
 			events:      mocks.MockEventStorage{},
 		},
-		logger: logger,
+		impressionManager: impressionManager,
+		logger:            logger,
 	}
 }
 
@@ -208,14 +215,14 @@ func TestLocalhostMode(t *testing.T) {
 
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
-	factory, err := NewSplitFactory("localhost", sdkConf)
+	factory, err := NewSplitFactory(conf.Localhost, sdkConf)
 	if err != nil {
 		t.Error(err)
 	}
 	client := factory.Client()
 	client.BlockUntilReady(1)
 
-	if factory.cfg.OperationMode != "localhost" {
+	if factory.cfg.OperationMode != conf.Localhost {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
@@ -279,7 +286,7 @@ func TestClientDestroy(t *testing.T) {
 			},
 		},
 		logger,
-		redisCfg.AdvancedConfig{},
+		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
@@ -350,6 +357,7 @@ func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject)
 	ilTest["Attributes"] = data.Attributes
 	ilTest["Version"] = data.SDKLanguageVersion
 	ilTest["InstanceName"] = data.InstanceID
+	ilTest["Pt"] = data.Impression.Pt
 
 	ilResult[data.Impression.FeatureName] = ilTest
 }
@@ -379,7 +387,11 @@ func getClientForListener() SplitClient {
 		MachineIP:   "123.123.123.123",
 		MachineName: "ip-123-123-123-123",
 	})
-
+	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
+		ImpressionsMode: cfg.ImpressionsMode,
+		OperationMode:   cfg.OperationMode,
+		ListenerEnabled: true,
+	}, provisional.NewImpressionsCounter())
 	factory := &SplitFactory{
 		cfg: cfg,
 		storages: sdkStorages{
@@ -391,6 +403,7 @@ func getClientForListener() SplitClient {
 		metadata: dtos.Metadata{
 			SDKVersion: "go-" + splitio.Version,
 		},
+		impressionManager: impressionManager,
 	}
 
 	client := SplitClient{
@@ -400,6 +413,7 @@ func getClientForListener() SplitClient {
 		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
 		factory:            factory,
+		impressionManager:  impressionManager,
 	}
 
 	factory.status.Store(sdkStatusReady)
@@ -470,7 +484,7 @@ func TestBlockUntilReadyWrongTimerPassed(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	err = client.BlockUntilReady(-1)
@@ -502,7 +516,7 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	manager := factory.Manager()
@@ -567,18 +581,10 @@ func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = file.Name()
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 
 	client := factory.Client()
 	manager := factory.Manager()
-
-	if len(manager.SplitNames()) != 0 {
-		t.Error("It should not return splits")
-	}
-
-	if client.factory.IsReady() {
-		t.Error("Client should not be ready")
-	}
 
 	err = client.BlockUntilReady(1)
 	if err != nil {
@@ -612,7 +618,7 @@ func TestBlockUntilReadyStatusLocalhostOnDestroy(t *testing.T) {
 
 func TestBlockUntilReadyRedis(t *testing.T) {
 	sdkConf := conf.Default()
-	sdkConf.OperationMode = "redis-consumer"
+	sdkConf.OperationMode = conf.RedisConsumer
 
 	factory, _ := NewSplitFactory("something", sdkConf)
 
@@ -1055,14 +1061,19 @@ func TestClient(t *testing.T) {
 		logger,
 	)
 
-	factory := &SplitFactory{cfg: cfg}
+	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
+		ImpressionsMode: commonsCfg.ImpressionsModeDebug,
+		OperationMode:   cfg.OperationMode,
+	}, provisional.NewImpressionsCounter())
+	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
 	client := SplitClient{
-		evaluator:   evaluator,
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:      logger,
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		validator:   inputValidation{logger: logger},
-		factory:     factory,
+		evaluator:         evaluator,
+		impressions:       mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		logger:            logger,
+		metrics:           mutexmap.NewMMMetricsStorage(),
+		validator:         inputValidation{logger: logger},
+		factory:           factory,
+		impressionManager: impressionManager,
 	}
 
 	factory.status.Store(sdkStatusReady)
@@ -1122,7 +1133,7 @@ func TestClient(t *testing.T) {
 func TestLocalhostModeYAML(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
 	manager := factory.Manager()
 
@@ -1132,7 +1143,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 		t.Error("Localhost should be ready")
 	}
 
-	if client.factory.cfg.OperationMode != "localhost" {
+	if client.factory.cfg.OperationMode != conf.Localhost {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
 	}
 
@@ -1163,7 +1174,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 
 func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	// Create prefixed client for adding Split
-	prefixedClient, _ := redis.NewRedisClient(&redisCfg.RedisConfig{
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1183,8 +1194,8 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	cfg.LabelsEnabled = true
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.OperationMode = "redis-consumer"
-	cfg.Redis = redisCfg.RedisConfig{
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = commonsCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1278,8 +1289,10 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
-	cfg.TaskPeriods.ImpressionSync = 3
-	cfg.TaskPeriods.EventsSync = 3
+	cfg.TaskPeriods.ImpressionSync = 1
+	cfg.TaskPeriods.EventsSync = 1
+	cfg.ImpressionsMode = "Debug"
+	cfg.Advanced.StreamingEnabled = false
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
@@ -1406,6 +1419,216 @@ func TestClientWithIPDisabled(t *testing.T) {
 	if listenerData["InstanceName"] != "NA" {
 		t.Error("InstanceName should be 'NA")
 	}
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
+func TestClientOptimized(t *testing.T) {
+	var isDestroyCalled int64
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_2.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeOptimized {
+				t.Error("Wrong header")
+			}
+
+			if atomic.LoadInt64(&isDestroyCalled) == 1 {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 2 {
+					t.Error("It should send two impressions in optimized mode")
+				}
+				for _, ki := range dataInPost {
+					if len(ki["keyImpressions"].([]interface{})) != 1 {
+						t.Error("It should send only one impression per featureName")
+					}
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+		case "/testImpressions/count":
+			fmt.Fprintln(w, "ok")
+			if atomic.LoadInt64(&isDestroyCalled) == 1 {
+				rBody, _ := ioutil.ReadAll(r.Body)
+
+				var dataInPost map[string][]map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+
+				for _, v := range dataInPost["pf"] {
+					if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
+						t.Error("Wrong timeFrame")
+					}
+					switch v["f"] {
+					case "DEMO_MURMUR2":
+						if v["rc"].(float64) != 3 {
+							t.Error("Wrong rc")
+						}
+						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
+							t.Error("Wrong timeFrame")
+						}
+					case "DEMO_MURMUR":
+						if v["rc"].(float64) != 1 {
+							t.Error("Wrong rc")
+						}
+					}
+				}
+				postChannel <- "finished"
+			}
+		case "/events/bulk":
+			fmt.Fprintln(w, "ok")
+		case "/segmentChanges":
+			fallthrough
+		default:
+			fmt.Fprintln(w, "ok")
+		}
+	}))
+	defer ts.Close()
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.ImpressionListener = impTest
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL1, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL1["Pt"].(int64) != 0 {
+		t.Error("Pt should be 0")
+	}
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL2, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL2["Pt"] != impL1["Time"] {
+		t.Error("Pt should be equal to previos imp1")
+	}
+	client.Treatments("user1", []string{"DEMO_MURMUR2", "DEMO_MURMUR"}, nil)
+	impL3, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL3["Pt"] != impL2["Time"] {
+		t.Error("Pt should be equal to previos imp2")
+	}
+	impL4, _ := ilResult["DEMO_MURMUR"].(map[string]interface{})
+	if impL4["Pt"].(int64) != 0 {
+		t.Error("Pt should be equal to 0")
+	}
+
+	atomic.AddInt64(&isDestroyCalled, 1)
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
+func TestClientDebug(t *testing.T) {
+	var isDestroyCalled = false
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_2.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeDebug {
+				t.Error("Wrong header")
+			}
+
+			if isDestroyCalled {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 1 {
+					t.Error("It should send two impressions in optimized mode")
+				}
+				if len(dataInPost[0]["i"].([]interface{})) != 3 {
+					t.Error("It should send only one impression per featureName")
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/testImpressions/count":
+			t.Error("It should not called this endpoint")
+		case "/events/bulk":
+			fmt.Fprintln(w, "ok")
+		case "/segmentChanges":
+			fallthrough
+		default:
+			fmt.Fprintln(w, "ok")
+		}
+	}))
+	defer ts.Close()
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = "Debug"
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL1, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL1["Pt"].(int64) != 0 {
+		t.Error("Pt should be 0")
+	}
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL2, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL2["Pt"] != impL1["Time"] {
+		t.Error("Pt should be equal to previos imp1")
+	}
+	client.Treatments("user1", []string{"DEMO_MURMUR2"}, nil)
+	impL3, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL3["Pt"] != impL2["Time"] {
+		t.Error("Pt should be equal to previos imp2")
+	}
+
+	isDestroyCalled = true
+	client.Destroy()
 
 	select {
 	case <-postChannel:

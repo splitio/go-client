@@ -19,20 +19,20 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	})
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
 
-	delete(factoryInstances, "localhost")
+	delete(factoryInstances, conf.Localhost)
 	delete(factoryInstances, "something")
 
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
 
-	if factoryInstances["localhost"] != 1 {
+	if factoryInstances[conf.Localhost] != 1 {
 		t.Error("It should be 1")
 	}
 
-	factory2, _ := NewSplitFactory("localhost", sdkConf)
+	factory2, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	_ = factory2.Client()
 
-	if factoryInstances["localhost"] != 2 {
+	if factoryInstances[conf.Localhost] != 2 {
 		t.Error("It should be 2")
 	}
 	expected := "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
@@ -52,7 +52,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 
 	client.Destroy()
 
-	if factoryInstances["localhost"] != 1 {
+	if factoryInstances[conf.Localhost] != 1 {
 		t.Error("It should be 1")
 	}
 
@@ -62,7 +62,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 
 	client.Destroy()
 
-	if factoryInstances["localhost"] != 1 {
+	if factoryInstances[conf.Localhost] != 1 {
 		t.Error("It should be 1")
 	}
 
@@ -73,7 +73,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 		t.Error("It should not exist")
 	}
 
-	factory3, _ := NewSplitFactory("localhost", sdkConf)
+	factory3, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	_ = factory3.Client()
 	expected = "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
@@ -81,21 +81,21 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 		t.Error("Error is distinct from the expected one")
 	}
 
-	if factoryInstances["localhost"] != 2 {
+	if factoryInstances[conf.Localhost] != 2 {
 		t.Error("It should be 2")
 	}
 
-	factory5, _ := NewSplitFactory("localhost", sdkConf)
+	factory5, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	_ = factory5.Client()
 	expected = "Factory Instantiation: You already have 2 factories with this API Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
 	if !mW.Matches(expected) {
 		t.Error("Error is distinct from the expected one")
 	}
-	if factoryInstances["localhost"] != 3 {
+	if factoryInstances[conf.Localhost] != 3 {
 		t.Error("It should be 3")
 	}
 
-	delete(factoryInstances, "localhost")
+	delete(factoryInstances, conf.Localhost)
 	delete(factoryInstances, "asdadd")
 }

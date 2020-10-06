@@ -5,10 +5,12 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/splitio/go-client/v6/splitio/conf"
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/provisional"
 	"github.com/splitio/go-split-commons/v2/storage"
 	"github.com/splitio/go-split-commons/v2/util"
 	"github.com/splitio/go-toolkit/v3/logging"
@@ -24,6 +26,7 @@ type SplitClient struct {
 	validator          inputValidation
 	factory            *SplitFactory
 	impressionListener *impressionlistener.WrapperImpressionListener
+	impressionManager  provisional.ImpressionManager
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -103,7 +106,7 @@ func (c *SplitClient) createImpression(
 		KeyName:      matchingKey,
 		Label:        label,
 		Treatment:    treatment,
-		Time:         time.Now().Unix() * 1000, // Convert standard timestamp to java's ms timestamps
+		Time:         time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
 	}
 }
 
@@ -111,11 +114,12 @@ func (c *SplitClient) createImpression(
 func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTimeNs int64) {
 	// Store impression
 	if c.impressions != nil {
-		c.impressions.LogImpressions(impressions)
+		forLog, forListener := c.impressionManager.ProcessImpressions(impressions)
+		c.impressions.LogImpressions(forLog)
 
 		// Custom Impression Listener
 		if c.impressionListener != nil {
-			c.impressionListener.SendDataToClient(impressions, attributes)
+			c.impressionListener.SendDataToClient(forListener, attributes)
 		}
 	} else {
 		c.logger.Warning("No impression storage set in client. Not sending impressions!")
@@ -351,7 +355,7 @@ func (c *SplitClient) Track(
 		trafficType,
 		eventType,
 		value,
-		c.isReady() && c.factory.apikey != "localhost",
+		c.isReady() && c.factory.apikey != conf.Localhost,
 	)
 	if err != nil {
 		c.logger.Error(err.Error())
@@ -368,7 +372,7 @@ func (c *SplitClient) Track(
 		TrafficTypeName: trafficType,
 		EventTypeID:     eventType,
 		Value:           value,
-		Timestamp:       time.Now().UnixNano() / 1000000,
+		Timestamp:       time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
 		Properties:      properties,
 	}, size)
 

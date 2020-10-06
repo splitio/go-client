@@ -17,6 +17,7 @@ import (
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	config "github.com/splitio/go-split-commons/v2/conf"
 	"github.com/splitio/go-split-commons/v2/dtos"
+	"github.com/splitio/go-split-commons/v2/provisional"
 	"github.com/splitio/go-split-commons/v2/service"
 	"github.com/splitio/go-split-commons/v2/service/local"
 	"github.com/splitio/go-split-commons/v2/storage"
@@ -26,6 +27,7 @@ import (
 	"github.com/splitio/go-split-commons/v2/synchronizer"
 	"github.com/splitio/go-split-commons/v2/synchronizer/worker/event"
 	"github.com/splitio/go-split-commons/v2/synchronizer/worker/impression"
+	"github.com/splitio/go-split-commons/v2/synchronizer/worker/impressionscount"
 	"github.com/splitio/go-split-commons/v2/synchronizer/worker/metric"
 	"github.com/splitio/go-split-commons/v2/synchronizer/worker/segment"
 	"github.com/splitio/go-split-commons/v2/synchronizer/worker/split"
@@ -62,6 +64,7 @@ type SplitFactory struct {
 	impressionListener    *impressionlistener.WrapperImpressionListener
 	logger                logging.LoggerInterface
 	syncManager           *synchronizer.Manager
+	impressionManager     provisional.ImpressionManager
 }
 
 // Client returns the split client instantiated by the factory
@@ -78,6 +81,7 @@ func (f *SplitFactory) Client() *SplitClient {
 		},
 		factory:            f,
 		impressionListener: f.impressionListener,
+		impressionManager:  f.impressionManager,
 	}
 }
 
@@ -200,7 +204,7 @@ func (f *SplitFactory) Destroy() {
 	}
 	f.status.Store(sdkStatusDestroyed)
 
-	if f.cfg.OperationMode == "redis-consumer" {
+	if f.cfg.OperationMode == conf.RedisConsumer {
 		return
 	}
 
@@ -245,12 +249,17 @@ func setupInMemoryFactory(
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 	metricsWrapper := storage.NewMetricWrapper(telemetryStorage, nil, logger)
 
+	managerConfig := config.ManagerConfig{
+		ImpressionsMode: cfg.ImpressionsMode,
+		OperationMode:   cfg.OperationMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
+	}
 	splitAPI := service.NewSplitAPI(apikey, advanced, logger, metadata)
 	workers := synchronizer.Workers{
 		SplitFetcher:       split.NewSplitFetcher(splitsStorage, splitAPI.SplitFetcher, metricsWrapper, logger),
 		SegmentFetcher:     segment.NewSegmentFetcher(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, metricsWrapper, logger),
 		EventRecorder:      event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, metricsWrapper, logger, metadata),
-		ImpressionRecorder: impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, metricsWrapper, logger, metadata),
+		ImpressionRecorder: impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, metricsWrapper, logger, metadata, managerConfig),
 		TelemetryRecorder:  metric.NewRecorderSingle(telemetryStorage, splitAPI.MetricRecorder, metadata),
 	}
 	splitTasks := synchronizer.SplitTasks{
@@ -259,6 +268,16 @@ func setupInMemoryFactory(
 		EventSyncTask:      tasks.NewRecordEventsTask(workers.EventRecorder, advanced.EventsBulkSize, cfg.TaskPeriods.EventsSync, logger),
 		ImpressionSyncTask: tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize),
 		TelemetrySyncTask:  tasks.NewRecordTelemetryTask(workers.TelemetryRecorder, cfg.TaskPeriods.LatencySync, logger),
+	}
+	var impressionsCounter *provisional.ImpressionsCounter
+	if cfg.ImpressionsMode == config.ImpressionsModeOptimized {
+		impressionsCounter = provisional.NewImpressionsCounter()
+		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger)
+		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger)
+	}
+	impressionManager, err := provisional.NewImpressionManager(managerConfig, impressionsCounter)
+	if err != nil {
+		return nil, err
 	}
 
 	syncImpl := synchronizer.NewSynchronizer(
@@ -287,7 +306,7 @@ func setupInMemoryFactory(
 		cfg:           cfg,
 		metadata:      metadata,
 		logger:        logger,
-		operationMode: "inmemory-standalone",
+		operationMode: conf.InMemoryStandAlone,
 		storages: sdkStorages{
 			splits:      splitsStorage,
 			events:      eventsStorage,
@@ -299,6 +318,7 @@ func setupInMemoryFactory(
 		syncManager:           syncManager,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
+	splitFactory.impressionManager = impressionManager
 
 	go splitFactory.initializationInMemory(readyChannel)
 
@@ -325,10 +345,19 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		cfg:                   cfg,
 		metadata:              metadata,
 		logger:                logger,
-		operationMode:         "redis-consumer",
+		operationMode:         conf.RedisConsumer,
 		storages:              storages,
 		readinessSubscriptors: make(map[int]chan int),
 	}
+	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+		OperationMode:   cfg.OperationMode,
+		ImpressionsMode: cfg.ImpressionsMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	factory.impressionManager = impressionManager
 	factory.status.Store(sdkStatusReady)
 	return factory, nil
 }
@@ -380,6 +409,16 @@ func setupLocalhostFactory(
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
+	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+		OperationMode:   cfg.OperationMode,
+		ImpressionsMode: cfg.ImpressionsMode,
+		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	splitFactory.impressionManager = impressionManager
+
 	// Call fetching tasks as goroutine
 	go splitFactory.initializationLocalhost(readyChannel)
 
@@ -399,11 +438,11 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 	var err error
 
 	switch cfg.OperationMode {
-	case "inmemory-standalone":
+	case conf.InMemoryStandAlone:
 		splitFactory, err = setupInMemoryFactory(apikey, cfg, logger, metadata)
-	case "redis-consumer":
+	case conf.RedisConsumer:
 		splitFactory, err = setupRedisFactory(apikey, cfg, logger, metadata)
-	case "localhost":
+	case conf.Localhost:
 		splitFactory, err = setupLocalhostFactory(apikey, cfg, logger, metadata)
 	default:
 		err = fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)

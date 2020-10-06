@@ -9,8 +9,10 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/splitio/conf"
+	redisCfg "github.com/splitio/go-split-commons/conf"
 	spConf "github.com/splitio/go-split-commons/conf"
 	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/provisional"
 	"github.com/splitio/go-split-commons/service"
 	authMocks "github.com/splitio/go-split-commons/service/mocks"
 	"github.com/splitio/go-split-commons/storage/mocks"
@@ -71,7 +73,11 @@ func getMockedLogger() logging.LoggerInterface {
 func getClient() SplitClient {
 	logger := getMockedLogger()
 	cfg := conf.Default()
-	factory := &SplitFactory{cfg: cfg}
+	impressionManager, _ := provisional.NewImpressionManager(redisCfg.ManagerConfig{
+		ImpressionsMode: redisCfg.ImpressionsModeDebug,
+		OperationMode:   cfg.OperationMode,
+	}, provisional.NewImpressionsCounter())
+	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
 
 	client := SplitClient{
 		evaluator:   &mockEvaluator{},
@@ -94,7 +100,8 @@ func getClient() SplitClient {
 		events: mocks.MockEventStorage{
 			PushCall: func(event dtos.EventDTO, size int) error { return nil },
 		},
-		factory: factory,
+		factory:           factory,
+		impressionManager: impressionManager,
 	}
 	factory.status.Store(sdkStatusReady)
 	return client
@@ -123,6 +130,17 @@ func getLongKey() string {
 	return m
 }
 
+func TestValidationEmpty(t *testing.T) {
+	client := getClient()
+	// String
+	mW.Reset()
+	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
+	if len(mW.messages) > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
+}
+
 func TestTreatmentValidatorOnKeys(t *testing.T) {
 	client := getClient()
 	// Nil
@@ -148,14 +166,6 @@ func TestTreatmentValidatorOnKeys(t *testing.T) {
 	if !mW.Matches("Treatment: key too long - must be 250 characters or less") {
 		t.Error("Wrong message")
 	}
-
-	// String
-	mW.Reset()
-	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
-	if len(mW.messages) > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
 
 	// Int
 	expectedTreatment(client.Treatment(123, "feature", nil), "TreatmentA", t)
@@ -451,7 +461,7 @@ func TestTrackValidators(t *testing.T) {
 func TestLocalhostTrafficType(t *testing.T) {
 	sdkConf := conf.Default()
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
-	factory, _ := NewSplitFactory("localhost", sdkConf)
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
 
 	_ = client.BlockUntilReady(1)

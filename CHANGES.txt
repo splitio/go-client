@@ -1,3 +1,6 @@
+6.0.1 (Dec 22, 2020)
+- Point to new versions of commons & toolkit which remove unnecessary log message.
+
 6.0.0 (Oct 6, 2020)
 - BREAKING CHANGE: Migrated to go modules (dep & bare-bones go-dep no longer supported)
 

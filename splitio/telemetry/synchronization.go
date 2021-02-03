@@ -1,6 +1,9 @@
 package telemetry
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
 
 // SynchronizationTelemetryFacade keeps track of synchronization-related metrics
 type SynchronizationTelemetryFacade struct {
@@ -26,42 +29,42 @@ func NewSynchronizationTelemetryFacade() SynchronizationTelemetry {
 
 // RecordSuccessfulSplitSync records split sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulSplitSync() {
-	s.lastSplitSync = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastSplitSync, time.Now().UTC().UnixNano()/1000000)
 }
 
 // RecordSuccessfulSegmentSync records segment sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulSegmentSync() {
-	s.lastSegmentSync = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastSegmentSync, time.Now().UTC().UnixNano()/1000000)
 }
 
 // RecordSuccessfulImpressionSync records impression sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulImpressionSync() {
-	s.lastImpressionSync = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastImpressionSync, time.Now().UTC().UnixNano()/1000000)
 }
 
 // RecordSuccessfulEventsSync records event sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulEventsSync() {
-	s.lastEventSync = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastEventSync, time.Now().UTC().UnixNano()/1000000)
 }
 
 // RecordSuccessfulTelemetrySync records telemetry sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulTelemetrySync() {
-	s.lastTelemetrySync = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastTelemetrySync, time.Now().UTC().UnixNano()/1000000)
 }
 
 // RecordSuccessfulTokenGet records token sync
 func (s *SynchronizationTelemetryFacade) RecordSuccessfulTokenGet() {
-	s.lastTokenGet = time.Now().UTC().UnixNano() / 1000000
+	atomic.AddInt64(&s.lastTokenGet, time.Now().UTC().UnixNano()/1000000)
 }
 
 // GetLastSynchronization gets last sync records
 func (s *SynchronizationTelemetryFacade) GetLastSynchronization() LastSynchronization {
 	return LastSynchronization{
-		Splits:      s.lastSplitSync,
-		Segments:    s.lastSegmentSync,
-		Impressions: s.lastImpressionSync,
-		Events:      s.lastEventSync,
-		Telemetry:   s.lastTelemetrySync,
-		Token:       s.lastTokenGet,
+		Splits:      atomic.LoadInt64(&s.lastSplitSync),
+		Segments:    atomic.LoadInt64(&s.lastSegmentSync),
+		Impressions: atomic.LoadInt64(&s.lastImpressionSync),
+		Events:      atomic.LoadInt64(&s.lastEventSync),
+		Telemetry:   atomic.LoadInt64(&s.lastTelemetrySync),
+		Token:       atomic.LoadInt64(&s.lastTokenGet),
 	}
 }

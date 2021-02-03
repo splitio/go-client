@@ -81,18 +81,6 @@ func TestTelemetry(t *testing.T) {
 	miscTelemetry.AddTag("redo")
 	miscTelemetry.AddTag("yaris")
 
-	/*
-		regular := RegularMetrics{
-			MethodLatencies:      evaluationTelemetry.GetLatencies(),
-			MethodExceptions:     evaluationTelemetry.GetExceptions(),
-			ImpressionsDropped:   impressionTelemetry.GetDroppedImpressions(),
-			ImpressionsDeduped:   impressionTelemetry.GetDedupedImpressions(),
-			ImpressionsQueued:    impressionTelemetry.GetQueuedmpressions(),
-			LastSynchronizations: synchronizationTelemtry.GetLastSynchronization(),
-			HTTPErrors:           httpTelemetry.GetHTTPErrors(),
-		}
-	*/
-
 	manager := NewTelemetryManager(
 		evaluationTelemetry,
 		impressionTelemetry,
@@ -113,5 +101,10 @@ func TestTelemetry(t *testing.T) {
 		t.Error("")
 	}
 
-	t.Error(string(result))
+	regular = manager.BuildRegularData()
+
+	result, _ = json.Marshal(regular)
+	if result == nil {
+		t.Error("")
+	}
 }

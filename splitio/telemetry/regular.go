@@ -18,6 +18,7 @@ type RegularMetrics struct {
 	EventsQueued         int64               `json:"eQ"`
 	EventsDropped        int64               `json:"eD"`
 	StreamingEvents      []StreamingEvent    `json:"sE"`
+	Tags                 []string            `json:"t"`
 }
 
 // LastSynchronization struct

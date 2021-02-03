@@ -1,5 +1,10 @@
 package telemetry
 
+// TelemetryManager interface for building regular data
+type TelemetryManager interface {
+	BuildRegularData() RegularMetrics
+}
+
 // EvaluationTelemetry as used by the client
 type EvaluationTelemetry interface { // Client
 	EvaluationTelemetryConsumer
@@ -18,7 +23,7 @@ type EvaluationTelemetryProducer interface { // Client
 	RecordException(method string)
 }
 
-// ImpressionTelemetry includes the subset of telemetry operations triggered form the impressions manager
+// ImpressionTelemetry includes the subset of telemetry operations triggered from the impressions manager
 type ImpressionTelemetry interface { // ImpressionManager
 	ImpressionTelemetryConsumer
 	ImpressionTelemetryProducer
@@ -36,6 +41,24 @@ type ImpressionTelemetryProducer interface { // ImpressionManager
 	RecordDroppedImpressions(count int64)
 	RecordDedupedImpressions(count int64)
 	RecordQueuedImpressions(count int64)
+}
+
+// EventTelemetry includes the subset of telemetry operations
+type EventTelemetry interface {
+	EventTelemetryConsumer
+	EventTelemetryProducer
+}
+
+// EventTelemetryConsumer reader
+type EventTelemetryConsumer interface {
+	GetDroppedEvents() int64
+	GetQueuedEvents() int64
+}
+
+// EventTelemetryProducer writer
+type EventTelemetryProducer interface {
+	RecordDroppedEvents(count int64)
+	RecordQueuedEvents(count int64)
 }
 
 // SynchronizationTelemetry is referenced by the synchronizer to record
@@ -95,9 +118,9 @@ type CacheTelemetryConsumer interface {
 
 // CacheTelemetryProducer writer
 type CacheTelemetryProducer interface {
-	RecordSplitCount() int64
-	RecordSegmentCount() int64
-	RecordSegmentKeyCount() int64
+	RecordSplitsCount(count int64)
+	RecordSegmentsCount(count int64)
+	RecordSegmentKeysCount(count int64) // Only Client side
 }
 
 // PushTelemetry is the interface for push
@@ -114,8 +137,8 @@ type PushTelemetryConsumer interface {
 
 // PushTelemetryProducer writer
 type PushTelemetryProducer interface {
-	RecordAuthRejections() int64
-	RecordTokenRefreshes() int64
+	RecordAuthRejections()
+	RecordTokenRefreshes()
 }
 
 // StreamingTelemetry is referenced by several components of the streaming subsystem
@@ -138,7 +161,6 @@ type StreamingTelemetryProducer interface {
 	RecordTokenRefresh(tokenExpirationUtcTs int64)          // Authenticator / AuthApiClient
 	RecordAblyError(statusCode int64)                       // NotificationManagerKeeper / PushStatusKeeper
 	RecordNonRequestedConnectionClose()                     // SSEClient
-	RecordAuthRejection(statusCode int64)                   // NotificationManagerKeeper / PushStatusKeeper
 	RecordSyncModeUpdate(newSyncMode int64)                 // NotificationManagerKeeper / PushStatusKeeper
 }
 

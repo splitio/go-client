@@ -24,6 +24,10 @@ func TestTelemetry(t *testing.T) {
 	impressionTelemetry.RecordDroppedImpressions(50)
 	impressionTelemetry.RecordQueuedImpressions(200)
 
+	eventTelemetry := NewEventTelemetryFacade()
+	eventTelemetry.RecordDroppedEvents(100)
+	eventTelemetry.RecordQueuedEvents(10)
+
 	synchronizationTelemtry := NewSynchronizationTelemetryFacade()
 	synchronizationTelemtry.RecordSuccessfulSplitSync()
 	time.Sleep(100 * time.Millisecond)
@@ -54,18 +58,60 @@ func TestTelemetry(t *testing.T) {
 	httpTelemetry.RecordEventSyncErr(401)
 	httpTelemetry.RecordEventSyncErr(400)
 
-	regular := RegularMetrics{
-		MethodLatencies:      evaluationTelemetry.GetLatencies(),
-		MethodExceptions:     evaluationTelemetry.GetExceptions(),
-		ImpressionsDropped:   impressionTelemetry.GetDroppedImpressions(),
-		ImpressionsDeduped:   impressionTelemetry.GetDedupedImpressions(),
-		ImpressionsQueued:    impressionTelemetry.GetQueuedmpressions(),
-		LastSynchronizations: synchronizationTelemtry.GetLastSynchronization(),
-		HTTPErrors:           httpTelemetry.GetHTTPErrors(),
-	}
+	cacheTelemetry := NewCacheTelemetryFacade()
+	cacheTelemetry.RecordSplitsCount(1000)
+	cacheTelemetry.RecordSegmentsCount(50)
+
+	pushTelemetry := NewPushTelemetryFacade()
+	pushTelemetry.RecordAuthRejections()
+	pushTelemetry.RecordTokenRefreshes()
+	pushTelemetry.RecordAuthRejections()
+
+	streamingTelemetry := NewStreamingTelemetryFacade()
+	streamingTelemetry.RecordAblyError(40010)
+	streamingTelemetry.RecordConnectionSuccess()
+	streamingTelemetry.RecordPrimaryOccupancyChange(10)
+	streamingTelemetry.RecordSecondaryOccupancyChange(1)
+	streamingTelemetry.RecordSyncModeUpdate(0)
+
+	sdkTelemetry := NewSDKInfoTelemetryFacade()
+	sdkTelemetry.RecordSessionLength(123456789)
+
+	miscTelemetry := NewMiscTelemetryFacade()
+	miscTelemetry.AddTag("redo")
+	miscTelemetry.AddTag("yaris")
+
+	/*
+		regular := RegularMetrics{
+			MethodLatencies:      evaluationTelemetry.GetLatencies(),
+			MethodExceptions:     evaluationTelemetry.GetExceptions(),
+			ImpressionsDropped:   impressionTelemetry.GetDroppedImpressions(),
+			ImpressionsDeduped:   impressionTelemetry.GetDedupedImpressions(),
+			ImpressionsQueued:    impressionTelemetry.GetQueuedmpressions(),
+			LastSynchronizations: synchronizationTelemtry.GetLastSynchronization(),
+			HTTPErrors:           httpTelemetry.GetHTTPErrors(),
+		}
+	*/
+
+	manager := NewTelemetryManager(
+		evaluationTelemetry,
+		impressionTelemetry,
+		eventTelemetry,
+		synchronizationTelemtry,
+		httpTelemetry,
+		cacheTelemetry,
+		pushTelemetry,
+		streamingTelemetry,
+		sdkTelemetry,
+		miscTelemetry,
+	)
+
+	regular := manager.BuildRegularData()
 
 	result, _ := json.Marshal(regular)
 	if result == nil {
 		t.Error("")
 	}
+
+	t.Error(string(result))
 }

@@ -130,7 +130,6 @@ func TestTelemetry(t *testing.T) {
 	if result == nil {
 		t.Error("")
 	}
-	t.Error(string(result))
 
 	regular = manager.BuildUsageData()
 
@@ -138,5 +137,4 @@ func TestTelemetry(t *testing.T) {
 	if result == nil {
 		t.Error("")
 	}
-	t.Error(string(result))
 }

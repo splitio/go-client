@@ -103,8 +103,8 @@ func (e *EvaluationTelemetryFacade) RecordLatency(method string, latency int64) 
 	}
 }
 
-// GetLatencies returns latencies
-func (e *EvaluationTelemetryFacade) GetLatencies() map[string][]int64 {
+// PopLatencies returns latencies
+func (e *EvaluationTelemetryFacade) PopLatencies() map[string][]int64 {
 	toReturn := make(map[string][]int64, 0)
 	toReturn[treatment] = e.methodLatencies.treatmentLatencies.FetchAndClearAll()
 	toReturn[treatments] = e.methodLatencies.treatmentsLatencies.FetchAndClearAll()
@@ -113,8 +113,8 @@ func (e *EvaluationTelemetryFacade) GetLatencies() map[string][]int64 {
 	return toReturn
 }
 
-// GetExceptions returns exceptions
-func (e *EvaluationTelemetryFacade) GetExceptions() map[string]int64 {
+// PopExceptions returns exceptions
+func (e *EvaluationTelemetryFacade) PopExceptions() map[string]int64 {
 	methodExceptions := e.methodExceptions.FetchAndClearAll()
 	toReturn := make(map[string]int64, 0)
 	toReturn[treatment] = methodExceptions[MethodTreatment]

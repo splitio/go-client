@@ -25,8 +25,8 @@ func (m *MiscTelemetryFacade) AddTag(tag string) {
 	}
 }
 
-// GetTags returns all the tags stored
-func (m *MiscTelemetryFacade) GetTags() []string {
+// PopTags returns all the tags stored
+func (m *MiscTelemetryFacade) PopTags() []string {
 	defer m.mutex.Unlock()
 	m.mutex.Lock()
 	toReturn := m.tags

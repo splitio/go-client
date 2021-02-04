@@ -4,9 +4,25 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/splitio/go-client/splitio/conf"
 )
 
 func TestTelemetry(t *testing.T) {
+	factoryTelemetry := NewFactoryTelemetryFacade()
+	factoryTelemetry.RecordBURTimeout()
+	factoryTelemetry.RecordBURTimeout()
+	factoryTelemetry.RecordBURTimeout()
+	factoryTelemetry.RecordFactory("123456789")
+	factoryTelemetry.RecordFactory("123456789")
+	factoryTelemetry.RecordFactory("123456789")
+	factoryTelemetry.RecordFactory("987654321")
+	factoryTelemetry.RecordNonReadyUsage()
+	factoryTelemetry.RecordNonReadyUsage()
+	factoryTelemetry.RecordNonReadyUsage()
+	factoryTelemetry.RecordNonReadyUsage()
+	factoryTelemetry.RecordNonReadyUsage()
+
 	evaluationTelemetry := NewEvaluationTelemetryFacade()
 	evaluationTelemetry.RecordException(treatment)
 	evaluationTelemetry.RecordException(treatments)
@@ -82,6 +98,7 @@ func TestTelemetry(t *testing.T) {
 	miscTelemetry.AddTag("yaris")
 
 	manager := NewTelemetryManager(
+		factoryTelemetry,
 		evaluationTelemetry,
 		impressionTelemetry,
 		eventTelemetry,
@@ -93,6 +110,12 @@ func TestTelemetry(t *testing.T) {
 		sdkTelemetry,
 		miscTelemetry,
 	)
+
+	config := manager.BuildConfigData(conf.Default())
+	data, _ := json.Marshal(config)
+	if data == nil {
+		t.Error("")
+	}
 
 	regular := manager.BuildRegularData()
 

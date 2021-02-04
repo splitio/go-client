@@ -34,5 +34,4 @@ func (e *EventTelemetryFacade) GetDroppedEvents() int64 {
 // GetQueuedEvents returns queued events
 func (e *EventTelemetryFacade) GetQueuedEvents() int64 {
 	return atomic.SwapInt64(&e.eventsQueued, 0)
-
 }

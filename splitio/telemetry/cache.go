@@ -34,11 +34,11 @@ func (c *CacheTelemetryFacade) RecordSegmentKeysCount(count int64) {
 	atomic.AddInt64(&c.segmentKeys, count)
 }
 
-// GetSplitsCount gets total splits
-func (c *CacheTelemetryFacade) GetSplitsCount() int64 { return atomic.SwapInt64(&c.splits, 0) }
+// PopSplitsCount gets total splits
+func (c *CacheTelemetryFacade) PopSplitsCount() int64 { return atomic.SwapInt64(&c.splits, 0) }
 
-// GetSegmentCount gets total segments
-func (c *CacheTelemetryFacade) GetSegmentCount() int64 { return atomic.SwapInt64(&c.segments, 0) }
+// PopSegmentCount gets total segments
+func (c *CacheTelemetryFacade) PopSegmentCount() int64 { return atomic.SwapInt64(&c.segments, 0) }
 
-// GetSegmentKeyCount gets total segmentKeys
-func (c *CacheTelemetryFacade) GetSegmentKeyCount() int64 { return atomic.SwapInt64(&c.segmentKeys, 0) }
+// PopSegmentKeyCount gets total segmentKeys
+func (c *CacheTelemetryFacade) PopSegmentKeyCount() int64 { return atomic.SwapInt64(&c.segmentKeys, 0) }

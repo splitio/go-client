@@ -19,7 +19,7 @@ func (s *SDKInfoTelemetryFacade) RecordSessionLength(session int64) {
 	atomic.AddInt64(&s.session, session)
 }
 
-// GetSessionLength returns stored session
-func (s *SDKInfoTelemetryFacade) GetSessionLength() int64 {
+// PopSessionLength returns stored session
+func (s *SDKInfoTelemetryFacade) PopSessionLength() int64 {
 	return atomic.SwapInt64(&s.session, 0)
 }

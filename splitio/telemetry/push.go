@@ -26,8 +26,8 @@ func (p *PushTelemetryFacade) RecordTokenRefreshes() {
 	atomic.AddInt64(&p.tokenRefreshes, 1)
 }
 
-// GetAuthRejections returns all the rejections
-func (p *PushTelemetryFacade) GetAuthRejections() int64 { return atomic.SwapInt64(&p.authRejections, 0) }
+// PopAuthRejections returns all the rejections
+func (p *PushTelemetryFacade) PopAuthRejections() int64 { return atomic.SwapInt64(&p.authRejections, 0) }
 
-// GetTokenRefreshes returns all the refreshes made
-func (p *PushTelemetryFacade) GetTokenRefreshes() int64 { return atomic.SwapInt64(&p.tokenRefreshes, 0) }
+// PopTokenRefreshes returns all the refreshes made
+func (p *PushTelemetryFacade) PopTokenRefreshes() int64 { return atomic.SwapInt64(&p.tokenRefreshes, 0) }

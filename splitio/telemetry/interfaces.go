@@ -1,7 +1,10 @@
 package telemetry
 
+import "github.com/splitio/go-client/splitio/conf"
+
 // TelemetryManager interface for building regular data
 type TelemetryManager interface {
+	BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics
 	BuildRegularData() RegularMetrics
 }
 
@@ -13,8 +16,8 @@ type EvaluationTelemetry interface { // Client
 
 // EvaluationTelemetryConsumer reader
 type EvaluationTelemetryConsumer interface { // Client
-	GetLatencies() map[string][]int64
-	GetExceptions() map[string]int64
+	PopLatencies() map[string][]int64
+	PopExceptions() map[string]int64
 }
 
 // EvaluationTelemetryProducer writer
@@ -90,7 +93,7 @@ type HTTPErrorTelemetry interface { // Synchronizer
 
 // HTTPErrorTelemetryConsumer reader
 type HTTPErrorTelemetryConsumer interface {
-	GetHTTPErrors() HTTPErrors
+	PopHTTPErrors() HTTPErrors
 }
 
 // HTTPErrorTelemetryProducer writer
@@ -111,9 +114,9 @@ type CacheTelemetry interface {
 
 // CacheTelemetryConsumer reader
 type CacheTelemetryConsumer interface {
-	GetSplitsCount() int64
-	GetSegmentCount() int64
-	GetSegmentKeyCount() int64
+	PopSplitsCount() int64
+	PopSegmentCount() int64
+	PopSegmentKeyCount() int64
 }
 
 // CacheTelemetryProducer writer
@@ -131,8 +134,8 @@ type PushTelemetry interface {
 
 // PushTelemetryConsumer reader
 type PushTelemetryConsumer interface {
-	GetAuthRejections() int64
-	GetTokenRefreshes() int64
+	PopAuthRejections() int64
+	PopTokenRefreshes() int64
 }
 
 // PushTelemetryProducer writer
@@ -149,7 +152,7 @@ type StreamingTelemetry interface {
 
 // StreamingTelemetryConsumer reader
 type StreamingTelemetryConsumer interface {
-	GetStreamingEvents() []StreamingEvent
+	PopStreamingEvents() []StreamingEvent
 }
 
 // StreamingTelemetryProducer writer
@@ -172,7 +175,7 @@ type MiscTelemetry interface {
 
 // MiscTelemetryConsumer reader
 type MiscTelemetryConsumer interface {
-	GetTags() []string
+	PopTags() []string
 }
 
 // MiscTelemetryProducer writer
@@ -188,10 +191,31 @@ type SDKInfoTelemetry interface {
 
 // SDKInfoTelemetryConsumer reader
 type SDKInfoTelemetryConsumer interface {
-	GetSessionLength() int64
+	PopSessionLength() int64
 }
 
 // SDKInfoTelemetryProducer writer
 type SDKInfoTelemetryProducer interface {
 	RecordSessionLength(session int64)
+}
+
+// FactoryTelemetry interface for factory metrics
+type FactoryTelemetry interface {
+	FactoryTelemetryConsumer
+	FactoryTelemetryProducer
+}
+
+// FactoryTelemetryConsumer reader
+type FactoryTelemetryConsumer interface {
+	GetActiveFactories() int64
+	GetRedundantActiveFactories() int64
+	GetNonReadyUsages() int64
+	GetBURTimeouts() int64
+}
+
+// FactoryTelemetryProducer writer
+type FactoryTelemetryProducer interface {
+	RecordFactory(apikey string)
+	RecordNonReadyUsage()
+	RecordBURTimeout()
 }

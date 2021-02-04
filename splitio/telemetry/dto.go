@@ -1,10 +1,47 @@
 package telemetry
 
+// ConfigMetrics struct
+type ConfigMetrics struct {
+	OperationMode              int          `json:"oM"`
+	StreamingEnabled           bool         `json:"sE"`
+	Storage                    string       `json:"st"`
+	Rates                      Rates        `json:"rR"`
+	URLOverrides               URLOverrides `json:"uO"`
+	ImpressionsQueueSize       int64        `json:"iQ"`
+	EventsQueueSize            int64        `json:"eQ"`
+	ImpressionsMode            int          `json:"iM"`
+	ImpressionsListenerEnabled bool         `json:"iL"`
+	HTTPProxyDetected          bool         `json:"hP"`
+	ActiveFactories            int64        `json:"aF"`
+	RedundantFactories         int64        `json:"rF"`
+	TimeUntilReady             int64        `json:"tR"`
+	BurTimeouts                int64        `json:"bT"`
+	NonReadyUsages             int64        `json:"nR"`
+	Tags                       []string     `json:"t"`
+}
+
+// Rates struct
+type Rates struct {
+	Splits      int64 `json:"sp"`
+	Segments    int64 `json:"se"`
+	Impressions int64 `json:"im"`
+	Events      int64 `json:"ev"`
+	Telemetry   int64 `json:"te"`
+}
+
+// URLOverrides struct
+type URLOverrides struct {
+	Sdk    bool `json:"s"`
+	Events bool `json:"e"`
+	Auth   bool `json:"a"`
+	Stream bool `json:"st"`
+}
+
 // RegularMetrics sent by sdks pereiodically
 type RegularMetrics struct {
+	LastSynchronizations LastSynchronization `json:"lS"`
 	MethodLatencies      map[string][]int64  `json:"mL"`
 	MethodExceptions     map[string]int64    `json:"mE"`
-	LastSynchronizations LastSynchronization `json:"lS"`
 	HTTPErrors           HTTPErrors          `json:"hE"`
 	TokenRefreshes       int64               `json:"tR"`
 	AuthRejections       int64               `json:"aR"`
@@ -43,7 +80,7 @@ type HTTPErrors struct {
 
 // StreamingEvent struct
 type StreamingEvent struct {
-	Type      string `json:"event"`
-	Data      int64  `json:"data"`
-	Timestamp int64  `json:"timestamp"`
+	Type      int   `json:"e"`
+	Data      int64 `json:"d"`
+	Timestamp int64 `json:"t"`
 }

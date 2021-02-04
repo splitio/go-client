@@ -1,5 +1,7 @@
 package telemetry
 
+import "sync"
+
 // HTTPErrorTelemetryFacade struct
 type HTTPErrorTelemetryFacade struct {
 	splits      map[int]int64
@@ -8,6 +10,7 @@ type HTTPErrorTelemetryFacade struct {
 	events      map[int]int64
 	telemetry   map[int]int64
 	token       map[int]int64
+	mutex       sync.RWMutex
 }
 
 // NewHTTPErrorTelemetryFacade new facade
@@ -19,11 +22,14 @@ func NewHTTPErrorTelemetryFacade() HTTPErrorTelemetry {
 		events:      make(map[int]int64, 0),
 		telemetry:   make(map[int]int64, 0),
 		token:       make(map[int]int64, 0),
+		mutex:       sync.RWMutex{},
 	}
 }
 
 // RecordSplitSyncErr records error in split
 func (h *HTTPErrorTelemetryFacade) RecordSplitSyncErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.splits[status]
 	if !ok {
 		h.splits[status] = 1
@@ -34,6 +40,8 @@ func (h *HTTPErrorTelemetryFacade) RecordSplitSyncErr(status int) {
 
 // RecordSegmentSyncErr records error in segment
 func (h *HTTPErrorTelemetryFacade) RecordSegmentSyncErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.segments[status]
 	if !ok {
 		h.segments[status] = 1
@@ -44,6 +52,8 @@ func (h *HTTPErrorTelemetryFacade) RecordSegmentSyncErr(status int) {
 
 // RecordImpressionSyncErr records error in impression
 func (h *HTTPErrorTelemetryFacade) RecordImpressionSyncErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.impressions[status]
 	if !ok {
 		h.impressions[status] = 1
@@ -54,6 +64,8 @@ func (h *HTTPErrorTelemetryFacade) RecordImpressionSyncErr(status int) {
 
 // RecordEventSyncErr records error in event
 func (h *HTTPErrorTelemetryFacade) RecordEventSyncErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.events[status]
 	if !ok {
 		h.events[status] = 1
@@ -64,6 +76,8 @@ func (h *HTTPErrorTelemetryFacade) RecordEventSyncErr(status int) {
 
 // RecordTelemetrySyncErr records error in telemetry
 func (h *HTTPErrorTelemetryFacade) RecordTelemetrySyncErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.telemetry[status]
 	if !ok {
 		h.telemetry[status] = 1
@@ -74,6 +88,8 @@ func (h *HTTPErrorTelemetryFacade) RecordTelemetrySyncErr(status int) {
 
 // RecordTokenGetErr records error in auth
 func (h *HTTPErrorTelemetryFacade) RecordTokenGetErr(status int) {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	_, ok := h.token[status]
 	if !ok {
 		h.token[status] = 1
@@ -82,8 +98,10 @@ func (h *HTTPErrorTelemetryFacade) RecordTokenGetErr(status int) {
 	h.token[status]++
 }
 
-// GetHTTPErrors returns errors stored
-func (h *HTTPErrorTelemetryFacade) GetHTTPErrors() HTTPErrors {
+// PopHTTPErrors returns errors stored
+func (h *HTTPErrorTelemetryFacade) PopHTTPErrors() HTTPErrors {
+	defer h.mutex.Unlock()
+	h.mutex.Lock()
 	toReturn := HTTPErrors{
 		Splits:      h.splits,
 		Segments:    h.segments,

@@ -5,7 +5,7 @@ import "github.com/splitio/go-client/splitio/conf"
 // TelemetryManager interface for building regular data
 type TelemetryManager interface {
 	BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics
-	BuildRegularData() RegularMetrics
+	BuildUsageData() RegularMetrics
 }
 
 // EvaluationTelemetry as used by the client
@@ -16,8 +16,8 @@ type EvaluationTelemetry interface { // Client
 
 // EvaluationTelemetryConsumer reader
 type EvaluationTelemetryConsumer interface { // Client
-	PopLatencies() map[string][]int64
-	PopExceptions() map[string]int64
+	PopLatencies() MethodLatencies
+	PopExceptions() MethodExceptions
 }
 
 // EvaluationTelemetryProducer writer
@@ -85,25 +85,22 @@ type SynchronizationTelemetryProducer interface {
 	RecordSuccessfulTokenGet()
 }
 
-// HTTPErrorTelemetry is the interface used by all HTTP-related classes to track request's outcome
-type HTTPErrorTelemetry interface { // Synchronizer
-	HTTPErrorTelemetryConsumer
-	HTTPErrorTelemetryProducer
+// HTTPTelemetry is the interface used by all HTTP-related classes to track request's outcome
+type HTTPTelemetry interface { // Synchronizer
+	HTTPTelemetryConsumer
+	HTTPTelemetryProducer
 }
 
-// HTTPErrorTelemetryConsumer reader
-type HTTPErrorTelemetryConsumer interface {
+// HTTPTelemetryConsumer reader
+type HTTPTelemetryConsumer interface {
 	PopHTTPErrors() HTTPErrors
+	PopHTTPLatencies() HTTPLatencies
 }
 
-// HTTPErrorTelemetryProducer writer
-type HTTPErrorTelemetryProducer interface {
-	RecordSplitSyncErr(status int)
-	RecordSegmentSyncErr(status int)
-	RecordImpressionSyncErr(status int)
-	RecordEventSyncErr(status int)
-	RecordTelemetrySyncErr(status int)
-	RecordTokenGetErr(status int)
+// HTTPTelemetryProducer writer
+type HTTPTelemetryProducer interface {
+	RecordSyncError(method string, status int)
+	RecordSyncLatency(method string, latency int64)
 }
 
 // CacheTelemetry is the interface for cached data
@@ -163,7 +160,7 @@ type StreamingTelemetryProducer interface {
 	RecordStreamingServiceStatus(newStatus int)             // NotificationManagerKeeper / PushStatusKeeper
 	RecordTokenRefresh(tokenExpirationUtcTs int64)          // Authenticator / AuthApiClient
 	RecordAblyError(statusCode int64)                       // NotificationManagerKeeper / PushStatusKeeper
-	RecordNonRequestedConnectionClose()                     // SSEClient
+	RecordConnectionClose(wasRequested bool)                // SSEClient
 	RecordSyncModeUpdate(newSyncMode int64)                 // NotificationManagerKeeper / PushStatusKeeper
 }
 

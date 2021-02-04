@@ -57,22 +57,29 @@ func TestTelemetry(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	synchronizationTelemtry.RecordSuccessfulTokenGet()
 
-	httpTelemetry := NewHTTPErrorTelemetryFacade()
-	httpTelemetry.RecordSplitSyncErr(500)
-	httpTelemetry.RecordSplitSyncErr(500)
-	httpTelemetry.RecordSplitSyncErr(500)
-	httpTelemetry.RecordSplitSyncErr(500)
-	httpTelemetry.RecordSplitSyncErr(500)
-	httpTelemetry.RecordSegmentSyncErr(401)
-	httpTelemetry.RecordSegmentSyncErr(401)
-	httpTelemetry.RecordSegmentSyncErr(401)
-	httpTelemetry.RecordSegmentSyncErr(404)
-	httpTelemetry.RecordImpressionSyncErr(402)
-	httpTelemetry.RecordImpressionSyncErr(402)
-	httpTelemetry.RecordImpressionSyncErr(402)
-	httpTelemetry.RecordEventSyncErr(400)
-	httpTelemetry.RecordEventSyncErr(401)
-	httpTelemetry.RecordEventSyncErr(400)
+	httpTelemetry := NewHHTTPTelemetryFacade()
+	httpTelemetry.RecordSyncError(split, 500)
+	httpTelemetry.RecordSyncError(split, 500)
+	httpTelemetry.RecordSyncError(split, 500)
+	httpTelemetry.RecordSyncError(split, 500)
+	httpTelemetry.RecordSyncError(split, 500)
+	httpTelemetry.RecordSyncError(segment, 401)
+	httpTelemetry.RecordSyncError(segment, 401)
+	httpTelemetry.RecordSyncError(segment, 401)
+	httpTelemetry.RecordSyncError(segment, 404)
+	httpTelemetry.RecordSyncError(impression, 402)
+	httpTelemetry.RecordSyncError(impression, 402)
+	httpTelemetry.RecordSyncError(impression, 402)
+	httpTelemetry.RecordSyncError(impression, 402)
+	httpTelemetry.RecordSyncError(event, 400)
+	httpTelemetry.RecordSyncError(telemetry, 401)
+	httpTelemetry.RecordSyncError(token, 400)
+
+	httpTelemetry.RecordSyncLatency(split, (1500 * time.Nanosecond).Nanoseconds())
+	httpTelemetry.RecordSyncLatency(split, (3000 * time.Nanosecond).Nanoseconds())
+	httpTelemetry.RecordSyncLatency(split, (4000 * time.Nanosecond).Nanoseconds())
+	httpTelemetry.RecordSyncLatency(segment, (1500 * time.Nanosecond).Nanoseconds())
+	httpTelemetry.RecordSyncLatency(segment, (1500 * time.Nanosecond).Nanoseconds())
 
 	cacheTelemetry := NewCacheTelemetryFacade()
 	cacheTelemetry.RecordSplitsCount(1000)
@@ -117,17 +124,19 @@ func TestTelemetry(t *testing.T) {
 		t.Error("")
 	}
 
-	regular := manager.BuildRegularData()
+	regular := manager.BuildUsageData()
 
 	result, _ := json.Marshal(regular)
 	if result == nil {
 		t.Error("")
 	}
+	t.Error(string(result))
 
-	regular = manager.BuildRegularData()
+	regular = manager.BuildUsageData()
 
 	result, _ = json.Marshal(regular)
 	if result == nil {
 		t.Error("")
 	}
+	t.Error(string(result))
 }

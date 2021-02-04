@@ -28,7 +28,7 @@ type ManagerImpl struct {
 	impression      ImpressionTelemetryConsumer
 	event           EventTelemetryConsumer
 	synchronization SynchronizationTelemetryConsumer
-	http            HTTPErrorTelemetryConsumer
+	http            HTTPTelemetryConsumer
 	cache           CacheTelemetryConsumer
 	push            PushTelemetryConsumer
 	streaming       StreamingTelemetryConsumer
@@ -43,7 +43,7 @@ func NewTelemetryManager(
 	impression ImpressionTelemetryConsumer,
 	event EventTelemetryConsumer,
 	synchronization SynchronizationTelemetryConsumer,
-	http HTTPErrorTelemetryConsumer,
+	http HTTPTelemetryConsumer,
 	cache CacheTelemetryConsumer,
 	push PushTelemetryConsumer,
 	streaming StreamingTelemetryConsumer,
@@ -133,8 +133,8 @@ func (m *ManagerImpl) BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics {
 	}
 }
 
-// BuildRegularData returns regular data
-func (m *ManagerImpl) BuildRegularData() RegularMetrics {
+// BuildUsageData returns usage data
+func (m *ManagerImpl) BuildUsageData() RegularMetrics {
 	return RegularMetrics{
 		MethodLatencies:      m.evaluation.PopLatencies(),
 		MethodExceptions:     m.evaluation.PopExceptions(),
@@ -145,6 +145,7 @@ func (m *ManagerImpl) BuildRegularData() RegularMetrics {
 		EventsDropped:        m.event.GetDroppedEvents(),
 		LastSynchronizations: m.synchronization.GetLastSynchronization(),
 		HTTPErrors:           m.http.PopHTTPErrors(),
+		HTTPLatencies:        m.http.PopHTTPLatencies(),
 		SplitCount:           m.cache.PopSplitsCount(),
 		SegmentCount:         m.cache.PopSegmentCount(),
 		SegmentKeyCount:      m.cache.PopSegmentKeyCount(),

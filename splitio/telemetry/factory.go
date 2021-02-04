@@ -25,8 +25,8 @@ func NewFactoryTelemetryFacade() FactoryTelemetry {
 
 // RecordFactory stores factory
 func (f *FactoryTelemetryFacade) RecordFactory(apikey string) {
-	defer f.mutex.Unlock()
 	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	_, ok := f.factories[apikey]
 	if !ok {
 		f.factories[apikey] = 1
@@ -47,16 +47,22 @@ func (f *FactoryTelemetryFacade) RecordBURTimeout() {
 
 // GetActiveFactories gets active factories
 func (f *FactoryTelemetryFacade) GetActiveFactories() int64 {
-	return int64(len(f.factories))
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
+	var toReturn int64 = 0
+	for _, activeFactories := range f.factories {
+		toReturn += activeFactories
+	}
+	return toReturn
 }
 
 // GetRedundantActiveFactories gets redundant factories
 func (f *FactoryTelemetryFacade) GetRedundantActiveFactories() int64 {
-	defer f.mutex.RUnlock()
 	f.mutex.RLock()
+	defer f.mutex.RUnlock()
 	var toReturn int64 = 0
 	for _, activeFactory := range f.factories {
-		if activeFactory > 0 {
+		if activeFactory > 1 {
 			toReturn += activeFactory - 1
 		}
 	}

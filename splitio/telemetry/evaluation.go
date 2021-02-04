@@ -1,20 +1,13 @@
 package telemetry
 
 import (
+	"sync/atomic"
+
 	"github.com/splitio/go-split-commons/util"
 )
 
 // Method constants
 const (
-	MethodTreatment = iota
-	MethodTreatments
-	MethodTreatmentWithConfig
-	MethodTreatmentsWithConfig
-	MethodTrack
-
-	TotalMethodCount   = 5
-	LatencyBucketCount = 20
-
 	treatment            = "getTreatment"
 	treatments           = "getTreatments"
 	treatmentWithConfig  = "getTreatmentWithConfig"
@@ -22,8 +15,7 @@ const (
 	track                = "track"
 )
 
-// MethodLatencies struct
-type MethodLatencies struct {
+type methodLatencies struct {
 	treatmentLatencies            AtomicInt64Slice
 	treatmentsLatencies           AtomicInt64Slice
 	treatmentWithConfigLatencies  AtomicInt64Slice
@@ -32,60 +24,53 @@ type MethodLatencies struct {
 
 // EvaluationTelemetryFacade keeps track of evaluation-related metrics
 type EvaluationTelemetryFacade struct {
-	methodLatencies  MethodLatencies
-	methodExceptions AtomicInt64Slice
+	methodLatencies  methodLatencies
+	methodExceptions MethodExceptions
 }
 
 // NewEvaluationTelemetryFacade facade for Evaluation telemetry
 func NewEvaluationTelemetryFacade() EvaluationTelemetry {
-	treatmentLatencies, err := NewAtomicInt64Slice(LatencyBucketCount)
+	treatmentLatencies, err := NewAtomicInt64Slice(latencyBucketCount)
 	if err != nil {
 		return nil
 	}
-	treatmentWithConfigLatencies, err := NewAtomicInt64Slice(LatencyBucketCount)
+	treatmentWithConfigLatencies, err := NewAtomicInt64Slice(latencyBucketCount)
 	if err != nil {
 		return nil
 	}
-	treatmentsLatencies, err := NewAtomicInt64Slice(LatencyBucketCount)
+	treatmentsLatencies, err := NewAtomicInt64Slice(latencyBucketCount)
 	if err != nil {
 		return nil
 	}
-	treatmentsWithConfigLatencies, err := NewAtomicInt64Slice(LatencyBucketCount)
-	if err != nil {
-		return nil
-	}
-	exceptions, err := NewAtomicInt64Slice(TotalMethodCount)
+	treatmentsWithConfigLatencies, err := NewAtomicInt64Slice(latencyBucketCount)
 	if err != nil {
 		return nil
 	}
 	return &EvaluationTelemetryFacade{
-		methodLatencies: MethodLatencies{
+		methodLatencies: methodLatencies{
 			treatmentLatencies:            treatmentLatencies,
 			treatmentWithConfigLatencies:  treatmentWithConfigLatencies,
 			treatmentsLatencies:           treatmentsLatencies,
 			treatmentsWithConfigLatencies: treatmentsWithConfigLatencies,
 		},
-		methodExceptions: exceptions,
+		methodExceptions: MethodExceptions{},
 	}
-}
-
-func getMethod(method string) int {
-	switch method {
-	case treatment:
-		return MethodTreatment
-	case treatments:
-		return MethodTreatments
-	case treatmentWithConfig:
-		return MethodTreatmentWithConfig
-	case treatmentsWithConfig:
-		return MethodTreatmentsWithConfig
-	}
-	return -1
 }
 
 // RecordException records exceptions
 func (e *EvaluationTelemetryFacade) RecordException(method string) {
-	e.methodExceptions.Incr(getMethod(method))
+	switch method {
+	case treatment:
+		atomic.AddInt64(&e.methodExceptions.Treatment, 1)
+	case treatments:
+		atomic.AddInt64(&e.methodExceptions.Treatments, 1)
+	case treatmentWithConfig:
+		atomic.AddInt64(&e.methodExceptions.TreatmentWithConfig, 1)
+	case treatmentsWithConfig:
+		atomic.AddInt64(&e.methodExceptions.TreatmentWithConfigs, 1)
+	case track:
+		atomic.AddInt64(&e.methodExceptions.Track, 1)
+	}
 }
 
 // RecordLatency records latencies for method
@@ -104,23 +89,22 @@ func (e *EvaluationTelemetryFacade) RecordLatency(method string, latency int64) 
 }
 
 // PopLatencies returns latencies
-func (e *EvaluationTelemetryFacade) PopLatencies() map[string][]int64 {
-	toReturn := make(map[string][]int64, 0)
-	toReturn[treatment] = e.methodLatencies.treatmentLatencies.FetchAndClearAll()
-	toReturn[treatments] = e.methodLatencies.treatmentsLatencies.FetchAndClearAll()
-	toReturn[treatmentWithConfig] = e.methodLatencies.treatmentWithConfigLatencies.FetchAndClearAll()
-	toReturn[treatmentsWithConfig] = e.methodLatencies.treatmentsWithConfigLatencies.FetchAndClearAll()
-	return toReturn
+func (e *EvaluationTelemetryFacade) PopLatencies() MethodLatencies {
+	return MethodLatencies{
+		Treatment:            e.methodLatencies.treatmentLatencies.FetchAndClearAll(),
+		Treatments:           e.methodLatencies.treatmentsLatencies.FetchAndClearAll(),
+		TreatmentWithConfig:  e.methodLatencies.treatmentWithConfigLatencies.FetchAndClearAll(),
+		TreatmentWithConfigs: e.methodLatencies.treatmentsWithConfigLatencies.FetchAndClearAll(),
+	}
 }
 
 // PopExceptions returns exceptions
-func (e *EvaluationTelemetryFacade) PopExceptions() map[string]int64 {
-	methodExceptions := e.methodExceptions.FetchAndClearAll()
-	toReturn := make(map[string]int64, 0)
-	toReturn[treatment] = methodExceptions[MethodTreatment]
-	toReturn[treatments] = methodExceptions[MethodTreatments]
-	toReturn[treatmentWithConfig] = methodExceptions[MethodTreatmentWithConfig]
-	toReturn[treatmentsWithConfig] = methodExceptions[MethodTreatmentsWithConfig]
-	toReturn[track] = methodExceptions[MethodTrack]
-	return toReturn
+func (e *EvaluationTelemetryFacade) PopExceptions() MethodExceptions {
+	return MethodExceptions{
+		Treatment:            atomic.SwapInt64(&e.methodExceptions.Treatment, 0),
+		Treatments:           atomic.SwapInt64(&e.methodExceptions.Treatments, 0),
+		TreatmentWithConfig:  atomic.SwapInt64(&e.methodExceptions.TreatmentWithConfig, 0),
+		TreatmentWithConfigs: atomic.SwapInt64(&e.methodExceptions.TreatmentWithConfigs, 0),
+		Track:                atomic.SwapInt64(&e.methodExceptions.Track, 0),
+	}
 }

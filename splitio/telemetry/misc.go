@@ -18,8 +18,8 @@ func NewMiscTelemetryFacade() MiscTelemetry {
 
 // AddTag add tags to misc data
 func (m *MiscTelemetryFacade) AddTag(tag string) {
-	defer m.mutex.Unlock()
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	if len(m.tags) < 10 {
 		m.tags = append(m.tags, tag)
 	}
@@ -27,8 +27,8 @@ func (m *MiscTelemetryFacade) AddTag(tag string) {
 
 // PopTags returns all the tags stored
 func (m *MiscTelemetryFacade) PopTags() []string {
-	defer m.mutex.Unlock()
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	toReturn := m.tags
 	m.tags = make([]string, 0, 10)
 	return toReturn

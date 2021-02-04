@@ -44,8 +44,8 @@ func NewStreamingTelemetryFacade() StreamingTelemetry {
 }
 
 func (s *StreamingTelemetryFacade) canAdd() bool {
-	defer s.mutex.RUnlock()
 	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	if len(s.streamingEvents) < maxLength {
 		return true
 	}
@@ -57,8 +57,8 @@ func (s *StreamingTelemetryFacade) RecordPrimaryOccupancyChange(newPublisherCoun
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeOccupancyPri,
 		Data:      newPublisherCount,
@@ -71,8 +71,8 @@ func (s *StreamingTelemetryFacade) RecordSecondaryOccupancyChange(newPublisherCo
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeOccupancySec,
 		Data:      newPublisherCount,
@@ -85,8 +85,8 @@ func (s *StreamingTelemetryFacade) RecordConnectionSuccess() {
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeSSEConnectionEstablished,
 		Timestamp: time.Now().UTC().Unix(),
@@ -98,8 +98,8 @@ func (s *StreamingTelemetryFacade) RecordStreamingServiceStatus(newStatus int) {
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeStreamingStatus,
 		Data:      int64(newStatus),
@@ -112,8 +112,8 @@ func (s *StreamingTelemetryFacade) RecordTokenRefresh(tokenExpirationUtcTs int64
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeTokenRefresh,
 		Data:      tokenExpirationUtcTs,
@@ -126,8 +126,8 @@ func (s *StreamingTelemetryFacade) RecordAblyError(statusCode int64) {
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeAblyError,
 		Data:      statusCode,
@@ -135,16 +135,20 @@ func (s *StreamingTelemetryFacade) RecordAblyError(statusCode int64) {
 	})
 }
 
-// RecordNonRequestedConnectionClose records connections close
-func (s *StreamingTelemetryFacade) RecordNonRequestedConnectionClose() {
+// RecordConnectionClose records connections close
+func (s *StreamingTelemetryFacade) RecordConnectionClose(wasRequested bool) {
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
+	data := requested
+	if !wasRequested {
+		data = nonRequested
+	}
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeConnectionError,
-		Data:      nonRequested,
+		Data:      int64(data),
 		Timestamp: time.Now().UTC().Unix(),
 	})
 }
@@ -154,8 +158,8 @@ func (s *StreamingTelemetryFacade) RecordSyncModeUpdate(newSyncMode int64) {
 	if !s.canAdd() {
 		return
 	}
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.streamingEvents = append(s.streamingEvents, StreamingEvent{
 		Type:      eventTypeSyncMode,
 		Data:      newSyncMode,
@@ -165,8 +169,8 @@ func (s *StreamingTelemetryFacade) RecordSyncModeUpdate(newSyncMode int64) {
 
 // PopStreamingEvents returns all the stored StreamingEvents
 func (s *StreamingTelemetryFacade) PopStreamingEvents() []StreamingEvent {
-	defer s.mutex.Unlock()
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	toReturn := s.streamingEvents
 	s.streamingEvents = make([]StreamingEvent, 0, 20)
 	return toReturn

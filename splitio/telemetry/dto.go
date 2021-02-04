@@ -1,5 +1,9 @@
 package telemetry
 
+const (
+	latencyBucketCount = 23
+)
+
 // ConfigMetrics struct
 type ConfigMetrics struct {
 	OperationMode              int          `json:"oM"`
@@ -40,9 +44,10 @@ type URLOverrides struct {
 // RegularMetrics sent by sdks pereiodically
 type RegularMetrics struct {
 	LastSynchronizations LastSynchronization `json:"lS"`
-	MethodLatencies      map[string][]int64  `json:"mL"`
-	MethodExceptions     map[string]int64    `json:"mE"`
+	MethodLatencies      MethodLatencies     `json:"mL"`
+	MethodExceptions     MethodExceptions    `json:"mE"`
 	HTTPErrors           HTTPErrors          `json:"hE"`
+	HTTPLatencies        HTTPLatencies       `json:"hL"`
 	TokenRefreshes       int64               `json:"tR"`
 	AuthRejections       int64               `json:"aR"`
 	ImpressionsQueued    int64               `json:"iQ"`
@@ -76,6 +81,33 @@ type HTTPErrors struct {
 	Events      map[int]int64 `json:"ev"`
 	Token       map[int]int64 `json:"to"`
 	Telemetry   map[int]int64 `json:"te"`
+}
+
+// HTTPLatencies struct
+type HTTPLatencies struct {
+	Splits      []int64 `json:"sp"`
+	Segments    []int64 `json:"se"`
+	Impressions []int64 `json:"im"`
+	Events      []int64 `json:"ev"`
+	Token       []int64 `json:"to"`
+	Telemetry   []int64 `json:"te"`
+}
+
+// MethodLatencies struct
+type MethodLatencies struct {
+	Treatment            []int64 `json:"t"`
+	Treatments           []int64 `json:"ts"`
+	TreatmentWithConfig  []int64 `json:"tw"`
+	TreatmentWithConfigs []int64 `json:"tws"`
+}
+
+// MethodExceptions struct
+type MethodExceptions struct {
+	Treatment            int64 `json:"t"`
+	Treatments           int64 `json:"ts"`
+	TreatmentWithConfig  int64 `json:"tw"`
+	TreatmentWithConfigs int64 `json:"tws"`
+	Track                int64 `json:"tr"`
 }
 
 // StreamingEvent struct

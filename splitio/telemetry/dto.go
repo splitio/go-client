@@ -97,16 +97,17 @@ type HTTPLatencies struct {
 type MethodLatencies struct {
 	Treatment            []int64 `json:"t"`
 	Treatments           []int64 `json:"ts"`
-	TreatmentWithConfig  []int64 `json:"tw"`
-	TreatmentWithConfigs []int64 `json:"tws"`
+	TreatmentWithConfig  []int64 `json:"tc"`
+	TreatmentWithConfigs []int64 `json:"tcs"`
+	Track                []int64 `json:"tr"`
 }
 
 // MethodExceptions struct
 type MethodExceptions struct {
 	Treatment            int64 `json:"t"`
 	Treatments           int64 `json:"ts"`
-	TreatmentWithConfig  int64 `json:"tw"`
-	TreatmentWithConfigs int64 `json:"tws"`
+	TreatmentWithConfig  int64 `json:"tc"`
+	TreatmentWithConfigs int64 `json:"tcs"`
 	Track                int64 `json:"tr"`
 }
 

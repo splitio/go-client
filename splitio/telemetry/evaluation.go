@@ -20,6 +20,7 @@ type methodLatencies struct {
 	treatmentsLatencies           AtomicInt64Slice
 	treatmentWithConfigLatencies  AtomicInt64Slice
 	treatmentsWithConfigLatencies AtomicInt64Slice
+	track                         AtomicInt64Slice
 }
 
 // EvaluationTelemetryFacade keeps track of evaluation-related metrics
@@ -46,12 +47,17 @@ func NewEvaluationTelemetryFacade() EvaluationTelemetry {
 	if err != nil {
 		return nil
 	}
+	track, err := NewAtomicInt64Slice(latencyBucketCount)
+	if err != nil {
+		return nil
+	}
 	return &EvaluationTelemetryFacade{
 		methodLatencies: methodLatencies{
 			treatmentLatencies:            treatmentLatencies,
 			treatmentWithConfigLatencies:  treatmentWithConfigLatencies,
 			treatmentsLatencies:           treatmentsLatencies,
 			treatmentsWithConfigLatencies: treatmentsWithConfigLatencies,
+			track:                         track,
 		},
 		methodExceptions: MethodExceptions{},
 	}
@@ -85,6 +91,8 @@ func (e *EvaluationTelemetryFacade) RecordLatency(method string, latency int64) 
 		e.methodLatencies.treatmentWithConfigLatencies.Incr(bucket)
 	case treatmentsWithConfig:
 		e.methodLatencies.treatmentsWithConfigLatencies.Incr(bucket)
+	case track:
+		e.methodLatencies.track.Incr(bucket)
 	}
 }
 
@@ -95,6 +103,7 @@ func (e *EvaluationTelemetryFacade) PopLatencies() MethodLatencies {
 		Treatments:           e.methodLatencies.treatmentsLatencies.FetchAndClearAll(),
 		TreatmentWithConfig:  e.methodLatencies.treatmentWithConfigLatencies.FetchAndClearAll(),
 		TreatmentWithConfigs: e.methodLatencies.treatmentsWithConfigLatencies.FetchAndClearAll(),
+		Track:                e.methodLatencies.track.FetchAndClearAll(),
 	}
 }
 

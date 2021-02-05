@@ -82,10 +82,10 @@ func NewHHTTPTelemetryFacade() HTTPTelemetry {
 }
 
 // RecordSyncError records error
-func (h *HTTPTelemetryFacade) RecordSyncError(method string, status int) {
+func (h *HTTPTelemetryFacade) RecordSyncError(path string, status int) {
 	h.mutexErrors.Lock()
 	defer h.mutexErrors.Unlock()
-	switch method {
+	switch path {
 	case split:
 		_, ok := h.httpErrors.Splits[status]
 		if !ok {
@@ -132,11 +132,11 @@ func (h *HTTPTelemetryFacade) RecordSyncError(method string, status int) {
 }
 
 // RecordSyncLatency records latencies
-func (h *HTTPTelemetryFacade) RecordSyncLatency(method string, latency int64) {
+func (h *HTTPTelemetryFacade) RecordSyncLatency(path string, latency int64) {
 	bucket := util.Bucket(latency)
 	h.mutexLatencies.Lock()
 	defer h.mutexLatencies.Unlock()
-	switch method {
+	switch path {
 	case split:
 		h.httpLatencies.splits.Incr(bucket)
 	case segment:

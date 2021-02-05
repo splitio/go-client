@@ -10,6 +10,7 @@ type FactoryTelemetryFacade struct {
 	factories      map[string]int64
 	burTimeouts    int64
 	nonReadyUsages int64
+	timeUntilReady int64
 	mutex          sync.RWMutex
 }
 
@@ -45,6 +46,11 @@ func (f *FactoryTelemetryFacade) RecordBURTimeout() {
 	atomic.AddInt64(&f.burTimeouts, 1)
 }
 
+// RecordTimeUntilReady stores time duration
+func (f *FactoryTelemetryFacade) RecordTimeUntilReady(time int64) {
+	atomic.AddInt64(&f.timeUntilReady, time)
+}
+
 // GetActiveFactories gets active factories
 func (f *FactoryTelemetryFacade) GetActiveFactories() int64 {
 	f.mutex.RLock()
@@ -74,3 +80,8 @@ func (f *FactoryTelemetryFacade) GetNonReadyUsages() int64 { return atomic.LoadI
 
 // GetBURTimeouts gets bur timeots
 func (f *FactoryTelemetryFacade) GetBURTimeouts() int64 { return atomic.LoadInt64(&f.burTimeouts) }
+
+// GetTimeUntilReady returns stored session
+func (f *FactoryTelemetryFacade) GetTimeUntilReady() int64 {
+	return atomic.LoadInt64(&f.timeUntilReady)
+}

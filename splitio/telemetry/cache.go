@@ -1,44 +1,39 @@
 package telemetry
 
-import "sync/atomic"
+import (
+	"github.com/splitio/go-split-commons/storage"
+)
 
 // CacheTelemetryFacade keeps track of cache-related metrics
 type CacheTelemetryFacade struct {
-	splits      int64
-	segments    int64
-	segmentKeys int64
+	splitsStorage  storage.SplitStorageConsumer
+	segmentStorage storage.SegmentStorageConsumer
 }
 
 // NewCacheTelemetryFacade builds new facade
-func NewCacheTelemetryFacade() CacheTelemetry {
+func NewCacheTelemetryFacade(splitStorage storage.SplitStorageConsumer, segmentStorage storage.SegmentStorageConsumer) CacheTelemetry {
 	return &CacheTelemetryFacade{
-		splits:      0,
-		segments:    0,
-		segmentKeys: 0,
+		splitsStorage:  splitStorage,
+		segmentStorage: segmentStorage,
 	}
 }
 
-// RecordSplitsCount stores splits data
-func (c *CacheTelemetryFacade) RecordSplitsCount(count int64) {
-	atomic.AddInt64(&c.splits, count)
+// GetSplitsCount gets total splits
+func (c *CacheTelemetryFacade) GetSplitsCount() int64 {
+	return int64(len(c.splitsStorage.SplitNames()))
 }
 
-// RecordSegmentsCount stores segments data
-func (c *CacheTelemetryFacade) RecordSegmentsCount(count int64) {
-	atomic.AddInt64(&c.segments, count)
-
+// GetSegmentsCount gets total segments
+func (c *CacheTelemetryFacade) GetSegmentsCount() int64 {
+	return int64(c.splitsStorage.SegmentNames().Size())
 }
 
-// RecordSegmentKeysCount stores segmentKeys data
-func (c *CacheTelemetryFacade) RecordSegmentKeysCount(count int64) {
-	atomic.AddInt64(&c.segmentKeys, count)
+// GetSegmentKeysCount gets total segmentKeys
+func (c *CacheTelemetryFacade) GetSegmentKeysCount() int64 {
+	toReturn := 0
+	segmentNames := c.splitsStorage.SegmentNames().List()
+	for _, segmentName := range segmentNames {
+		toReturn += c.segmentStorage.Keys(segmentName.(string)).Size()
+	}
+	return int64(toReturn)
 }
-
-// PopSplitsCount gets total splits
-func (c *CacheTelemetryFacade) PopSplitsCount() int64 { return atomic.SwapInt64(&c.splits, 0) }
-
-// PopSegmentCount gets total segments
-func (c *CacheTelemetryFacade) PopSegmentCount() int64 { return atomic.SwapInt64(&c.segments, 0) }
-
-// PopSegmentKeyCount gets total segmentKeys
-func (c *CacheTelemetryFacade) PopSegmentKeyCount() int64 { return atomic.SwapInt64(&c.segmentKeys, 0) }

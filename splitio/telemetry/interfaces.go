@@ -99,28 +99,20 @@ type HTTPTelemetryConsumer interface {
 
 // HTTPTelemetryProducer writer
 type HTTPTelemetryProducer interface {
-	RecordSyncError(method string, status int)
-	RecordSyncLatency(method string, latency int64)
+	RecordSyncError(path string, status int)
+	RecordSyncLatency(path string, latency int64)
 }
 
 // CacheTelemetry is the interface for cached data
 type CacheTelemetry interface {
 	CacheTelemetryConsumer
-	CacheTelemetryProducer
 }
 
 // CacheTelemetryConsumer reader
 type CacheTelemetryConsumer interface {
-	PopSplitsCount() int64
-	PopSegmentCount() int64
-	PopSegmentKeyCount() int64
-}
-
-// CacheTelemetryProducer writer
-type CacheTelemetryProducer interface {
-	RecordSplitsCount(count int64)
-	RecordSegmentsCount(count int64)
-	RecordSegmentKeysCount(count int64) // Only Client side
+	GetSplitsCount() int64
+	GetSegmentsCount() int64
+	GetSegmentKeysCount() int64
 }
 
 // PushTelemetry is the interface for push
@@ -208,6 +200,7 @@ type FactoryTelemetryConsumer interface {
 	GetRedundantActiveFactories() int64
 	GetNonReadyUsages() int64
 	GetBURTimeouts() int64
+	GetTimeUntilReady() int64
 }
 
 // FactoryTelemetryProducer writer
@@ -215,4 +208,5 @@ type FactoryTelemetryProducer interface {
 	RecordFactory(apikey string)
 	RecordNonReadyUsage()
 	RecordBURTimeout()
+	RecordTimeUntilReady(time int64)
 }

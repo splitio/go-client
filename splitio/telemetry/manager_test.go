@@ -2,10 +2,14 @@ package telemetry
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
 func TestTelemetry(t *testing.T) {
@@ -81,9 +85,18 @@ func TestTelemetry(t *testing.T) {
 	httpTelemetry.RecordSyncLatency(segment, (1500 * time.Nanosecond).Nanoseconds())
 	httpTelemetry.RecordSyncLatency(segment, (1500 * time.Nanosecond).Nanoseconds())
 
-	cacheTelemetry := NewCacheTelemetryFacade()
-	cacheTelemetry.RecordSplitsCount(1000)
-	cacheTelemetry.RecordSegmentsCount(50)
+	splitStorage := mutexmap.NewMMSplitStorage()
+	splits := make([]dtos.SplitDTO, 0, 10)
+	for index := 0; index < 10; index++ {
+		splits = append(splits, dtos.SplitDTO{
+			Name: fmt.Sprintf("SomeSplit_%d", index),
+			Algo: index,
+		})
+	}
+	splitStorage.PutMany(splits, 123)
+	segmentStorage := mutexmap.NewMMSegmentStorage()
+	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
+	cacheTelemetry := NewCacheTelemetryFacade(splitStorage, segmentStorage)
 
 	pushTelemetry := NewPushTelemetryFacade()
 	pushTelemetry.RecordAuthRejections()

@@ -11,12 +11,6 @@ const (
 )
 
 const (
-	disabled = iota
-	enabled
-	paused
-)
-
-const (
 	eventTypeSSEConnectionEstablished = iota * 10
 	eventTypeOccupancyPri
 	eventTypeOccupancySec

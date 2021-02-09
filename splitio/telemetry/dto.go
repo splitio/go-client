@@ -1,6 +1,23 @@
 package telemetry
 
 const (
+	treatment            = "getTreatment"
+	treatments           = "getTreatments"
+	treatmentWithConfig  = "getTreatmentWithConfig"
+	treatmentsWithConfig = "getTreatmentsWithConfig"
+	track                = "track"
+
+	splitSync      = "split"
+	segmentSync    = "segment"
+	impressionSync = "impression"
+	eventSync      = "event"
+	telemetrySync  = "telemetry"
+	tokenSync      = "token"
+)
+
+const (
+	maxStreamingEvents = 20
+	maxTags            = 10
 	latencyBucketCount = 23
 )
 

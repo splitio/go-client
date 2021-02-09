@@ -91,8 +91,8 @@ func getURLOverrides(cfg conf.AdvancedConfig) URLOverrides {
 	}
 }
 
-// BuildConfigData returns config data
-func (m *ManagerImpl) BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics {
+// BuildInitData returns config data
+func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) InitData {
 	operationMode := operationModeStandalone
 	storage := memory
 	if cfg.OperationMode == conf.RedisConsumer {
@@ -107,7 +107,7 @@ func (m *ManagerImpl) BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics {
 	if len(strings.TrimSpace(os.Getenv("HTTP_PROXY"))) > 0 {
 		proxyEnabled = true
 	}
-	return ConfigMetrics{
+	return InitData{
 		OperationMode:    operationMode,
 		Storage:          storage,
 		StreamingEnabled: cfg.Advanced.StreamingEnabled,
@@ -133,9 +133,9 @@ func (m *ManagerImpl) BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics {
 	}
 }
 
-// BuildUsageData returns usage data
-func (m *ManagerImpl) BuildUsageData() RegularMetrics {
-	return RegularMetrics{
+// BuildStatsData returns usage data
+func (m *ManagerImpl) BuildStatsData() StatsData {
+	return StatsData{
 		MethodLatencies:      m.evaluation.PopLatencies(),
 		MethodExceptions:     m.evaluation.PopExceptions(),
 		ImpressionsDropped:   m.impression.GetDroppedImpressions(),
@@ -152,7 +152,7 @@ func (m *ManagerImpl) BuildUsageData() RegularMetrics {
 		TokenRefreshes:       m.push.PopTokenRefreshes(),
 		AuthRejections:       m.push.PopAuthRejections(),
 		StreamingEvents:      m.streaming.PopStreamingEvents(),
-		SessionLengthMs:      m.sdk.PopSessionLength(),
+		SessionLengthMs:      m.sdk.GetSessionLength(),
 		Tags:                 m.misc.PopTags(),
 	}
 }

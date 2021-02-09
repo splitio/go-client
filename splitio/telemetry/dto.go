@@ -4,8 +4,8 @@ const (
 	latencyBucketCount = 23
 )
 
-// ConfigMetrics struct
-type ConfigMetrics struct {
+// InitData struct
+type InitData struct {
 	OperationMode              int          `json:"oM"`
 	StreamingEnabled           bool         `json:"sE"`
 	Storage                    string       `json:"st"`
@@ -42,8 +42,8 @@ type URLOverrides struct {
 	Telemetry bool `json:"t"`
 }
 
-// RegularMetrics sent by sdks pereiodically
-type RegularMetrics struct {
+// StatsData sent by sdks pereiodically
+type StatsData struct {
 	LastSynchronizations LastSynchronization `json:"lS"`
 	MethodLatencies      MethodLatencies     `json:"mL"`
 	MethodExceptions     MethodExceptions    `json:"mE"`

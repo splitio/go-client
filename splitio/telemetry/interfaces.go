@@ -28,8 +28,8 @@ type TelemetryStorageProducer interface {
 
 // TelemetryManager interface for building regular data
 type TelemetryManager interface {
-	BuildConfigData(cfg *conf.SplitSdkConfig) ConfigMetrics
-	BuildUsageData() RegularMetrics
+	BuildInitData(cfg *conf.SplitSdkConfig) InitData
+	BuildStatsData() StatsData
 }
 
 // Telemetry adapter
@@ -272,7 +272,7 @@ type SDKInfoTelemetry interface {
 
 // SDKInfoTelemetryConsumer reader
 type SDKInfoTelemetryConsumer interface {
-	PopSessionLength() int64
+	GetSessionLength() int64
 }
 
 // SDKInfoTelemetryProducer writer

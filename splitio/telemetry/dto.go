@@ -35,10 +35,11 @@ type Rates struct {
 
 // URLOverrides struct
 type URLOverrides struct {
-	Sdk    bool `json:"s"`
-	Events bool `json:"e"`
-	Auth   bool `json:"a"`
-	Stream bool `json:"st"`
+	Sdk       bool `json:"s"`
+	Events    bool `json:"e"`
+	Auth      bool `json:"a"`
+	Stream    bool `json:"st"`
+	Telemetry bool `json:"t"`
 }
 
 // RegularMetrics sent by sdks pereiodically

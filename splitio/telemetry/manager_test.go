@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
@@ -25,7 +26,7 @@ func TestManager(t *testing.T) {
 	segmentStorage := mutexmap.NewMMSegmentStorage()
 	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
 
-	telemetryService := NewTelemetry(NewIMTelemetryStorage(), splitStorage, segmentStorage)
+	telemetryService := NewTelemetry(storage.NewIMTelemetryStorage(), splitStorage, segmentStorage)
 
 	telemetryService.RecordException(treatment)
 	telemetryService.RecordException(treatments)
@@ -86,11 +87,6 @@ func TestManager(t *testing.T) {
 	telemetryService.RecordSecondaryOccupancyChange(1)
 	telemetryService.RecordSyncModeUpdate(0)
 	telemetryService.RecordSessionLength(123456789)
-	if telemetryService.GetSessionLength() != 123456789 {
-		t.Error("Wrong result")
-	}
-	telemetryService.AddTag("redo")
-	telemetryService.AddTag("yaris")
 	telemetryService.RecordBURTimeout()
 	telemetryService.RecordBURTimeout()
 	telemetryService.RecordBURTimeout()
@@ -105,36 +101,35 @@ func TestManager(t *testing.T) {
 	telemetryService.RecordNonReadyUsage()
 
 	manager := NewTelemetryManager(
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
-		telemetryService,
+		telemetryService, telemetryService, telemetryService, telemetryService, telemetryService, telemetryService, telemetryService, telemetryService,
+		telemetryService, telemetryService, telemetryService,
 	)
 
-	config := manager.BuildInitData(conf.Default())
-	data, _ := json.Marshal(config)
+	initData := manager.BuildInitData(conf.Default())
+	data, _ := json.Marshal(initData)
 	if data == nil {
 		t.Error("")
 	}
+	if len(string(data)) == 0 {
+		t.Error("It should generated json")
+	}
 
-	regular := manager.BuildStatsData()
+	statsData := manager.BuildStatsData()
 
-	result, _ := json.Marshal(regular)
+	result, _ := json.Marshal(statsData)
 	if result == nil {
 		t.Error("")
 	}
+	if len(string(result)) == 0 {
+		t.Error("It should generated json")
+	}
 
-	regular = manager.BuildStatsData()
-
-	result, _ = json.Marshal(regular)
+	statsData = manager.BuildStatsData()
+	result, _ = json.Marshal(statsData)
 	if result == nil {
 		t.Error("")
+	}
+	if len(string(result)) == 0 {
+		t.Error("It should generated json")
 	}
 }

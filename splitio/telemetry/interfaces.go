@@ -1,73 +1,18 @@
 package telemetry
 
-import "github.com/splitio/go-client/splitio/conf"
+import (
+	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/dto"
+)
 
-// TelemetryManager interface for building regular data
-type TelemetryManager interface {
-	BuildInitData(cfg *conf.SplitSdkConfig) InitData
-	BuildStatsData() StatsData
+// Manager interface for building regular data
+type Manager interface {
+	BuildInitData(cfg *conf.SplitSdkConfig) dto.InitData
+	BuildStatsData() dto.StatsData
 }
 
-// TelemetryStorage interface
-type TelemetryStorage interface {
-	TelemetryStorageConsumer
-	TelemetryStorageProducer
-}
-
-// TelemetryStorageConsumer consumer interface
-type TelemetryStorageConsumer interface {
-	PopLatencies() MethodLatencies
-	PopExceptions() MethodExceptions
-	GetDroppedImpressions() int64
-	GetDedupedImpressions() int64
-	GetQueuedmpressions() int64
-	GetDroppedEvents() int64
-	GetQueuedEvents() int64
-	GetLastSynchronization() LastSynchronization
-	PopHTTPErrors() HTTPErrors
-	PopHTTPLatencies() HTTPLatencies
-	PopAuthRejections() int64
-	PopTokenRefreshes() int64
-	PopStreamingEvents() []StreamingEvent
-	PopTags() []string
-	GetSessionLength() int64
-	GetActiveFactories() int64
-	GetRedundantActiveFactories() int64
-	GetNonReadyUsages() int64
-	GetBURTimeouts() int64
-	GetTimeUntilReady() int64
-}
-
-// TelemetryStorageProducer producer interface
-type TelemetryStorageProducer interface {
-	RecordLatency(method string, bucket int)
-	RecordException(method string)
-	RecordDroppedImpressions(count int64)
-	RecordDedupedImpressions(count int64)
-	RecordQueuedImpressions(count int64)
-	RecordDroppedEvents(count int64)
-	RecordQueuedEvents(count int64)
-	RecordSuccessfulSplitSync(timestamp int64)
-	RecordSuccessfulSegmentSync(timestamp int64)
-	RecordSuccessfulImpressionSync(timestamp int64)
-	RecordSuccessfulEventsSync(timestamp int64)
-	RecordSuccessfulTelemetrySync(timestamp int64)
-	RecordSuccessfulTokenGet(timestamp int64)
-	RecordSyncError(path string, status int)
-	RecordSyncLatency(path string, bucket int)
-	RecordAuthRejections()
-	RecordTokenRefreshes()
-	RecordStreamingEvent(streamingEvent StreamingEvent)
-	AddTag(tag string)
-	RecordSessionLength(session int64)
-	RecordFactory(apikey string)
-	RecordNonReadyUsage()
-	RecordBURTimeout()
-	RecordTimeUntilReady(time int64)
-}
-
-// TelemetryFacade adapter
-type TelemetryFacade interface {
+// Facade adapter
+type Facade interface {
 	FactoryTelemetryConsumer
 	FactoryTelemetryProducer
 	EvaluationTelemetryConsumer
@@ -99,8 +44,8 @@ type EvaluationTelemetry interface { // Client
 
 // EvaluationTelemetryConsumer reader
 type EvaluationTelemetryConsumer interface { // Client
-	PopLatencies() MethodLatencies
-	PopExceptions() MethodExceptions
+	PopLatencies() dto.MethodLatencies
+	PopExceptions() dto.MethodExceptions
 }
 
 // EvaluationTelemetryProducer writer
@@ -155,7 +100,7 @@ type SynchronizationTelemetry interface { // Individual Synchronizers/Fetcher/Re
 
 // SynchronizationTelemetryConsumer reader
 type SynchronizationTelemetryConsumer interface {
-	GetLastSynchronization() LastSynchronization
+	GetLastSynchronization() dto.LastSynchronization
 }
 
 // SynchronizationTelemetryProducer writer
@@ -176,8 +121,8 @@ type HTTPTelemetry interface { // Synchronizer
 
 // HTTPTelemetryConsumer reader
 type HTTPTelemetryConsumer interface {
-	PopHTTPErrors() HTTPErrors
-	PopHTTPLatencies() HTTPLatencies
+	PopHTTPErrors() dto.HTTPErrors
+	PopHTTPLatencies() dto.HTTPLatencies
 }
 
 // HTTPTelemetryProducer writer
@@ -224,7 +169,7 @@ type StreamingTelemetry interface {
 
 // StreamingTelemetryConsumer reader
 type StreamingTelemetryConsumer interface {
-	PopStreamingEvents() []StreamingEvent
+	PopStreamingEvents() []dto.StreamingEvent
 }
 
 // StreamingTelemetryProducer writer

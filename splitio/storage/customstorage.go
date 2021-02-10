@@ -1,9 +1,11 @@
-package telemetry
+package storage
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/splitio/go-client/splitio/dto"
 )
 
 const (
@@ -140,7 +142,7 @@ func (u *UserCustomTelemetryAdapter) RecordTokenRefreshes() {
 }
 
 // RecordStreamingEvent appends new streaming event
-func (u *UserCustomTelemetryAdapter) RecordStreamingEvent(event StreamingEvent) {
+func (u *UserCustomTelemetryAdapter) RecordStreamingEvent(event dto.StreamingEvent) {
 	u.wrapper.PushItem(fmt.Sprintf("%s", streamingKey), event)
 }
 
@@ -186,8 +188,8 @@ func (u *UserCustomTelemetryAdapter) parseLatency(key string, method string) []i
 }
 
 // PopLatencies gets and clears method latencies
-func (u *UserCustomTelemetryAdapter) PopLatencies() MethodLatencies {
-	return MethodLatencies{
+func (u *UserCustomTelemetryAdapter) PopLatencies() dto.MethodLatencies {
+	return dto.MethodLatencies{
 		Treatment:            u.parseLatency(methodKey, treatment),
 		Treatments:           u.parseLatency(methodKey, treatments),
 		TreatmentWithConfig:  u.parseLatency(methodKey, treatmentWithConfig),
@@ -197,8 +199,8 @@ func (u *UserCustomTelemetryAdapter) PopLatencies() MethodLatencies {
 }
 
 // PopExceptions gets and clears method exceptions
-func (u *UserCustomTelemetryAdapter) PopExceptions() MethodExceptions {
-	return MethodExceptions{
+func (u *UserCustomTelemetryAdapter) PopExceptions() dto.MethodExceptions {
+	return dto.MethodExceptions{
 		Treatment:            u.wrapper.PopItem(fmt.Sprintf("%s::exception::%s", methodKey, treatment)),
 		Treatments:           u.wrapper.PopItem(fmt.Sprintf("%s::exception::%s", methodKey, treatments)),
 		TreatmentWithConfig:  u.wrapper.PopItem(fmt.Sprintf("%s::exception::%s", methodKey, treatmentWithConfig)),
@@ -233,8 +235,8 @@ func (u *UserCustomTelemetryAdapter) GetQueuedEvents() int64 {
 }
 
 // GetLastSynchronization gets last synchronization stats for fetchers and recorders
-func (u *UserCustomTelemetryAdapter) GetLastSynchronization() LastSynchronization {
-	return LastSynchronization{
+func (u *UserCustomTelemetryAdapter) GetLastSynchronization() dto.LastSynchronization {
+	return dto.LastSynchronization{
 		Splits:      u.wrapper.GetItem(fmt.Sprintf("%s::%s", synchronizationKey, splitSync)),
 		Segments:    u.wrapper.GetItem(fmt.Sprintf("%s::%s", synchronizationKey, segmentSync)),
 		Impressions: u.wrapper.GetItem(fmt.Sprintf("%s::%s", synchronizationKey, impressionSync)),
@@ -267,8 +269,8 @@ func (u *UserCustomTelemetryAdapter) parseHTTPError(path string) map[int]int64 {
 }
 
 // PopHTTPErrors gets http errors
-func (u *UserCustomTelemetryAdapter) PopHTTPErrors() HTTPErrors {
-	return HTTPErrors{
+func (u *UserCustomTelemetryAdapter) PopHTTPErrors() dto.HTTPErrors {
+	return dto.HTTPErrors{
 		Splits:      u.parseHTTPError(splitSync),
 		Segments:    u.parseHTTPError(segmentSync),
 		Impressions: u.parseHTTPError(impressionSync),
@@ -279,8 +281,8 @@ func (u *UserCustomTelemetryAdapter) PopHTTPErrors() HTTPErrors {
 }
 
 // PopHTTPLatencies gets http latencies
-func (u *UserCustomTelemetryAdapter) PopHTTPLatencies() HTTPLatencies {
-	return HTTPLatencies{
+func (u *UserCustomTelemetryAdapter) PopHTTPLatencies() dto.HTTPLatencies {
+	return dto.HTTPLatencies{
 		Splits:      u.parseLatency(httpKey, splitSync),
 		Segments:    u.parseLatency(httpKey, segmentSync),
 		Impressions: u.parseLatency(httpKey, impressionSync),
@@ -301,11 +303,11 @@ func (u *UserCustomTelemetryAdapter) PopTokenRefreshes() int64 {
 }
 
 // PopStreamingEvents gets streamingEvents data
-func (u *UserCustomTelemetryAdapter) PopStreamingEvents() []StreamingEvent {
+func (u *UserCustomTelemetryAdapter) PopStreamingEvents() []dto.StreamingEvent {
 	items := u.wrapper.PopItems(fmt.Sprintf("%s", streamingKey))
-	streamingEvents, ok := items.([]StreamingEvent)
+	streamingEvents, ok := items.([]dto.StreamingEvent)
 	if !ok {
-		return []StreamingEvent{}
+		return []dto.StreamingEvent{}
 	}
 	return streamingEvents
 }

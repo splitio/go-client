@@ -5,12 +5,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
-func TestTelemetryStorage(t *testing.T) {
+const (
+	treatment            = "getTreatment"
+	treatments           = "getTreatments"
+	treatmentWithConfig  = "getTreatmentWithConfig"
+	treatmentsWithConfig = "getTreatmentsWithConfig"
+	track                = "track"
+
+	splitSync      = "split"
+	segmentSync    = "segment"
+	impressionSync = "impression"
+	eventSync      = "event"
+	telemetrySync  = "telemetry"
+	tokenSync      = "token"
+)
+
+func TestTelemetryService(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
 	splits := make([]dtos.SplitDTO, 0, 10)
 	for index := 0; index < 10; index++ {
@@ -23,7 +39,7 @@ func TestTelemetryStorage(t *testing.T) {
 	segmentStorage := mutexmap.NewMMSegmentStorage()
 	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
 
-	telemetryService := NewTelemetry(NewIMTelemetryStorage(), splitStorage, segmentStorage)
+	telemetryService := NewTelemetry(storage.NewIMTelemetryStorage(), splitStorage, segmentStorage)
 
 	telemetryService.RecordException(treatment)
 	telemetryService.RecordException(treatments)

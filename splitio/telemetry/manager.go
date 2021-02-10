@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/dto"
 	defaultConfig "github.com/splitio/go-split-commons/conf"
 )
 
@@ -49,7 +50,7 @@ func NewTelemetryManager(
 	streaming StreamingTelemetryConsumer,
 	sdk SDKInfoTelemetryConsumer,
 	misc MiscTelemetryConsumer,
-) TelemetryManager {
+) Manager {
 	return &ManagerImpl{
 		factory:         factory,
 		evaluation:      evaluation,
@@ -65,7 +66,7 @@ func NewTelemetryManager(
 	}
 }
 
-func getURLOverrides(cfg conf.AdvancedConfig) URLOverrides {
+func getURLOverrides(cfg conf.AdvancedConfig) dto.URLOverrides {
 	sdk := false
 	events := false
 	auth := false
@@ -83,7 +84,7 @@ func getURLOverrides(cfg conf.AdvancedConfig) URLOverrides {
 	if cfg.StreamingServiceURL != defaults.StreamingServiceURL {
 		streaming = true
 	}
-	return URLOverrides{
+	return dto.URLOverrides{
 		Sdk:    sdk,
 		Events: events,
 		Auth:   auth,
@@ -92,7 +93,7 @@ func getURLOverrides(cfg conf.AdvancedConfig) URLOverrides {
 }
 
 // BuildInitData returns config data
-func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) InitData {
+func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) dto.InitData {
 	operationMode := operationModeStandalone
 	storage := memory
 	if cfg.OperationMode == conf.RedisConsumer {
@@ -107,11 +108,11 @@ func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) InitData {
 	if len(strings.TrimSpace(os.Getenv("HTTP_PROXY"))) > 0 {
 		proxyEnabled = true
 	}
-	return InitData{
+	return dto.InitData{
 		OperationMode:    operationMode,
 		Storage:          storage,
 		StreamingEnabled: cfg.Advanced.StreamingEnabled,
-		Rates: Rates{
+		Rates: dto.Rates{
 			Splits:      int64(cfg.TaskPeriods.SplitSync),
 			Segments:    int64(cfg.TaskPeriods.SegmentSync),
 			Impressions: int64(cfg.TaskPeriods.ImpressionSync),
@@ -134,8 +135,8 @@ func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) InitData {
 }
 
 // BuildStatsData returns usage data
-func (m *ManagerImpl) BuildStatsData() StatsData {
-	return StatsData{
+func (m *ManagerImpl) BuildStatsData() dto.StatsData {
+	return dto.StatsData{
 		MethodLatencies:      m.evaluation.PopLatencies(),
 		MethodExceptions:     m.evaluation.PopExceptions(),
 		ImpressionsDropped:   m.impression.GetDroppedImpressions(),

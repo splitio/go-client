@@ -3,19 +3,37 @@ package telemetry
 import (
 	"time"
 
-	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-client/splitio/dto"
+	"github.com/splitio/go-client/splitio/storage"
+	commonStorage "github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/util"
+)
+
+const (
+	requested = iota
+	nonRequested
+)
+
+const (
+	eventTypeSSEConnectionEstablished = iota * 10
+	eventTypeOccupancyPri
+	eventTypeOccupancySec
+	eventTypeStreamingStatus
+	eventTypeConnectionError
+	eventTypeTokenRefresh
+	eventTypeAblyError
+	eventTypeSyncMode
 )
 
 // FacadeImpl keeps track metrics
 type FacadeImpl struct {
-	storage        TelemetryStorage
-	splitsStorage  storage.SplitStorageConsumer
-	segmentStorage storage.SegmentStorageConsumer
+	storage        storage.TelemetryStorage
+	splitsStorage  commonStorage.SplitStorageConsumer
+	segmentStorage commonStorage.SegmentStorageConsumer
 }
 
 // NewTelemetry builds FacadeImpl
-func NewTelemetry(telemetryStorage TelemetryStorage, splitStorage storage.SplitStorageConsumer, segmentStorage storage.SegmentStorageConsumer) TelemetryFacade {
+func NewTelemetry(telemetryStorage storage.TelemetryStorage, splitStorage commonStorage.SplitStorageConsumer, segmentStorage commonStorage.SegmentStorageConsumer) Facade {
 	return &FacadeImpl{
 		storage:        telemetryStorage,
 		splitsStorage:  splitStorage,
@@ -36,12 +54,12 @@ func (t *FacadeImpl) RecordLatency(method string, latency int64) {
 }
 
 // PopLatencies returns latencies
-func (t *FacadeImpl) PopLatencies() MethodLatencies {
+func (t *FacadeImpl) PopLatencies() dto.MethodLatencies {
 	return t.storage.PopLatencies()
 }
 
 // PopExceptions returns exceptions
-func (t *FacadeImpl) PopExceptions() MethodExceptions {
+func (t *FacadeImpl) PopExceptions() dto.MethodExceptions {
 	return t.storage.PopExceptions()
 }
 
@@ -132,19 +150,19 @@ func (t *FacadeImpl) RecordSuccessfulTokenGet() {
 }
 
 // GetLastSynchronization gets last sync records
-func (t *FacadeImpl) GetLastSynchronization() LastSynchronization {
+func (t *FacadeImpl) GetLastSynchronization() dto.LastSynchronization {
 	return t.storage.GetLastSynchronization()
 }
 
 // HTTP
 
 // PopHTTPErrors returns errors stored
-func (t *FacadeImpl) PopHTTPErrors() HTTPErrors {
+func (t *FacadeImpl) PopHTTPErrors() dto.HTTPErrors {
 	return t.storage.PopHTTPErrors()
 }
 
 // PopHTTPLatencies returns latencies stored
-func (t *FacadeImpl) PopHTTPLatencies() HTTPLatencies {
+func (t *FacadeImpl) PopHTTPLatencies() dto.HTTPLatencies {
 	return t.storage.PopHTTPLatencies()
 }
 
@@ -206,7 +224,7 @@ func (t *FacadeImpl) PopTokenRefreshes() int64 {
 
 // RecordPrimaryOccupancyChange records occupancy on primary
 func (t *FacadeImpl) RecordPrimaryOccupancyChange(newPublisherCount int64) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeOccupancyPri,
 		Data:      newPublisherCount,
 		Timestamp: time.Now().UTC().Unix(),
@@ -215,7 +233,7 @@ func (t *FacadeImpl) RecordPrimaryOccupancyChange(newPublisherCount int64) {
 
 // RecordSecondaryOccupancyChange records occupancy on secondary
 func (t *FacadeImpl) RecordSecondaryOccupancyChange(newPublisherCount int64) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeOccupancySec,
 		Data:      newPublisherCount,
 		Timestamp: time.Now().UTC().Unix(),
@@ -224,7 +242,7 @@ func (t *FacadeImpl) RecordSecondaryOccupancyChange(newPublisherCount int64) {
 
 // RecordConnectionSuccess records success on SSE
 func (t *FacadeImpl) RecordConnectionSuccess() {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeSSEConnectionEstablished,
 		Timestamp: time.Now().UTC().Unix(),
 	})
@@ -232,7 +250,7 @@ func (t *FacadeImpl) RecordConnectionSuccess() {
 
 // RecordStreamingServiceStatus records new status on streaming
 func (t *FacadeImpl) RecordStreamingServiceStatus(newStatus int) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeStreamingStatus,
 		Data:      int64(newStatus),
 		Timestamp: time.Now().UTC().Unix(),
@@ -241,7 +259,7 @@ func (t *FacadeImpl) RecordStreamingServiceStatus(newStatus int) {
 
 // RecordTokenRefresh records next expiration event
 func (t *FacadeImpl) RecordTokenRefresh(tokenExpirationUtcTs int64) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeTokenRefresh,
 		Data:      tokenExpirationUtcTs,
 		Timestamp: time.Now().UTC().Unix(),
@@ -250,7 +268,7 @@ func (t *FacadeImpl) RecordTokenRefresh(tokenExpirationUtcTs int64) {
 
 // RecordAblyError records erros in ably SSE
 func (t *FacadeImpl) RecordAblyError(statusCode int64) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeAblyError,
 		Data:      statusCode,
 		Timestamp: time.Now().UTC().Unix(),
@@ -263,7 +281,7 @@ func (t *FacadeImpl) RecordConnectionClose(wasRequested bool) {
 	if !wasRequested {
 		data = nonRequested
 	}
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeConnectionError,
 		Data:      int64(data),
 		Timestamp: time.Now().UTC().Unix(),
@@ -272,7 +290,7 @@ func (t *FacadeImpl) RecordConnectionClose(wasRequested bool) {
 
 // RecordSyncModeUpdate records updates in streaming
 func (t *FacadeImpl) RecordSyncModeUpdate(newSyncMode int64) {
-	t.storage.RecordStreamingEvent(StreamingEvent{
+	t.storage.RecordStreamingEvent(dto.StreamingEvent{
 		Type:      eventTypeSyncMode,
 		Data:      newSyncMode,
 		Timestamp: time.Now().UTC().Unix(),
@@ -280,7 +298,7 @@ func (t *FacadeImpl) RecordSyncModeUpdate(newSyncMode int64) {
 }
 
 // PopStreamingEvents returns all the stored StreamingEvents
-func (t *FacadeImpl) PopStreamingEvents() []StreamingEvent {
+func (t *FacadeImpl) PopStreamingEvents() []dto.StreamingEvent {
 	return t.storage.PopStreamingEvents()
 }
 

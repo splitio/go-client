@@ -1,24 +1,10 @@
-package telemetry
+package storage
 
 import (
 	"sync"
 	"sync/atomic"
-)
 
-const (
-	requested = iota
-	nonRequested
-)
-
-const (
-	eventTypeSSEConnectionEstablished = iota * 10
-	eventTypeOccupancyPri
-	eventTypeOccupancySec
-	eventTypeStreamingStatus
-	eventTypeConnectionError
-	eventTypeTokenRefresh
-	eventTypeAblyError
-	eventTypeSyncMode
+	"github.com/splitio/go-client/splitio/dto"
 )
 
 type latencies struct {
@@ -83,10 +69,10 @@ type records struct {
 // IMTelemetryStorage In Memoty Telemetry Storage struct
 type IMTelemetryStorage struct {
 	counters             counters
-	httpErrors           HTTPErrors
+	httpErrors           dto.HTTPErrors
 	latencies            latencies
 	records              records
-	streamingEvents      []StreamingEvent // Max Length 20
+	streamingEvents      []dto.StreamingEvent // Max Length 20
 	mutexStreamingEvents sync.RWMutex
 	tags                 []string
 	mutexTags            sync.RWMutex
@@ -144,7 +130,7 @@ func NewIMTelemetryStorage() TelemetryStorage {
 
 	return &IMTelemetryStorage{
 		counters: counters{},
-		httpErrors: HTTPErrors{
+		httpErrors: dto.HTTPErrors{
 			Splits:      make(map[int]int64),
 			Segments:    make(map[int]int64),
 			Impressions: make(map[int]int64),
@@ -167,7 +153,7 @@ func NewIMTelemetryStorage() TelemetryStorage {
 			telemetry:   telemetry,
 		},
 		records:              records{},
-		streamingEvents:      make([]StreamingEvent, 0, maxStreamingEvents),
+		streamingEvents:      make([]dto.StreamingEvent, 0, maxStreamingEvents),
 		mutexStreamingEvents: sync.RWMutex{},
 		tags:                 make([]string, 0, maxTags),
 		mutexTags:            sync.RWMutex{},
@@ -320,7 +306,7 @@ func (i *IMTelemetryStorage) RecordTokenRefreshes() {
 }
 
 // RecordStreamingEvent appends new streaming event
-func (i *IMTelemetryStorage) RecordStreamingEvent(event StreamingEvent) {
+func (i *IMTelemetryStorage) RecordStreamingEvent(event dto.StreamingEvent) {
 	i.mutexStreamingEvents.Lock()
 	defer i.mutexStreamingEvents.Unlock()
 	if len(i.streamingEvents) < maxStreamingEvents {
@@ -372,8 +358,8 @@ func (i *IMTelemetryStorage) RecordTimeUntilReady(time int64) {
 // TELEMETRY STORAGE CONSUMER
 
 // PopLatencies gets and clears method latencies
-func (i *IMTelemetryStorage) PopLatencies() MethodLatencies {
-	return MethodLatencies{
+func (i *IMTelemetryStorage) PopLatencies() dto.MethodLatencies {
+	return dto.MethodLatencies{
 		Treatment:            i.latencies.treatment.FetchAndClearAll(),
 		Treatments:           i.latencies.treatments.FetchAndClearAll(),
 		TreatmentWithConfig:  i.latencies.treatmentWithConfig.FetchAndClearAll(),
@@ -383,8 +369,8 @@ func (i *IMTelemetryStorage) PopLatencies() MethodLatencies {
 }
 
 // PopExceptions gets and clears method exceptions
-func (i *IMTelemetryStorage) PopExceptions() MethodExceptions {
-	return MethodExceptions{
+func (i *IMTelemetryStorage) PopExceptions() dto.MethodExceptions {
+	return dto.MethodExceptions{
 		Treatment:            atomic.SwapInt64(&i.counters.treatment, 0),
 		Treatments:           atomic.SwapInt64(&i.counters.treatments, 0),
 		TreatmentWithConfig:  atomic.SwapInt64(&i.counters.treatmentWithConfig, 0),
@@ -419,8 +405,8 @@ func (i *IMTelemetryStorage) GetQueuedEvents() int64 {
 }
 
 // GetLastSynchronization gets last synchronization stats for fetchers and recorders
-func (i *IMTelemetryStorage) GetLastSynchronization() LastSynchronization {
-	return LastSynchronization{
+func (i *IMTelemetryStorage) GetLastSynchronization() dto.LastSynchronization {
+	return dto.LastSynchronization{
 		Splits:      atomic.LoadInt64(&i.records.splits),
 		Segments:    atomic.LoadInt64(&i.records.segments),
 		Impressions: atomic.LoadInt64(&i.records.impressions),
@@ -431,7 +417,7 @@ func (i *IMTelemetryStorage) GetLastSynchronization() LastSynchronization {
 }
 
 // PopHTTPErrors gets http errors
-func (i *IMTelemetryStorage) PopHTTPErrors() HTTPErrors {
+func (i *IMTelemetryStorage) PopHTTPErrors() dto.HTTPErrors {
 	toReturn := i.httpErrors
 	i.httpErrors.Splits = make(map[int]int64)
 	i.httpErrors.Segments = make(map[int]int64)
@@ -443,8 +429,8 @@ func (i *IMTelemetryStorage) PopHTTPErrors() HTTPErrors {
 }
 
 // PopHTTPLatencies gets http latencies
-func (i *IMTelemetryStorage) PopHTTPLatencies() HTTPLatencies {
-	return HTTPLatencies{
+func (i *IMTelemetryStorage) PopHTTPLatencies() dto.HTTPLatencies {
+	return dto.HTTPLatencies{
 		Splits:      i.latencies.splits.FetchAndClearAll(),
 		Segments:    i.latencies.segments.FetchAndClearAll(),
 		Impressions: i.latencies.impressions.FetchAndClearAll(),
@@ -465,11 +451,11 @@ func (i *IMTelemetryStorage) PopTokenRefreshes() int64 {
 }
 
 // PopStreamingEvents gets streamingEvents data
-func (i *IMTelemetryStorage) PopStreamingEvents() []StreamingEvent {
+func (i *IMTelemetryStorage) PopStreamingEvents() []dto.StreamingEvent {
 	i.mutexStreamingEvents.Lock()
 	defer i.mutexStreamingEvents.Unlock()
 	toReturn := i.streamingEvents
-	i.streamingEvents = make([]StreamingEvent, 0, maxStreamingEvents)
+	i.streamingEvents = make([]dto.StreamingEvent, 0, maxStreamingEvents)
 	return toReturn
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/splitio/go-client/splitio/constants"
 	"github.com/splitio/go-client/splitio/dto"
 	"github.com/splitio/go-split-commons/util"
 )
@@ -23,18 +24,7 @@ func (t TestWrapper) GetByPrefix(prefix string) []interface{} {
 	return toReturn
 }
 
-func convertToInt64(item interface{}) int64 {
-	switch t := item.(type) {
-	case int64:
-		return t
-	case int:
-		return int64(t)
-	default:
-		return 0
-	}
-}
-
-func (t TestWrapper) GetItem(key string) int64 {
+func (t TestWrapper) GetItem(key string) interface{} {
 	asInterface, ok := t.data[key]
 	if !ok {
 		return 0
@@ -51,7 +41,7 @@ func (t TestWrapper) Increment(key string, value int64) {
 	t.data[key] = convertToInt64(asInterface) + value
 }
 
-func (t TestWrapper) PopItem(key string) int64 {
+func (t TestWrapper) PopItem(key string) interface{} {
 	asInterface, ok := t.data[key]
 	if !ok {
 		return 0
@@ -80,7 +70,7 @@ func (t TestWrapper) PushItem(key string, item interface{}) {
 	t.data[key] = slice
 }
 
-func (t TestWrapper) Set(key string, value int64) {
+func (t TestWrapper) Set(key string, value interface{}) {
 	t.data[key] = value
 }
 
@@ -91,9 +81,9 @@ func TestCustomStorage(t *testing.T) {
 		},
 	}
 
-	customStorage.RecordException(treatment)
-	customStorage.RecordException(treatments)
-	customStorage.RecordException(treatment)
+	customStorage.RecordException(constants.Treatment)
+	customStorage.RecordException(constants.Treatments)
+	customStorage.RecordException(constants.Treatment)
 	exceptions := customStorage.PopExceptions()
 	if exceptions.Treatment != 2 || exceptions.Treatments != 1 || exceptions.TreatmentWithConfig != 0 || exceptions.TreatmentWithConfigs != 0 || exceptions.Track != 0 {
 		t.Error("Wrong result")
@@ -103,12 +93,12 @@ func TestCustomStorage(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	customStorage.RecordLatency(treatment, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordLatency(treatment, util.Bucket((2000 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordLatency(treatments, util.Bucket((3000 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordLatency(treatments, util.Bucket((500 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordLatency(treatmentWithConfig, util.Bucket((800 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordLatency(treatmentsWithConfig, util.Bucket((1000 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.Treatment, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.Treatment, util.Bucket((2000 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.Treatments, util.Bucket((3000 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.Treatments, util.Bucket((500 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.TreatmentWithConfig, util.Bucket((800 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordLatency(constants.TreatmentsWithConfig, util.Bucket((1000 * time.Nanosecond).Nanoseconds()))
 	latencies := customStorage.PopLatencies()
 	if latencies.Treatment[1] != 1 || latencies.Treatment[2] != 1 {
 		t.Error("Wrong result")
@@ -127,63 +117,62 @@ func TestCustomStorage(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	customStorage.RecordQueuedImpressions(200)
-	customStorage.RecordDedupedImpressions(100)
-	customStorage.RecordDroppedImpressions(50)
-	customStorage.RecordQueuedImpressions(200)
-	if customStorage.GetDedupedImpressions() != 100 {
+	customStorage.RecordImpressionsStats(constants.ImpressionsQueued, 200)
+	customStorage.RecordImpressionsStats(constants.ImpressionsDeduped, 100)
+	customStorage.RecordImpressionsStats(constants.ImpressionsDropped, 50)
+	customStorage.RecordImpressionsStats(constants.ImpressionsQueued, 200)
+	if customStorage.GetImpressionsStats(constants.ImpressionsDeduped) != 100 {
 		t.Error("Wrong result")
 	}
-	if customStorage.GetQueuedmpressions() != 400 {
+	if customStorage.GetImpressionsStats(constants.ImpressionsQueued) != 400 {
 		t.Error("Wrong result")
 	}
-	if customStorage.GetDroppedImpressions() != 50 {
-		t.Error("Wrong result")
-	}
-
-	customStorage.RecordDroppedEvents(100)
-	customStorage.RecordQueuedEvents(10)
-	customStorage.RecordDroppedEvents(100)
-	customStorage.RecordQueuedEvents(10)
-	if customStorage.GetDroppedEvents() != 200 {
-		t.Error("Wrong result")
-	}
-	if customStorage.GetQueuedEvents() != 20 {
+	if customStorage.GetImpressionsStats(constants.ImpressionsDropped) != 50 {
 		t.Error("Wrong result")
 	}
 
-	customStorage.RecordSuccessfulSplitSync(time.Now().UnixNano())
+	customStorage.RecordEventsStats(constants.EventsDropped, 100)
+	customStorage.RecordEventsStats(constants.EventsQueued, 10)
+	customStorage.RecordEventsStats(constants.EventsDropped, 100)
+	customStorage.RecordEventsStats(constants.EventsQueued, 10)
+	if customStorage.GetEventsStats(constants.EventsDropped) != 200 {
+		t.Error("Wrong result")
+	}
+	if customStorage.GetEventsStats(constants.EventsQueued) != 20 {
+		t.Error("Wrong result")
+	}
+
+	customStorage.RecordSuccessfulSync(constants.SplitSync, time.Now().UnixNano())
 	time.Sleep(100 * time.Millisecond)
-	customStorage.RecordSuccessfulSegmentSync(time.Now().UnixNano())
+	customStorage.RecordSuccessfulSync(constants.SegmentSync, time.Now().UnixNano())
 	time.Sleep(100 * time.Millisecond)
-	customStorage.RecordSuccessfulImpressionSync(time.Now().UnixNano())
+	customStorage.RecordSuccessfulSync(constants.ImpressionSync, time.Now().UnixNano())
 	time.Sleep(100 * time.Millisecond)
-	customStorage.RecordSuccessfulEventsSync(time.Now().UnixNano())
+	customStorage.RecordSuccessfulSync(constants.EventSync, time.Now().UnixNano())
 	time.Sleep(100 * time.Millisecond)
-	customStorage.RecordSuccessfulTelemetrySync(time.Now().UnixNano())
+	customStorage.RecordSuccessfulSync(constants.TelemetrySync, time.Now().UnixNano())
 	time.Sleep(100 * time.Millisecond)
-	customStorage.RecordSuccessfulTokenGet(time.Now().UnixNano())
+	customStorage.RecordSuccessfulSync(constants.TokenSync, time.Now().UnixNano())
 	lastSynchronization := customStorage.GetLastSynchronization()
 	if lastSynchronization.Splits == 0 || lastSynchronization.Segments == 0 || lastSynchronization.Impressions == 0 || lastSynchronization.Events == 0 || lastSynchronization.Telemetry == 0 {
 		t.Error("Wrong result")
 	}
-
-	customStorage.RecordSyncError(splitSync, 500)
-	customStorage.RecordSyncError(splitSync, 500)
-	customStorage.RecordSyncError(splitSync, 500)
-	customStorage.RecordSyncError(splitSync, 500)
-	customStorage.RecordSyncError(splitSync, 500)
-	customStorage.RecordSyncError(segmentSync, 401)
-	customStorage.RecordSyncError(segmentSync, 401)
-	customStorage.RecordSyncError(segmentSync, 401)
-	customStorage.RecordSyncError(segmentSync, 404)
-	customStorage.RecordSyncError(impressionSync, 402)
-	customStorage.RecordSyncError(impressionSync, 402)
-	customStorage.RecordSyncError(impressionSync, 402)
-	customStorage.RecordSyncError(impressionSync, 402)
-	customStorage.RecordSyncError(eventSync, 400)
-	customStorage.RecordSyncError(telemetrySync, 401)
-	customStorage.RecordSyncError(tokenSync, 400)
+	customStorage.RecordSyncError(constants.SplitSync, 500)
+	customStorage.RecordSyncError(constants.SplitSync, 500)
+	customStorage.RecordSyncError(constants.SplitSync, 500)
+	customStorage.RecordSyncError(constants.SplitSync, 500)
+	customStorage.RecordSyncError(constants.SplitSync, 500)
+	customStorage.RecordSyncError(constants.SegmentSync, 401)
+	customStorage.RecordSyncError(constants.SegmentSync, 401)
+	customStorage.RecordSyncError(constants.SegmentSync, 401)
+	customStorage.RecordSyncError(constants.SegmentSync, 404)
+	customStorage.RecordSyncError(constants.ImpressionSync, 402)
+	customStorage.RecordSyncError(constants.ImpressionSync, 402)
+	customStorage.RecordSyncError(constants.ImpressionSync, 402)
+	customStorage.RecordSyncError(constants.ImpressionSync, 402)
+	customStorage.RecordSyncError(constants.EventSync, 400)
+	customStorage.RecordSyncError(constants.TelemetrySync, 401)
+	customStorage.RecordSyncError(constants.TokenSync, 400)
 	httpErrors := customStorage.PopHTTPErrors()
 	if httpErrors.Splits[500] != 5 || httpErrors.Segments[401] != 3 || httpErrors.Segments[404] != 1 || httpErrors.Impressions[402] != 4 || httpErrors.Events[400] != 1 || httpErrors.Telemetry[401] != 1 || httpErrors.Token[400] != 1 {
 		t.Error("Wrong result")
@@ -193,11 +182,11 @@ func TestCustomStorage(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	customStorage.RecordSyncLatency(splitSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordSyncLatency(splitSync, util.Bucket((3000 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordSyncLatency(splitSync, util.Bucket((4000 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordSyncLatency(segmentSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
-	customStorage.RecordSyncLatency(segmentSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordSyncLatency(constants.SplitSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordSyncLatency(constants.SplitSync, util.Bucket((3000 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordSyncLatency(constants.SplitSync, util.Bucket((4000 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordSyncLatency(constants.SegmentSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
+	customStorage.RecordSyncLatency(constants.SegmentSync, util.Bucket((1500 * time.Nanosecond).Nanoseconds()))
 	httpLatencies := customStorage.PopHTTPLatencies()
 	if httpLatencies.Splits[1] != 1 { // and so on
 		t.Error("Wrong result")
@@ -255,10 +244,6 @@ func TestCustomStorage(t *testing.T) {
 	customStorage.RecordBURTimeout()
 	customStorage.RecordBURTimeout()
 	customStorage.RecordBURTimeout()
-	customStorage.RecordFactory("123456789")
-	customStorage.RecordFactory("123456789")
-	customStorage.RecordFactory("123456789")
-	customStorage.RecordFactory("987654321")
 	customStorage.RecordNonReadyUsage()
 	customStorage.RecordNonReadyUsage()
 	customStorage.RecordNonReadyUsage()
@@ -268,18 +253,6 @@ func TestCustomStorage(t *testing.T) {
 		t.Error("Wrong result")
 	}
 	if customStorage.GetNonReadyUsages() != 5 {
-		t.Error("Wrong result")
-	}
-	if customStorage.GetActiveFactories() != 4 {
-		t.Error("Wrong result")
-	}
-	if customStorage.GetRedundantActiveFactories() != 2 {
-		t.Error("Wrong result")
-	}
-
-	customStorage.AddIntegration("some")
-	customStorage.AddIntegration("other")
-	if len(customStorage.GetIntegrations()) != 2 {
 		t.Error("Wrong result")
 	}
 }

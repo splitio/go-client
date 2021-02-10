@@ -5,25 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/splitio/go-client/splitio/constants"
 	"github.com/splitio/go-client/splitio/storage"
 	"github.com/splitio/go-split-commons/dtos"
 	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-toolkit/datastructures/set"
-)
-
-const (
-	treatment            = "getTreatment"
-	treatments           = "getTreatments"
-	treatmentWithConfig  = "getTreatmentWithConfig"
-	treatmentsWithConfig = "getTreatmentsWithConfig"
-	track                = "track"
-
-	splitSync      = "split"
-	segmentSync    = "segment"
-	impressionSync = "impression"
-	eventSync      = "event"
-	telemetrySync  = "telemetry"
-	tokenSync      = "token"
 )
 
 func TestTelemetryService(t *testing.T) {
@@ -41,15 +27,15 @@ func TestTelemetryService(t *testing.T) {
 
 	telemetryService := NewTelemetry(storage.NewIMTelemetryStorage(), splitStorage, segmentStorage)
 
-	telemetryService.RecordException(treatment)
-	telemetryService.RecordException(treatments)
-	telemetryService.RecordException(treatment)
-	telemetryService.RecordLatency(treatment, (1500 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordLatency(treatment, (2000 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordLatency(treatments, (3000 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordLatency(treatments, (500 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordLatency(treatmentWithConfig, (800 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordLatency(treatmentsWithConfig, (1000 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordException(constants.Treatment)
+	telemetryService.RecordException(constants.Treatments)
+	telemetryService.RecordException(constants.Treatment)
+	telemetryService.RecordLatency(constants.Treatment, (1500 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordLatency(constants.Treatment, (2000 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordLatency(constants.Treatments, (3000 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordLatency(constants.Treatments, (500 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordLatency(constants.TreatmentWithConfig, (800 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordLatency(constants.TreatmentsWithConfig, (1000 * time.Nanosecond).Nanoseconds())
 
 	exceptions := telemetryService.PopExceptions()
 	if exceptions.Treatment != 2 || exceptions.Treatments != 1 || exceptions.TreatmentWithConfig != 0 || exceptions.TreatmentWithConfigs != 0 || exceptions.Track != 0 {
@@ -77,69 +63,69 @@ func TestTelemetryService(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	telemetryService.RecordQueuedImpressions(200)
-	telemetryService.RecordDedupedImpressions(100)
-	telemetryService.RecordDroppedImpressions(50)
-	telemetryService.RecordQueuedImpressions(200)
-	if telemetryService.GetDedupedImpressions() != 100 {
+	telemetryService.RecordImpressionsStats(constants.ImpressionsQueued, 200)
+	telemetryService.RecordImpressionsStats(constants.ImpressionsDeduped, 100)
+	telemetryService.RecordImpressionsStats(constants.ImpressionsDropped, 50)
+	telemetryService.RecordImpressionsStats(constants.ImpressionsQueued, 200)
+	if telemetryService.GetImpressionsStats(constants.ImpressionsDeduped) != 100 {
 		t.Error("Wrong result")
 	}
-	if telemetryService.GetQueuedmpressions() != 400 {
+	if telemetryService.GetImpressionsStats(constants.ImpressionsQueued) != 400 {
 		t.Error("Wrong result")
 	}
-	if telemetryService.GetDroppedImpressions() != 50 {
-		t.Error("Wrong result")
-	}
-
-	telemetryService.RecordDroppedEvents(100)
-	telemetryService.RecordQueuedEvents(10)
-	telemetryService.RecordDroppedEvents(100)
-	telemetryService.RecordQueuedEvents(10)
-	if telemetryService.GetDroppedEvents() != 200 {
-		t.Error("Wrong result")
-	}
-	if telemetryService.GetQueuedEvents() != 20 {
+	if telemetryService.GetImpressionsStats(constants.ImpressionsDropped) != 50 {
 		t.Error("Wrong result")
 	}
 
-	telemetryService.RecordSuccessfulSplitSync()
+	telemetryService.RecordEventsStats(constants.EventsDropped, 100)
+	telemetryService.RecordEventsStats(constants.EventsQueued, 10)
+	telemetryService.RecordEventsStats(constants.EventsDropped, 100)
+	telemetryService.RecordEventsStats(constants.EventsQueued, 10)
+	if telemetryService.GetEventsStats(constants.EventsDropped) != 200 {
+		t.Error("Wrong result")
+	}
+	if telemetryService.GetEventsStats(constants.EventsQueued) != 20 {
+		t.Error("Wrong result")
+	}
+
+	telemetryService.RecordSuccessfulSync(constants.SplitSync)
 	time.Sleep(100 * time.Millisecond)
-	telemetryService.RecordSuccessfulSegmentSync()
+	telemetryService.RecordSuccessfulSync(constants.SegmentSync)
 	time.Sleep(100 * time.Millisecond)
-	telemetryService.RecordSuccessfulImpressionSync()
+	telemetryService.RecordSuccessfulSync(constants.ImpressionSync)
 	time.Sleep(100 * time.Millisecond)
-	telemetryService.RecordSuccessfulEventsSync()
+	telemetryService.RecordSuccessfulSync(constants.EventSync)
 	time.Sleep(100 * time.Millisecond)
-	telemetryService.RecordSuccessfulTelemetrySync()
+	telemetryService.RecordSuccessfulSync(constants.TelemetrySync)
 	time.Sleep(100 * time.Millisecond)
-	telemetryService.RecordSuccessfulTokenGet()
+	telemetryService.RecordSuccessfulSync(constants.TokenSync)
 
 	lastSynchronization := telemetryService.GetLastSynchronization()
 	if lastSynchronization.Splits == 0 || lastSynchronization.Segments == 0 || lastSynchronization.Impressions == 0 || lastSynchronization.Events == 0 || lastSynchronization.Telemetry == 0 {
 		t.Error("Wrong result")
 	}
 
-	telemetryService.RecordSyncError(splitSync, 500)
-	telemetryService.RecordSyncError(splitSync, 500)
-	telemetryService.RecordSyncError(splitSync, 500)
-	telemetryService.RecordSyncError(splitSync, 500)
-	telemetryService.RecordSyncError(splitSync, 500)
-	telemetryService.RecordSyncError(segmentSync, 401)
-	telemetryService.RecordSyncError(segmentSync, 401)
-	telemetryService.RecordSyncError(segmentSync, 401)
-	telemetryService.RecordSyncError(segmentSync, 404)
-	telemetryService.RecordSyncError(impressionSync, 402)
-	telemetryService.RecordSyncError(impressionSync, 402)
-	telemetryService.RecordSyncError(impressionSync, 402)
-	telemetryService.RecordSyncError(impressionSync, 402)
-	telemetryService.RecordSyncError(eventSync, 400)
-	telemetryService.RecordSyncError(telemetrySync, 401)
-	telemetryService.RecordSyncError(tokenSync, 400)
-	telemetryService.RecordSyncLatency(splitSync, (1500 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordSyncLatency(splitSync, (3000 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordSyncLatency(splitSync, (4000 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordSyncLatency(segmentSync, (1500 * time.Nanosecond).Nanoseconds())
-	telemetryService.RecordSyncLatency(segmentSync, (1500 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordSyncError(constants.SplitSync, 500)
+	telemetryService.RecordSyncError(constants.SplitSync, 500)
+	telemetryService.RecordSyncError(constants.SplitSync, 500)
+	telemetryService.RecordSyncError(constants.SplitSync, 500)
+	telemetryService.RecordSyncError(constants.SplitSync, 500)
+	telemetryService.RecordSyncError(constants.SegmentSync, 401)
+	telemetryService.RecordSyncError(constants.SegmentSync, 401)
+	telemetryService.RecordSyncError(constants.SegmentSync, 401)
+	telemetryService.RecordSyncError(constants.SegmentSync, 404)
+	telemetryService.RecordSyncError(constants.ImpressionSync, 402)
+	telemetryService.RecordSyncError(constants.ImpressionSync, 402)
+	telemetryService.RecordSyncError(constants.ImpressionSync, 402)
+	telemetryService.RecordSyncError(constants.ImpressionSync, 402)
+	telemetryService.RecordSyncError(constants.EventSync, 400)
+	telemetryService.RecordSyncError(constants.TelemetrySync, 401)
+	telemetryService.RecordSyncError(constants.TokenSync, 400)
+	telemetryService.RecordSyncLatency(constants.SplitSync, (1500 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordSyncLatency(constants.SplitSync, (3000 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordSyncLatency(constants.SplitSync, (4000 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordSyncLatency(constants.SegmentSync, (1500 * time.Nanosecond).Nanoseconds())
+	telemetryService.RecordSyncLatency(constants.SegmentSync, (1500 * time.Nanosecond).Nanoseconds())
 
 	httpErrors := telemetryService.PopHTTPErrors()
 	if httpErrors.Splits[500] != 5 || httpErrors.Segments[401] != 3 || httpErrors.Segments[404] != 1 || httpErrors.Impressions[402] != 4 || httpErrors.Events[400] != 1 || httpErrors.Telemetry[401] != 1 || httpErrors.Token[400] != 1 {
@@ -181,11 +167,11 @@ func TestTelemetryService(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	telemetryService.RecordAblyError(40010)
-	telemetryService.RecordConnectionSuccess()
-	telemetryService.RecordPrimaryOccupancyChange(10)
-	telemetryService.RecordSecondaryOccupancyChange(1)
-	telemetryService.RecordSyncModeUpdate(0)
+	telemetryService.RecordStreamingEvent(eventTypeAblyError, 40010)
+	telemetryService.RecordStreamingEvent(eventTypeSSEConnectionEstablished, 0)
+	telemetryService.RecordStreamingEvent(eventTypeOccupancyPri, 10)
+	telemetryService.RecordStreamingEvent(eventTypeOccupancySec, 1)
+	telemetryService.RecordStreamingEvent(eventTypeSyncMode, requested)
 
 	if len(telemetryService.PopStreamingEvents()) != 5 {
 		t.Error("Wrong result")
@@ -212,10 +198,6 @@ func TestTelemetryService(t *testing.T) {
 	telemetryService.RecordBURTimeout()
 	telemetryService.RecordBURTimeout()
 	telemetryService.RecordBURTimeout()
-	telemetryService.RecordFactory("123456789")
-	telemetryService.RecordFactory("123456789")
-	telemetryService.RecordFactory("123456789")
-	telemetryService.RecordFactory("987654321")
 	telemetryService.RecordNonReadyUsage()
 	telemetryService.RecordNonReadyUsage()
 	telemetryService.RecordNonReadyUsage()
@@ -225,18 +207,6 @@ func TestTelemetryService(t *testing.T) {
 		t.Error("Wrong result")
 	}
 	if telemetryService.GetNonReadyUsages() != 5 {
-		t.Error("Wrong result")
-	}
-	if telemetryService.GetActiveFactories() != 4 {
-		t.Error("Wrong result")
-	}
-	if telemetryService.GetRedundantActiveFactories() != 2 {
-		t.Error("Wrong result")
-	}
-
-	telemetryService.AddIntegration("some")
-	telemetryService.AddIntegration("other")
-	if len(telemetryService.GetIntegrations()) != 2 {
 		t.Error("Wrong result")
 	}
 }

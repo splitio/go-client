@@ -51,6 +51,11 @@ func removeInstanceFromTracker(apikey string) {
 	}
 }
 
+// GetFactoryInstances returns factory isntances
+func GetFactoryInstances() map[string]int64 {
+	return factoryInstances
+}
+
 // NewSplitFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
 func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, error) {

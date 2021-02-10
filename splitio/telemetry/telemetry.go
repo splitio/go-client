@@ -44,12 +44,12 @@ func NewTelemetry(telemetryStorage storage.TelemetryStorage, splitStorage common
 // EVALUATION
 
 // RecordException records exceptions
-func (t *FacadeImpl) RecordException(method string) {
+func (t *FacadeImpl) RecordException(method int) {
 	t.storage.RecordException(method)
 }
 
 // RecordLatency records latencies for method
-func (t *FacadeImpl) RecordLatency(method string, latency int64) {
+func (t *FacadeImpl) RecordLatency(method int, latency int64) {
 	t.storage.RecordLatency(method, util.Bucket(latency))
 }
 
@@ -65,88 +65,33 @@ func (t *FacadeImpl) PopExceptions() dto.MethodExceptions {
 
 // IMPRESSIONS
 
-// RecordQueuedImpressions increments queued impressions
-func (t *FacadeImpl) RecordQueuedImpressions(count int64) {
-	t.storage.RecordQueuedImpressions(count)
+// RecordImpressionsStats increments impressions data
+func (t *FacadeImpl) RecordImpressionsStats(dataType int, count int64) {
+	t.storage.RecordImpressionsStats(dataType, count)
 }
 
-// RecordDedupedImpressions increments dedupped impressions
-func (t *FacadeImpl) RecordDedupedImpressions(count int64) {
-	t.storage.RecordDedupedImpressions(count)
-}
-
-// RecordDroppedImpressions increments dropped impressions
-func (t *FacadeImpl) RecordDroppedImpressions(count int64) {
-	t.storage.RecordDroppedImpressions(count)
-}
-
-// GetDroppedImpressions returns dropped impressions
-func (t *FacadeImpl) GetDroppedImpressions() int64 {
-	return t.storage.GetDroppedImpressions()
-}
-
-// GetDedupedImpressions returns deduped impressions
-func (t *FacadeImpl) GetDedupedImpressions() int64 {
-	return t.storage.GetDedupedImpressions()
-}
-
-// GetQueuedmpressions returns queued impressions
-func (t *FacadeImpl) GetQueuedmpressions() int64 {
-	return t.storage.GetQueuedmpressions()
+// GetImpressionsStats returns impressions stats
+func (t *FacadeImpl) GetImpressionsStats(dataType int) int64 {
+	return t.storage.GetImpressionsStats(dataType)
 }
 
 // EVENTS
 
-// RecordDroppedEvents increments dropped events
-func (t *FacadeImpl) RecordDroppedEvents(count int64) {
-	t.storage.RecordDroppedEvents(count)
+// RecordEventsStats records events stats
+func (t *FacadeImpl) RecordEventsStats(dataType int, count int64) {
+	t.storage.RecordEventsStats(dataType, count)
 }
 
-// RecordQueuedEvents increments queued events
-func (t *FacadeImpl) RecordQueuedEvents(count int64) {
-	t.storage.RecordQueuedEvents(count)
-}
-
-// GetDroppedEvents returns dropped events
-func (t *FacadeImpl) GetDroppedEvents() int64 {
-	return t.storage.GetDroppedEvents()
-}
-
-// GetQueuedEvents returns queued events
-func (t *FacadeImpl) GetQueuedEvents() int64 {
-	return t.storage.GetQueuedEvents()
+// GetEventsStats returns events stats
+func (t *FacadeImpl) GetEventsStats(dataType int) int64 {
+	return t.storage.GetEventsStats(dataType)
 }
 
 // LAST SYNCHRONIZATION
 
-// RecordSuccessfulSplitSync records split sync
-func (t *FacadeImpl) RecordSuccessfulSplitSync() {
-	t.storage.RecordSuccessfulSplitSync(time.Now().UTC().UnixNano() / 1000000)
-}
-
-// RecordSuccessfulSegmentSync records segment sync
-func (t *FacadeImpl) RecordSuccessfulSegmentSync() {
-	t.storage.RecordSuccessfulSegmentSync(time.Now().UTC().UnixNano() / 1000000)
-}
-
-// RecordSuccessfulImpressionSync records impression sync
-func (t *FacadeImpl) RecordSuccessfulImpressionSync() {
-	t.storage.RecordSuccessfulImpressionSync(time.Now().UTC().UnixNano() / 1000000)
-}
-
-// RecordSuccessfulEventsSync records event sync
-func (t *FacadeImpl) RecordSuccessfulEventsSync() {
-	t.storage.RecordSuccessfulEventsSync(time.Now().UTC().UnixNano() / 1000000)
-}
-
-// RecordSuccessfulTelemetrySync records telemetry sync
-func (t *FacadeImpl) RecordSuccessfulTelemetrySync() {
-	t.storage.RecordSuccessfulTelemetrySync(time.Now().UTC().UnixNano() / 1000000)
-}
-
-// RecordSuccessfulTokenGet records token sync
-func (t *FacadeImpl) RecordSuccessfulTokenGet() {
-	t.storage.RecordSuccessfulTokenGet(time.Now().UTC().UnixNano() / 1000000)
+// RecordSuccessfulSync records sync
+func (t *FacadeImpl) RecordSuccessfulSync(resource int) {
+	t.storage.RecordSuccessfulSync(resource, time.Now().UTC().UnixNano()/1000000)
 }
 
 // GetLastSynchronization gets last sync records
@@ -167,13 +112,13 @@ func (t *FacadeImpl) PopHTTPLatencies() dto.HTTPLatencies {
 }
 
 // RecordSyncError records error
-func (t *FacadeImpl) RecordSyncError(path string, status int) {
-	t.storage.RecordSyncError(path, status)
+func (t *FacadeImpl) RecordSyncError(resource int, status int) {
+	t.storage.RecordSyncError(resource, status)
 }
 
 // RecordSyncLatency records latencies
-func (t *FacadeImpl) RecordSyncLatency(path string, latency int64) {
-	t.storage.RecordSyncLatency(path, util.Bucket(latency))
+func (t *FacadeImpl) RecordSyncLatency(resource int, latency int64) {
+	t.storage.RecordSyncLatency(resource, util.Bucket(latency))
 }
 
 // CACHE
@@ -222,79 +167,57 @@ func (t *FacadeImpl) PopTokenRefreshes() int64 {
 
 // STREAMING
 
-// RecordPrimaryOccupancyChange records occupancy on primary
-func (t *FacadeImpl) RecordPrimaryOccupancyChange(newPublisherCount int64) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeOccupancyPri,
-		Data:      newPublisherCount,
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordSecondaryOccupancyChange records occupancy on secondary
-func (t *FacadeImpl) RecordSecondaryOccupancyChange(newPublisherCount int64) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeOccupancySec,
-		Data:      newPublisherCount,
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordConnectionSuccess records success on SSE
-func (t *FacadeImpl) RecordConnectionSuccess() {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeSSEConnectionEstablished,
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordStreamingServiceStatus records new status on streaming
-func (t *FacadeImpl) RecordStreamingServiceStatus(newStatus int) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeStreamingStatus,
-		Data:      int64(newStatus),
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordTokenRefresh records next expiration event
-func (t *FacadeImpl) RecordTokenRefresh(tokenExpirationUtcTs int64) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeTokenRefresh,
-		Data:      tokenExpirationUtcTs,
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordAblyError records erros in ably SSE
-func (t *FacadeImpl) RecordAblyError(statusCode int64) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeAblyError,
-		Data:      statusCode,
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordConnectionClose records connections close
-func (t *FacadeImpl) RecordConnectionClose(wasRequested bool) {
-	data := requested
-	if !wasRequested {
-		data = nonRequested
+// RecordStreamingEvent records streaming event
+func (t *FacadeImpl) RecordStreamingEvent(eventType int, data int64) {
+	switch eventType {
+	case eventTypeOccupancyPri:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeOccupancyPri,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeOccupancySec:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeOccupancySec,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeSSEConnectionEstablished:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeSSEConnectionEstablished,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeStreamingStatus:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeStreamingStatus,
+			Data:      int64(data),
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeTokenRefresh:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeTokenRefresh,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeAblyError:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeAblyError,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeConnectionError:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeConnectionError,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
+	case eventTypeSyncMode:
+		t.storage.RecordStreamingEvent(dto.StreamingEvent{
+			Type:      eventTypeSyncMode,
+			Data:      data,
+			Timestamp: time.Now().UTC().Unix(),
+		})
 	}
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeConnectionError,
-		Data:      int64(data),
-		Timestamp: time.Now().UTC().Unix(),
-	})
-}
-
-// RecordSyncModeUpdate records updates in streaming
-func (t *FacadeImpl) RecordSyncModeUpdate(newSyncMode int64) {
-	t.storage.RecordStreamingEvent(dto.StreamingEvent{
-		Type:      eventTypeSyncMode,
-		Data:      newSyncMode,
-		Timestamp: time.Now().UTC().Unix(),
-	})
 }
 
 // PopStreamingEvents returns all the stored StreamingEvents
@@ -328,16 +251,6 @@ func (t *FacadeImpl) GetSessionLength() int64 {
 
 // FACTORY
 
-// AddIntegration adds integration to factory data
-func (t *FacadeImpl) AddIntegration(integration string) {
-	t.storage.AddIntegration(integration)
-}
-
-// RecordFactory stores factory
-func (t *FacadeImpl) RecordFactory(apikey string) {
-	t.storage.RecordFactory(apikey)
-}
-
 // RecordNonReadyUsage stores non ready usage
 func (t *FacadeImpl) RecordNonReadyUsage() {
 	t.storage.RecordNonReadyUsage()
@@ -348,26 +261,6 @@ func (t *FacadeImpl) RecordBURTimeout() {
 	t.storage.RecordBURTimeout()
 }
 
-// RecordTimeUntilReady stores time duration
-func (t *FacadeImpl) RecordTimeUntilReady(time int64) {
-	t.storage.RecordTimeUntilReady(time)
-}
-
-// GetIntegrations returns all the integrations stored
-func (t *FacadeImpl) GetIntegrations() []string {
-	return t.storage.GetIntegrations()
-}
-
-// GetActiveFactories gets active factories
-func (t *FacadeImpl) GetActiveFactories() int64 {
-	return t.storage.GetActiveFactories()
-}
-
-// GetRedundantActiveFactories gets redundant factories
-func (t *FacadeImpl) GetRedundantActiveFactories() int64 {
-	return t.storage.GetRedundantActiveFactories()
-}
-
 // GetNonReadyUsages gets non ready usages
 func (t *FacadeImpl) GetNonReadyUsages() int64 {
 	return t.storage.GetNonReadyUsages()
@@ -376,9 +269,4 @@ func (t *FacadeImpl) GetNonReadyUsages() int64 {
 // GetBURTimeouts gets bur timeots
 func (t *FacadeImpl) GetBURTimeouts() int64 {
 	return t.storage.GetBURTimeouts()
-}
-
-// GetTimeUntilReady returns stored session
-func (t *FacadeImpl) GetTimeUntilReady() int64 {
-	return t.storage.GetTimeUntilReady()
 }

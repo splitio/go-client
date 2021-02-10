@@ -7,23 +7,43 @@ import (
 
 // Manager interface for building regular data
 type Manager interface {
-	BuildInitData(cfg *conf.SplitSdkConfig) dto.InitData
+	BuildInitData(cfg *conf.SplitSdkConfig, timedUntilReady int64, factoryInstances map[string]int64) dto.InitData
 	BuildStatsData() dto.StatsData
 }
 
 // Facade adapter
 type Facade interface {
-	FactoryTelemetry
-	EvaluationTelemetry
-	ImpressionTelemetry
-	EventTelemetry
-	SynchronizationTelemetry
-	HTTPTelemetry
-	CacheTelemetry
-	PushTelemetry
-	StreamingTelemetry
-	MiscTelemetry
-	SDKInfoTelemetry
+	FacadeConsumer
+	FacadeProducer
+}
+
+// FacadeProducer producer
+type FacadeProducer interface {
+	FactoryTelemetryProducer
+	EvaluationTelemetryProducer
+	ImpressionTelemetryProducer
+	EventTelemetryProducer
+	SynchronizationTelemetryProducer
+	HTTPTelemetryProducer
+	PushTelemetryProducer
+	StreamingTelemetryProducer
+	MiscTelemetryProducer
+	SDKInfoTelemetryProducer
+}
+
+// FacadeConsumer adapter
+type FacadeConsumer interface {
+	FactoryTelemetryConsumer
+	EvaluationTelemetryConsumer
+	ImpressionTelemetryConsumer
+	EventTelemetryConsumer
+	SynchronizationTelemetryConsumer
+	HTTPTelemetryConsumer
+	CacheTelemetryConsumer
+	PushTelemetryConsumer
+	StreamingTelemetryConsumer
+	MiscTelemetryConsumer
+	SDKInfoTelemetryConsumer
 }
 
 // EvaluationTelemetry as used by the client
@@ -40,8 +60,8 @@ type EvaluationTelemetryConsumer interface { // Client
 
 // EvaluationTelemetryProducer writer
 type EvaluationTelemetryProducer interface { // Client
-	RecordLatency(method string, latency int64)
-	RecordException(method string)
+	RecordLatency(method int, latency int64)
+	RecordException(method int)
 }
 
 // ImpressionTelemetry includes the subset of telemetry operations triggered from the impressions manager
@@ -52,16 +72,12 @@ type ImpressionTelemetry interface { // ImpressionManager
 
 // ImpressionTelemetryConsumer reader
 type ImpressionTelemetryConsumer interface {
-	GetDroppedImpressions() int64
-	GetDedupedImpressions() int64
-	GetQueuedmpressions() int64
+	GetImpressionsStats(dataType int) int64
 }
 
 // ImpressionTelemetryProducer writer
 type ImpressionTelemetryProducer interface { // ImpressionManager
-	RecordDroppedImpressions(count int64)
-	RecordDedupedImpressions(count int64)
-	RecordQueuedImpressions(count int64)
+	RecordImpressionsStats(dataType int, count int64)
 }
 
 // EventTelemetry includes the subset of telemetry operations
@@ -72,14 +88,12 @@ type EventTelemetry interface {
 
 // EventTelemetryConsumer reader
 type EventTelemetryConsumer interface {
-	GetDroppedEvents() int64
-	GetQueuedEvents() int64
+	GetEventsStats(dataType int) int64
 }
 
 // EventTelemetryProducer writer
 type EventTelemetryProducer interface {
-	RecordDroppedEvents(count int64)
-	RecordQueuedEvents(count int64)
+	RecordEventsStats(dataType int, count int64)
 }
 
 // SynchronizationTelemetry is referenced by the synchronizer to record
@@ -95,12 +109,7 @@ type SynchronizationTelemetryConsumer interface {
 
 // SynchronizationTelemetryProducer writer
 type SynchronizationTelemetryProducer interface {
-	RecordSuccessfulSplitSync()
-	RecordSuccessfulSegmentSync()
-	RecordSuccessfulImpressionSync()
-	RecordSuccessfulEventsSync()
-	RecordSuccessfulTelemetrySync()
-	RecordSuccessfulTokenGet()
+	RecordSuccessfulSync(resource int)
 }
 
 // HTTPTelemetry is the interface used by all HTTP-related classes to track request's outcome
@@ -117,8 +126,8 @@ type HTTPTelemetryConsumer interface {
 
 // HTTPTelemetryProducer writer
 type HTTPTelemetryProducer interface {
-	RecordSyncError(path string, status int)
-	RecordSyncLatency(path string, latency int64)
+	RecordSyncError(resource int, status int)
+	RecordSyncLatency(resource int, latency int64)
 }
 
 // CacheTelemetry is the interface for cached data
@@ -164,14 +173,7 @@ type StreamingTelemetryConsumer interface {
 
 // StreamingTelemetryProducer writer
 type StreamingTelemetryProducer interface {
-	RecordPrimaryOccupancyChange(newPublisherCount int64)   // NotificationManagerKeeper / PushStatusKeeper
-	RecordSecondaryOccupancyChange(newPublisherCount int64) // NotificationManagerKeeper / PushStatusKeeper
-	RecordConnectionSuccess()                               // PushStatusHandler (SyncManager)
-	RecordStreamingServiceStatus(newStatus int)             // NotificationManagerKeeper / PushStatusKeeper
-	RecordTokenRefresh(tokenExpirationUtcTs int64)          // Authenticator / AuthApiClient
-	RecordAblyError(statusCode int64)                       // NotificationManagerKeeper / PushStatusKeeper
-	RecordConnectionClose(wasRequested bool)                // SSEClient
-	RecordSyncModeUpdate(newSyncMode int64)                 // NotificationManagerKeeper / PushStatusKeeper
+	RecordStreamingEvent(eventType int, data int64)
 }
 
 // MiscTelemetry interface por misc data
@@ -214,19 +216,12 @@ type FactoryTelemetry interface {
 
 // FactoryTelemetryConsumer reader
 type FactoryTelemetryConsumer interface {
-	GetIntegrations() []string
-	GetActiveFactories() int64
-	GetRedundantActiveFactories() int64
 	GetNonReadyUsages() int64
 	GetBURTimeouts() int64
-	GetTimeUntilReady() int64
 }
 
 // FactoryTelemetryProducer writer
 type FactoryTelemetryProducer interface {
-	AddIntegration(integration string)
-	RecordFactory(apikey string)
 	RecordNonReadyUsage()
 	RecordBURTimeout()
-	RecordTimeUntilReady(time int64)
 }

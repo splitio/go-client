@@ -42,3 +42,14 @@ func (a AtomicInt64Slice) FetchAndClearAll() []int64 {
 	}
 	return toRet
 }
+
+func convertToInt64(item interface{}) int64 {
+	switch t := item.(type) {
+	case int64:
+		return t
+	case int:
+		return int64(t)
+	default:
+		return 0
+	}
+}

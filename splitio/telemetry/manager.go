@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-client/splitio/constants"
 	"github.com/splitio/go-client/splitio/dto"
 	defaultConfig "github.com/splitio/go-split-commons/conf"
 )
@@ -24,45 +25,13 @@ const (
 
 // ManagerImpl struct for building metrics
 type ManagerImpl struct {
-	factory         FactoryTelemetryConsumer
-	evaluation      EvaluationTelemetryConsumer
-	impression      ImpressionTelemetryConsumer
-	event           EventTelemetryConsumer
-	synchronization SynchronizationTelemetryConsumer
-	http            HTTPTelemetryConsumer
-	cache           CacheTelemetryConsumer
-	push            PushTelemetryConsumer
-	streaming       StreamingTelemetryConsumer
-	sdk             SDKInfoTelemetryConsumer
-	misc            MiscTelemetryConsumer
+	telemetryConsumer FacadeConsumer
 }
 
 // NewTelemetryManager creates new manager
-func NewTelemetryManager(
-	factory FactoryTelemetryConsumer,
-	evaluation EvaluationTelemetryConsumer,
-	impression ImpressionTelemetryConsumer,
-	event EventTelemetryConsumer,
-	synchronization SynchronizationTelemetryConsumer,
-	http HTTPTelemetryConsumer,
-	cache CacheTelemetryConsumer,
-	push PushTelemetryConsumer,
-	streaming StreamingTelemetryConsumer,
-	sdk SDKInfoTelemetryConsumer,
-	misc MiscTelemetryConsumer,
-) Manager {
+func NewTelemetryManager(telemetryConsumer FacadeConsumer) Manager {
 	return &ManagerImpl{
-		factory:         factory,
-		evaluation:      evaluation,
-		impression:      impression,
-		event:           event,
-		synchronization: synchronization,
-		http:            http,
-		cache:           cache,
-		push:            push,
-		streaming:       streaming,
-		sdk:             sdk,
-		misc:            misc,
+		telemetryConsumer: telemetryConsumer,
 	}
 }
 
@@ -93,7 +62,7 @@ func getURLOverrides(cfg conf.AdvancedConfig) dto.URLOverrides {
 }
 
 // BuildInitData returns config data
-func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) dto.InitData {
+func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig, timedUntilReady int64, factoryInstances map[string]int64) dto.InitData {
 	operationMode := operationModeStandalone
 	storage := memory
 	if cfg.OperationMode == conf.RedisConsumer {
@@ -125,35 +94,35 @@ func (m *ManagerImpl) BuildInitData(cfg *conf.SplitSdkConfig) dto.InitData {
 		ImpressionsMode:            impressionsMode,
 		ImpressionsListenerEnabled: cfg.Advanced.ImpressionListener != nil,
 		HTTPProxyDetected:          proxyEnabled,
-		ActiveFactories:            m.factory.GetActiveFactories(),
-		RedundantFactories:         m.factory.GetRedundantActiveFactories(),
-		TimeUntilReady:             m.factory.GetTimeUntilReady(),
-		BurTimeouts:                m.factory.GetBURTimeouts(),
-		NonReadyUsages:             m.factory.GetNonReadyUsages(),
-		Tags:                       m.misc.PopTags(),
+		// ActiveFactories:            m.telemetryConsumer.GetActiveFactories(),
+		// RedundantFactories:         m.telemetryConsumer.GetRedundantActiveFactories(),
+		TimeUntilReady: timedUntilReady,
+		BurTimeouts:    m.telemetryConsumer.GetBURTimeouts(),
+		NonReadyUsages: m.telemetryConsumer.GetNonReadyUsages(),
+		Tags:           m.telemetryConsumer.PopTags(),
 	}
 }
 
 // BuildStatsData returns usage data
 func (m *ManagerImpl) BuildStatsData() dto.StatsData {
 	return dto.StatsData{
-		MethodLatencies:      m.evaluation.PopLatencies(),
-		MethodExceptions:     m.evaluation.PopExceptions(),
-		ImpressionsDropped:   m.impression.GetDroppedImpressions(),
-		ImpressionsDeduped:   m.impression.GetDedupedImpressions(),
-		ImpressionsQueued:    m.impression.GetQueuedmpressions(),
-		EventsQueued:         m.event.GetQueuedEvents(),
-		EventsDropped:        m.event.GetDroppedEvents(),
-		LastSynchronizations: m.synchronization.GetLastSynchronization(),
-		HTTPErrors:           m.http.PopHTTPErrors(),
-		HTTPLatencies:        m.http.PopHTTPLatencies(),
-		SplitCount:           m.cache.GetSplitsCount(),
-		SegmentCount:         m.cache.GetSegmentsCount(),
-		SegmentKeyCount:      m.cache.GetSegmentKeysCount(),
-		TokenRefreshes:       m.push.PopTokenRefreshes(),
-		AuthRejections:       m.push.PopAuthRejections(),
-		StreamingEvents:      m.streaming.PopStreamingEvents(),
-		SessionLengthMs:      m.sdk.GetSessionLength(),
-		Tags:                 m.misc.PopTags(),
+		MethodLatencies:      m.telemetryConsumer.PopLatencies(),
+		MethodExceptions:     m.telemetryConsumer.PopExceptions(),
+		ImpressionsDropped:   m.telemetryConsumer.GetImpressionsStats(constants.ImpressionsDropped),
+		ImpressionsDeduped:   m.telemetryConsumer.GetImpressionsStats(constants.ImpressionsDeduped),
+		ImpressionsQueued:    m.telemetryConsumer.GetImpressionsStats(constants.ImpressionsQueued),
+		EventsQueued:         m.telemetryConsumer.GetEventsStats(constants.EventsQueued),
+		EventsDropped:        m.telemetryConsumer.GetEventsStats(constants.EventsDropped),
+		LastSynchronizations: m.telemetryConsumer.GetLastSynchronization(),
+		HTTPErrors:           m.telemetryConsumer.PopHTTPErrors(),
+		HTTPLatencies:        m.telemetryConsumer.PopHTTPLatencies(),
+		SplitCount:           m.telemetryConsumer.GetSplitsCount(),
+		SegmentCount:         m.telemetryConsumer.GetSegmentsCount(),
+		SegmentKeyCount:      m.telemetryConsumer.GetSegmentKeysCount(),
+		TokenRefreshes:       m.telemetryConsumer.PopTokenRefreshes(),
+		AuthRejections:       m.telemetryConsumer.PopAuthRejections(),
+		StreamingEvents:      m.telemetryConsumer.PopStreamingEvents(),
+		SessionLengthMs:      m.telemetryConsumer.GetSessionLength(),
+		Tags:                 m.telemetryConsumer.PopTags(),
 	}
 }

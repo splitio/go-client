@@ -78,6 +78,8 @@ type IMTelemetryStorage struct {
 	mutexTags            sync.RWMutex
 	factories            map[string]int64
 	mutexFactories       sync.RWMutex
+	integrations         []string
+	mutexIntegrations    sync.RWMutex
 }
 
 // NewIMTelemetryStorage builds in memory telemetry storage
@@ -159,6 +161,8 @@ func NewIMTelemetryStorage() TelemetryStorage {
 		mutexTags:            sync.RWMutex{},
 		factories:            make(map[string]int64),
 		mutexFactories:       sync.RWMutex{},
+		integrations:         make([]string, 0, maxIntegrations),
+		mutexIntegrations:    sync.RWMutex{},
 	}
 }
 
@@ -355,6 +359,15 @@ func (i *IMTelemetryStorage) RecordTimeUntilReady(time int64) {
 	atomic.StoreInt64(&i.records.timeUntilReady, 1)
 }
 
+// AddIntegration adds particular integration
+func (i *IMTelemetryStorage) AddIntegration(integration string) {
+	i.mutexIntegrations.Lock()
+	defer i.mutexIntegrations.Unlock()
+	if len(i.integrations) < maxIntegrations {
+		i.integrations = append(i.integrations, integration)
+	}
+}
+
 // TELEMETRY STORAGE CONSUMER
 
 // PopLatencies gets and clears method latencies
@@ -510,4 +523,13 @@ func (i *IMTelemetryStorage) GetBURTimeouts() int64 {
 // GetTimeUntilReady gets duration until ready
 func (i *IMTelemetryStorage) GetTimeUntilReady() int64 {
 	return atomic.LoadInt64(&i.records.timeUntilReady)
+}
+
+// GetIntegrations returns all the integrations stored
+func (i *IMTelemetryStorage) GetIntegrations() []string {
+	i.mutexIntegrations.Lock()
+	defer i.mutexIntegrations.Unlock()
+	toReturn := i.integrations
+	i.integrations = make([]string, 0, maxIntegrations)
+	return toReturn
 }

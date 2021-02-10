@@ -23,6 +23,7 @@ const (
 	maxStreamingEvents = 20
 	maxTags            = 10
 	latencyBucketCount = 23
+	maxIntegrations    = 10
 )
 
 // TelemetryStorage interface
@@ -53,6 +54,7 @@ type TelemetryStorageConsumer interface {
 	GetNonReadyUsages() int64
 	GetBURTimeouts() int64
 	GetTimeUntilReady() int64
+	GetIntegrations() []string
 }
 
 // TelemetryStorageProducer producer interface
@@ -81,4 +83,5 @@ type TelemetryStorageProducer interface {
 	RecordNonReadyUsage()
 	RecordBURTimeout()
 	RecordTimeUntilReady(time int64)
+	AddIntegration(integration string)
 }

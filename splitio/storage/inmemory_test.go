@@ -200,4 +200,10 @@ func TestTelemetryStorage(t *testing.T) {
 	if telemetryStorage.GetRedundantActiveFactories() != 2 {
 		t.Error("Wrong result")
 	}
+
+	telemetryStorage.AddIntegration("some")
+	telemetryStorage.AddIntegration("other")
+	if len(telemetryStorage.GetIntegrations()) != 2 {
+		t.Error("Wrong result")
+	}
 }

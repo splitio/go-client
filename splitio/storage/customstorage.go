@@ -30,6 +30,7 @@ const (
 	nonReadyUsagesKey     = "nonreadyusage"
 	burTimeoutsKey        = "burtimeouts"
 	timeUntilReadyKey     = "timeuntilready"
+	integrationKey        = "integrations"
 )
 
 // CustomTelemetryWrapper interface for pluggable storages
@@ -174,6 +175,11 @@ func (u *UserCustomTelemetryAdapter) RecordBURTimeout() {
 // RecordTimeUntilReady records time took until ready
 func (u *UserCustomTelemetryAdapter) RecordTimeUntilReady(time int64) {
 	u.wrapper.Set(fmt.Sprintf("%s::%s", factoryKey, timeUntilReadyKey), 1)
+}
+
+// AddIntegration adds particular integration
+func (u *UserCustomTelemetryAdapter) AddIntegration(integration string) {
+	u.wrapper.PushItem(fmt.Sprintf("%s", integrationKey), integration)
 }
 
 // TELEMETRY STORAGE CONSUMER
@@ -381,4 +387,14 @@ func (u *UserCustomTelemetryAdapter) GetBURTimeouts() int64 {
 // GetTimeUntilReady gets duration until ready
 func (u *UserCustomTelemetryAdapter) GetTimeUntilReady() int64 {
 	return u.wrapper.GetItem(fmt.Sprintf("%s::%s", factoryKey, timeUntilReadyKey))
+}
+
+// GetIntegrations gets total amount of integrations
+func (u *UserCustomTelemetryAdapter) GetIntegrations() []string {
+	items := u.wrapper.PopItems(fmt.Sprintf("%s", integrationKey))
+	tags, ok := items.([]string)
+	if !ok {
+		return []string{}
+	}
+	return tags
 }

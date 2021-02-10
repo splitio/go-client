@@ -17,6 +17,7 @@ type InitData struct {
 	TimeUntilReady             int64        `json:"tR,omitempty"`
 	BurTimeouts                int64        `json:"bT,omitempty"`
 	NonReadyUsages             int64        `json:"nR,omitempty"`
+	Integrations               []string     `json:"i"`
 	Tags                       []string     `json:"t"`
 }
 

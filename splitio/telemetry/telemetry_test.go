@@ -233,4 +233,10 @@ func TestTelemetryService(t *testing.T) {
 	if telemetryService.GetRedundantActiveFactories() != 2 {
 		t.Error("Wrong result")
 	}
+
+	telemetryService.AddIntegration("some")
+	telemetryService.AddIntegration("other")
+	if len(telemetryService.GetIntegrations()) != 2 {
+		t.Error("Wrong result")
+	}
 }

@@ -328,6 +328,11 @@ func (t *FacadeImpl) GetSessionLength() int64 {
 
 // FACTORY
 
+// AddIntegration adds integration to factory data
+func (t *FacadeImpl) AddIntegration(integration string) {
+	t.storage.AddIntegration(integration)
+}
+
 // RecordFactory stores factory
 func (t *FacadeImpl) RecordFactory(apikey string) {
 	t.storage.RecordFactory(apikey)
@@ -346,6 +351,11 @@ func (t *FacadeImpl) RecordBURTimeout() {
 // RecordTimeUntilReady stores time duration
 func (t *FacadeImpl) RecordTimeUntilReady(time int64) {
 	t.storage.RecordTimeUntilReady(time)
+}
+
+// GetIntegrations returns all the integrations stored
+func (t *FacadeImpl) GetIntegrations() []string {
+	return t.storage.GetIntegrations()
 }
 
 // GetActiveFactories gets active factories

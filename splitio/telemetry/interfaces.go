@@ -224,6 +224,7 @@ type FactoryTelemetry interface {
 
 // FactoryTelemetryConsumer reader
 type FactoryTelemetryConsumer interface {
+	GetIntegrations() []string
 	GetActiveFactories() int64
 	GetRedundantActiveFactories() int64
 	GetNonReadyUsages() int64
@@ -233,6 +234,7 @@ type FactoryTelemetryConsumer interface {
 
 // FactoryTelemetryProducer writer
 type FactoryTelemetryProducer interface {
+	AddIntegration(integration string)
 	RecordFactory(apikey string)
 	RecordNonReadyUsage()
 	RecordBURTimeout()

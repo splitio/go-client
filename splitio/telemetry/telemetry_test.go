@@ -37,7 +37,7 @@ func TestTelemetryService(t *testing.T) {
 	}
 	splitStorage.PutMany(splits, 123)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
-	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
+	segmentStorage.Update("some", set.NewSet("doc", "redo"), set.NewSet(), 123456789)
 
 	telemetryService := NewTelemetry(storage.NewIMTelemetryStorage(), splitStorage, segmentStorage)
 
@@ -200,7 +200,7 @@ func TestTelemetryService(t *testing.T) {
 	}
 
 	telemetryService.AddTag("redo")
-	telemetryService.AddTag("yaris")
+	telemetryService.AddTag("doc")
 	tags := telemetryService.PopTags()
 	if len(tags) != 2 {
 		t.Error("Wrong result")

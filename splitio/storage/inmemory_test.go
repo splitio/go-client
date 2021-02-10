@@ -167,7 +167,7 @@ func TestTelemetryStorage(t *testing.T) {
 	}
 
 	telemetryStorage.AddTag("redo")
-	telemetryStorage.AddTag("yaris")
+	telemetryStorage.AddTag("doc")
 	tags := telemetryStorage.PopTags()
 	if len(tags) != 2 {
 		t.Error("Wrong result")

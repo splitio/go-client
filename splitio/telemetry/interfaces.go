@@ -13,27 +13,17 @@ type Manager interface {
 
 // Facade adapter
 type Facade interface {
-	FactoryTelemetryConsumer
-	FactoryTelemetryProducer
-	EvaluationTelemetryConsumer
-	EvaluationTelemetryProducer
-	ImpressionTelemetryConsumer
-	ImpressionTelemetryProducer
-	EventTelemetryConsumer
-	EventTelemetryProducer
-	SynchronizationTelemetryConsumer
-	SynchronizationTelemetryProducer
-	HTTPTelemetryConsumer
-	HTTPTelemetryProducer
-	CacheTelemetryConsumer
-	PushTelemetryConsumer
-	PushTelemetryProducer
-	StreamingTelemetryConsumer
-	StreamingTelemetryProducer
-	MiscTelemetryConsumer
-	MiscTelemetryProducer
-	SDKInfoTelemetryConsumer
-	SDKInfoTelemetryProducer
+	FactoryTelemetry
+	EvaluationTelemetry
+	ImpressionTelemetry
+	EventTelemetry
+	SynchronizationTelemetry
+	HTTPTelemetry
+	CacheTelemetry
+	PushTelemetry
+	StreamingTelemetry
+	MiscTelemetry
+	SDKInfoTelemetry
 }
 
 // EvaluationTelemetry as used by the client

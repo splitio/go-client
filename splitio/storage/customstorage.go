@@ -185,7 +185,7 @@ func (u *UserCustomTelemetryAdapter) AddIntegration(integration string) {
 // TELEMETRY STORAGE CONSUMER
 
 func (u *UserCustomTelemetryAdapter) parseLatency(key string, method string) []int64 {
-	latencies := make([]int64, 0, latencyBucketCount)
+	latencies := make([]int64, latencyBucketCount)
 	for i := 0; i < latencyBucketCount; i++ {
 		key := fmt.Sprintf("%s::latency::%s::%d", key, method, i)
 		latencies[i] = u.wrapper.PopItem(key)
@@ -310,22 +310,38 @@ func (u *UserCustomTelemetryAdapter) PopTokenRefreshes() int64 {
 
 // PopStreamingEvents gets streamingEvents data
 func (u *UserCustomTelemetryAdapter) PopStreamingEvents() []dto.StreamingEvent {
+	toReturn := make([]dto.StreamingEvent, 0, maxStreamingEvents)
 	items := u.wrapper.PopItems(fmt.Sprintf("%s", streamingKey))
-	streamingEvents, ok := items.([]dto.StreamingEvent)
+	streamingEventsAsInterface, ok := items.([]interface{})
 	if !ok {
-		return []dto.StreamingEvent{}
+		return toReturn
 	}
-	return streamingEvents
+	for _, asInterface := range streamingEventsAsInterface {
+		streamingEvent, ok := asInterface.(dto.StreamingEvent)
+		if !ok {
+			continue
+		}
+		toReturn = append(toReturn, streamingEvent)
+	}
+	return toReturn
 }
 
 // PopTags gets total amount of tags
 func (u *UserCustomTelemetryAdapter) PopTags() []string {
+	toReturn := make([]string, 0, maxTags)
 	items := u.wrapper.PopItems(fmt.Sprintf("%s", tagKey))
-	tags, ok := items.([]string)
+	tagsAsInterface, ok := items.([]interface{})
 	if !ok {
-		return []string{}
+		return toReturn
 	}
-	return tags
+	for _, asInterface := range tagsAsInterface {
+		tag, ok := asInterface.(string)
+		if !ok {
+			continue
+		}
+		toReturn = append(toReturn, tag)
+	}
+	return toReturn
 }
 
 // GetSessionLength gets session duration
@@ -391,10 +407,18 @@ func (u *UserCustomTelemetryAdapter) GetTimeUntilReady() int64 {
 
 // GetIntegrations gets total amount of integrations
 func (u *UserCustomTelemetryAdapter) GetIntegrations() []string {
+	toReturn := make([]string, 0, maxTags)
 	items := u.wrapper.PopItems(fmt.Sprintf("%s", integrationKey))
-	tags, ok := items.([]string)
+	integrationAsInterface, ok := items.([]interface{})
 	if !ok {
-		return []string{}
+		return toReturn
 	}
-	return tags
+	for _, asInterface := range integrationAsInterface {
+		integration, ok := asInterface.(string)
+		if !ok {
+			continue
+		}
+		toReturn = append(toReturn, integration)
+	}
+	return toReturn
 }

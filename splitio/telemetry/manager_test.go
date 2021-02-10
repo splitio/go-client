@@ -24,7 +24,7 @@ func TestManager(t *testing.T) {
 	}
 	splitStorage.PutMany(splits, 123)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
-	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
+	segmentStorage.Update("some", set.NewSet("doc", "redo"), set.NewSet(), 123456789)
 
 	telemetryService := NewTelemetry(storage.NewIMTelemetryStorage(), splitStorage, segmentStorage)
 

@@ -1,30 +1,14 @@
 package storage
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/splitio/go-client/splitio/dto"
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/storage/mutexmap"
 	"github.com/splitio/go-split-commons/util"
-	"github.com/splitio/go-toolkit/datastructures/set"
 )
 
 func TestTelemetryStorage(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
-	splits := make([]dtos.SplitDTO, 0, 10)
-	for index := 0; index < 10; index++ {
-		splits = append(splits, dtos.SplitDTO{
-			Name: fmt.Sprintf("SomeSplit_%d", index),
-			Algo: index,
-		})
-	}
-	splitStorage.PutMany(splits, 123)
-	segmentStorage := mutexmap.NewMMSegmentStorage()
-	segmentStorage.Update("some", set.NewSet("yaris", "redo"), set.NewSet(), 123456789)
-
 	telemetryStorage := NewIMTelemetryStorage()
 
 	telemetryStorage.RecordException(treatment)

@@ -63,7 +63,7 @@ type SplitFactory struct {
 	cfg                   *conf.SplitSdkConfig
 	impressionListener    *impressionlistener.WrapperImpressionListener
 	logger                logging.LoggerInterface
-	syncManager           *synchronizer.Manager
+	syncManager           synchronizer.Manager
 	impressionManager     provisional.ImpressionManager
 }
 

@@ -50,6 +50,8 @@ github.com/splitio/go-split-commons/v3 v3.0.0-20210215202651-eb92c0762919 h1:Cmw
 github.com/splitio/go-split-commons/v3 v3.0.0-20210215202651-eb92c0762919/go.mod h1:fiP965UwvQhHpzL1aSndnxJkLHkoXeFnQ1N7Tv5+Ejk=
 github.com/splitio/go-split-commons/v3 v3.0.0-20210215232906-7fbe87af8fd6 h1:VZGuSBTCOYPwjoMXqw/wCav3SqFvF/2UJon4/QXuWh0=
 github.com/splitio/go-split-commons/v3 v3.0.0-20210215232906-7fbe87af8fd6/go.mod h1:6Zg/1MjJXUPA3P9bvOGUy5optk3epWTPRx7QATIG0ek=
+github.com/splitio/go-split-commons/v3 v3.0.0-20210216004230-dcaa6b9af713 h1:YLaCTwdRD6zzffZPRfFb3cE6offaSClyDDRhiVreuTk=
+github.com/splitio/go-split-commons/v3 v3.0.0-20210216004230-dcaa6b9af713/go.mod h1:6Zg/1MjJXUPA3P9bvOGUy5optk3epWTPRx7QATIG0ek=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210215191619-05166b3dd4ed h1:HQs4kIz3dgh0a2mtc5l8h4i2BXIq0YWbmGMpR661Jcg=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210215191619-05166b3dd4ed/go.mod h1:EdIHN0yzB1GTXDYQc0KdKvnjkO/jfUM2YqHVYfhD3Wo=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210215232748-a03ee9756d10 h1:Oi5C8QJ+Z1R4HX/e6QMjvaIGWTubYvjsAj/zzyRgRCU=

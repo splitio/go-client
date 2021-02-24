@@ -47,6 +47,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/splitio/go-split-commons/v3 v3.0.0-20210222221025-81deb9657ebb/go.mod h1:RSVpfAsB2ZtEziUSVBJNYgcN0u3BSVqg5+rlGTb6XRg=
 github.com/splitio/go-split-commons/v3 v3.0.0-20210223205524-5f088e7f8de3 h1:WrGw5k/6JUnyV25Ae/FGTycQyJyft3aNbOEET3o8mso=
 github.com/splitio/go-split-commons/v3 v3.0.0-20210223205524-5f088e7f8de3/go.mod h1:hOXkxFypLlrL5t5/xQxv93Oz69d/JDVoF6rUdTE5m4I=
+github.com/splitio/go-split-commons/v3 v3.0.0-20210224233536-7d00d64f0d07 h1:wiGMZsDgOKyZnHe8I+SCvnJJVHOhxmUGCdKmb5AdUYI=
+github.com/splitio/go-split-commons/v3 v3.0.0-20210224233536-7d00d64f0d07/go.mod h1:hOXkxFypLlrL5t5/xQxv93Oz69d/JDVoF6rUdTE5m4I=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210217162418-eb7868c3a41e h1:Rln0aVbI99oMZfBzo+M5YWPsZtGik/pCvkAoLHki0bo=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210217162418-eb7868c3a41e/go.mod h1:EdIHN0yzB1GTXDYQc0KdKvnjkO/jfUM2YqHVYfhD3Wo=
 github.com/splitio/go-toolkit/v4 v4.0.0-20210223205053-732f2de74813/go.mod h1:EdIHN0yzB1GTXDYQc0KdKvnjkO/jfUM2YqHVYfhD3Wo=

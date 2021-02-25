@@ -10,10 +10,10 @@ import (
 	"github.com/splitio/go-client/v6/splitio/engine"
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
 	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers"
-	"github.com/splitio/go-split-commons/v2/dtos"
-	"github.com/splitio/go-split-commons/v2/storage/mutexmap"
-	"github.com/splitio/go-toolkit/v3/injection"
-	"github.com/splitio/go-toolkit/v3/logging"
+	"github.com/splitio/go-split-commons/v3/dtos"
+	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
+	"github.com/splitio/go-toolkit/v4/injection"
+	"github.com/splitio/go-toolkit/v4/logging"
 )
 
 type mockEvaluator struct {

@@ -9,17 +9,17 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	redisCfg "github.com/splitio/go-split-commons/v2/conf"
-	spConf "github.com/splitio/go-split-commons/v2/conf"
-	"github.com/splitio/go-split-commons/v2/dtos"
-	"github.com/splitio/go-split-commons/v2/provisional"
-	"github.com/splitio/go-split-commons/v2/service"
-	authMocks "github.com/splitio/go-split-commons/v2/service/mocks"
-	"github.com/splitio/go-split-commons/v2/storage/mocks"
-	"github.com/splitio/go-split-commons/v2/storage/mutexmap"
-	"github.com/splitio/go-split-commons/v2/storage/mutexqueue"
-	"github.com/splitio/go-split-commons/v2/synchronizer"
-	"github.com/splitio/go-toolkit/v3/logging"
+	redisCfg "github.com/splitio/go-split-commons/v3/conf"
+	spConf "github.com/splitio/go-split-commons/v3/conf"
+	"github.com/splitio/go-split-commons/v3/dtos"
+	"github.com/splitio/go-split-commons/v3/provisional"
+	"github.com/splitio/go-split-commons/v3/service"
+	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
+	"github.com/splitio/go-split-commons/v3/storage/mocks"
+	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
+	"github.com/splitio/go-split-commons/v3/storage/mutexqueue"
+	"github.com/splitio/go-split-commons/v3/synchronizer"
+	"github.com/splitio/go-toolkit/v4/logging"
 )
 
 type MockWriter struct {

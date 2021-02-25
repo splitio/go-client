@@ -9,8 +9,8 @@ import (
 
 	"github.com/splitio/go-client/v6/splitio/engine/grammar"
 	"github.com/splitio/go-client/v6/splitio/engine/hash"
-	"github.com/splitio/go-split-commons/v2/dtos"
-	"github.com/splitio/go-toolkit/v3/logging"
+	"github.com/splitio/go-split-commons/v3/dtos"
+	"github.com/splitio/go-toolkit/v4/logging"
 )
 
 func TestProperHashFunctionIsUsed(t *testing.T) {

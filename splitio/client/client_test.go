@@ -1465,8 +1465,8 @@ func TestClientOptimized(t *testing.T) {
 					t.Error("It should send two impressions in optimized mode")
 				}
 				for _, ki := range dataInPost {
-					if len(ki["keyImpressions"].([]interface{})) != 1 {
-						t.Error("It should send only one impression per featureName")
+					if asISlice, ok := ki["i"].([]interface{}); !ok || len(asISlice) != 1 {
+						t.Error("It should send only one impression per featureName", dataInPost)
 					}
 				}
 			}

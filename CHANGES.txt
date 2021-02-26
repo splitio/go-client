@@ -1,4 +1,4 @@
-6.0.2 (Feb 25, 2021)
+6.0.2 (Feb 25, 2021) -- 5.3.0 for non-modules
 - Fix SSE race conditions on token refresh & general push revamp (implemented in commons and toolkit)
 
 6.0.1 (Dec 22, 2020)

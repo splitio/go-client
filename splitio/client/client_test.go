@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -278,19 +279,19 @@ func TestClientDestroy(t *testing.T) {
 
 	sync, _ := synchronizer.NewSynchronizerManager(
 		syncMock.MockSynchronizer{
-			StopPeriodicDataRecordingCall: func() {
-				atomic.AddInt64(&periodicDataRecordingStopped, 1)
-			},
-			StopPeriodicFetchingCall: func() {
-				atomic.AddInt64(&periodicDataFetchingStopped, 1)
-			},
+			SyncAllCall:                    func(bool) error { return nil },
+			StartPeriodicDataRecordingCall: func() {},
+			StartPeriodicFetchingCall:      func() {},
+			StopPeriodicDataRecordingCall:  func() { atomic.AddInt64(&periodicDataRecordingStopped, 1) },
+			StopPeriodicFetchingCall:       func() { atomic.AddInt64(&periodicDataFetchingStopped, 1) },
 		},
 		logger,
-		commonsCfg.AdvancedConfig{},
+		commonsCfg.AdvancedConfig{StreamingEnabled: false},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
 	)
+	sync.Start()
 
 	factory := &SplitFactory{
 		syncManager: sync,
@@ -646,7 +647,16 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 }
 
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}))
+	defer ts.Close()
+
 	sdkConf := conf.Default()
+	sdkConf.Advanced.SdkURL = ts.URL
+	sdkConf.Advanced.EventsURL = ts.URL
+	sdkConf.Advanced.AuthServiceURL = ts.URL
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
@@ -667,9 +677,18 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	}
 
 	expectedTreatment(client.Treatment("not_ready", "not_ready", attributes), evaluator.Control, t)
-	if !compareListener(ilResult["not_ready"].(map[string]interface{}), "not_ready", "not_ready", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
+	if !compareListener(
+		ilResult["not_ready"].(map[string]interface{}),
+		"not_ready",
+		"not_ready",
+		"not ready",
+		"control",
+		int64(0),
+		"",
+		"test",
+		sdkConf.InstanceName, expectedVersion,
+	) {
 		t.Error("Impression should match")
-
 	}
 	ilResult = make(map[string]interface{})
 
@@ -689,17 +708,17 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Wrong error")
 	}
 
-	err = client.BlockUntilReady(2)
+	err = client.BlockUntilReady(1)
 	if err == nil {
 		t.Error("It should return error")
 	}
 
 	if err != nil && err.Error() != "SDK Initialization failed" {
-		t.Error("Wrong error")
+		t.Error("Wrong error. Got: ", err.Error())
 	}
 }
 
-func TestBlockUntilReadyInMemory(t *testing.T) {
+func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	mockedSplit1 := dtos.SplitDTO{
 		Algo:                  2,
 		ChangeNumber:          123,
@@ -717,29 +736,17 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 				Label:         "in segment all",
 				MatcherGroup: dtos.MatcherGroupDTO{
 					Combiner: "AND",
-					Matchers: []dtos.MatcherDTO{
-						{
-							MatcherType:        "ALL_KEYS",
-							Whitelist:          nil,
-							Negate:             false,
-							UserDefinedSegment: nil,
-						},
-					},
+					Matchers: []dtos.MatcherDTO{{MatcherType: "ALL_KEYS"}},
 				},
-				Partitions: []dtos.PartitionDTO{
-					{
-						Size:      100,
-						Treatment: "on",
-					},
-				},
+				Partitions: []dtos.PartitionDTO{{Size: 100, Treatment: "on"}},
 			},
 		},
 	}
 	mockedSplit2 := dtos.SplitDTO{Name: "split2", Killed: true, Status: "ACTIVE"}
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(4 * time.Second)
+	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(3 * time.Second)
 		if r.URL.Path != "/splits" && r.Method != "GET" {
 			t.Error("Invalid request. Should be GET to /splits")
 		}
@@ -758,19 +765,19 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 
 		w.Write(raw)
 	}))
-	defer ts.Close()
+	defer sdkServer.Close()
 
-	segmentMock, _ := ioutil.ReadFile("../../testdata/segment_mock.json")
-
-	tss := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(3 * time.Second)
-		fmt.Fprintln(w, fmt.Sprintf(string(segmentMock)))
+	eventsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 	}))
-	defer tss.Close()
+
+	defer eventsServer.Close()
 
 	sdkConf := conf.Default()
-	sdkConf.Advanced.EventsURL = tss.URL
-	sdkConf.Advanced.SdkURL = ts.URL
+	sdkConf.LoggerConfig.StandardLoggerFlags = log.Llongfile
+	sdkConf.Advanced.EventsURL = eventsServer.URL
+	sdkConf.Advanced.SdkURL = sdkServer.URL
+	//sdkConf.Advanced.StreamingEnabled = false
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
@@ -835,18 +842,18 @@ func TestBlockUntilReadyInMemory(t *testing.T) {
 		t.Error("Client should not be ready")
 	}
 
-	err = manager.BlockUntilReady(2)
+	err = manager.BlockUntilReady(1)
 	if err == nil {
 		t.Error("It should return error")
 	}
 
-	expected2 = "SDK Initialization: time of 2 exceeded"
-	if err != nil && err.Error() != expected2 {
-		t.Error("Wrong message error")
+	expected2 = "SDK Initialization: time of 1 exceeded"
+	if err == nil || err.Error() != expected2 {
+		t.Error("Wrong message error. Got:", err.Error())
 	}
 
 	err = client.BlockUntilReady(2)
-	if err != nil && err.Error() != expected2 {
+	if err != nil {
 		t.Error("Wrong message error")
 	}
 
@@ -1006,6 +1013,7 @@ func isInvalidImpression(client SplitClient, key string, feature string, treatme
 
 func TestClient(t *testing.T) {
 	cfg := conf.Default()
+
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
@@ -1457,8 +1465,8 @@ func TestClientOptimized(t *testing.T) {
 					t.Error("It should send two impressions in optimized mode")
 				}
 				for _, ki := range dataInPost {
-					if len(ki["keyImpressions"].([]interface{})) != 1 {
-						t.Error("It should send only one impression per featureName")
+					if asISlice, ok := ki["i"].([]interface{}); !ok || len(asISlice) != 1 {
+						t.Error("It should send only one impression per featureName", dataInPost)
 					}
 				}
 			}

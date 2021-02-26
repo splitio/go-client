@@ -63,7 +63,7 @@ type SplitFactory struct {
 	cfg                   *conf.SplitSdkConfig
 	impressionListener    *impressionlistener.WrapperImpressionListener
 	logger                logging.LoggerInterface
-	syncManager           *synchronizer.Manager
+	syncManager           synchronizer.Manager
 	impressionManager     provisional.ImpressionManager
 }
 
@@ -372,17 +372,11 @@ func setupLocalhostFactory(
 	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan int, 1)
 
+	splitAPI := &service.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger)}
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(
-			splitPeriod,
-			&service.SplitAPI{
-				SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger),
-			},
-			splitStorage,
-			logger,
-		),
+		synchronizer.NewLocal(splitPeriod, splitAPI, splitStorage, logger),
 		logger,
-		config.AdvancedConfig{},
+		config.AdvancedConfig{StreamingEnabled: false},
 		nil,
 		splitStorage,
 		readyChannel,

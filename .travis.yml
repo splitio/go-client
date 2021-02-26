@@ -9,17 +9,7 @@ services:
 addons:
   sonarqube: true
 
-git:
-  depth: false
-
-before_install:
- - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
-install:
- - dep ensure
+install: true
 
 script:
-  - go test -v -coverprofile=coverage.out $(go list ./... | grep -v /vendor/)
-
-after_success:
-  - bash build-utils/sonar-scanner
+  - bash test.sh

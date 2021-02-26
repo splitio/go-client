@@ -3,6 +3,12 @@ language: go
 go:
   - 1.x
 
+services:
+  - redis-server
+
+addons:
+  sonarqube: true
+
 install: true
 
 script:

@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v3/storage"
-	"github.com/splitio/go-toolkit/v4/datastructures/set"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/storage"
+	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // InputValidation struct is responsible for cheking any input of treatment and

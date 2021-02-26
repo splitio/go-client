@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/splitio/go-client/v6/splitio/conf"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-client/splitio/conf"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 // factoryInstances factory tracker instantiations

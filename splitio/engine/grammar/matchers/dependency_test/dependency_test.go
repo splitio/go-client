@@ -7,13 +7,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/splitio/go-client/v6/splitio/engine"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
-	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers"
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
-	"github.com/splitio/go-toolkit/v4/injection"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-client/splitio/engine"
+	"github.com/splitio/go-client/splitio/engine/evaluator"
+	"github.com/splitio/go-client/splitio/engine/grammar/matchers"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage/mutexmap"
+	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 type mockEvaluator struct {

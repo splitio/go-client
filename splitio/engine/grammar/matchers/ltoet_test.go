@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 func TestLessThanOrEqualToMatcherInt(t *testing.T) {

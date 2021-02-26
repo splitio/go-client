@@ -9,11 +9,11 @@ import (
 	"path"
 	"strings"
 
-	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/v3/conf"
-	"github.com/splitio/go-toolkit/v4/datastructures/set"
-	"github.com/splitio/go-toolkit/v4/logging"
-	"github.com/splitio/go-toolkit/v4/nethelpers"
+	impressionlistener "github.com/splitio/go-client/splitio/impressionListener"
+	"github.com/splitio/go-split-commons/conf"
+	"github.com/splitio/go-toolkit/datastructures/set"
+	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-toolkit/nethelpers"
 )
 
 const (

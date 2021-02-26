@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/splitio/go-client/v6/splitio/engine"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-client/v6/splitio/engine/grammar"
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/storage"
+	"github.com/splitio/go-client/splitio/engine"
+	"github.com/splitio/go-client/splitio/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-client/splitio/engine/grammar"
+	"github.com/splitio/go-split-commons/dtos"
+	"github.com/splitio/go-split-commons/storage"
 
-	"github.com/splitio/go-toolkit/v4/injection"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-toolkit/injection"
+	"github.com/splitio/go-toolkit/logging"
 )
 
 const (

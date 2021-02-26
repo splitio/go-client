@@ -2,7 +2,7 @@ package matchers
 
 import (
 	"fmt"
-	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers/datatypes"
+	"github.com/splitio/go-client/splitio/engine/grammar/matchers/datatypes"
 	"reflect"
 )
 

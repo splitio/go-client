@@ -27,11 +27,11 @@
 
 [[constraint]]
   name = "github.com/splitio/go-split-commons"
-  version = "1.3.0"
+  branch = "integration_5.0.2"
 
 [[constraint]]
   name = "github.com/splitio/go-toolkit"
-  version = "2.1.3"
+  branch = "integration_5.0.2"
 
 [prune]
   go-tests = true

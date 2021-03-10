@@ -52,3 +52,14 @@ const (
 	// MaxTags Max tags
 	MaxTags = 10
 )
+
+const (
+	EventTypeSSEConnectionEstablished = iota * 10
+	EventTypeOccupancyPri
+	EventTypeOccupancySec
+	EventTypeStreamingStatus
+	EventTypeConnectionError
+	EventTypeTokenRefresh
+	EventTypeAblyError
+	EventTypeSyncMode
+)

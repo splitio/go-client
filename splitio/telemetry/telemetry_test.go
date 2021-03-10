@@ -167,11 +167,11 @@ func TestTelemetryService(t *testing.T) {
 		t.Error("Wrong result")
 	}
 
-	telemetryService.RecordStreamingEvent(eventTypeAblyError, 40010)
-	telemetryService.RecordStreamingEvent(eventTypeSSEConnectionEstablished, 0)
-	telemetryService.RecordStreamingEvent(eventTypeOccupancyPri, 10)
-	telemetryService.RecordStreamingEvent(eventTypeOccupancySec, 1)
-	telemetryService.RecordStreamingEvent(eventTypeSyncMode, requested)
+	telemetryService.RecordStreamingEvent(constants.EventTypeAblyError, 40010)
+	telemetryService.RecordStreamingEvent(constants.EventTypeSSEConnectionEstablished, 0)
+	telemetryService.RecordStreamingEvent(constants.EventTypeOccupancyPri, 10)
+	telemetryService.RecordStreamingEvent(constants.EventTypeOccupancySec, 1)
+	telemetryService.RecordStreamingEvent(constants.EventTypeSyncMode, 1)
 
 	if len(telemetryService.PopStreamingEvents()) != 5 {
 		t.Error("Wrong result")

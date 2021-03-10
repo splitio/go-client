@@ -3,26 +3,11 @@ package telemetry
 import (
 	"time"
 
+	"github.com/splitio/go-client/splitio/constants"
 	"github.com/splitio/go-client/splitio/dto"
 	"github.com/splitio/go-client/splitio/storage"
 	commonStorage "github.com/splitio/go-split-commons/storage"
 	"github.com/splitio/go-split-commons/util"
-)
-
-const (
-	requested = iota
-	nonRequested
-)
-
-const (
-	eventTypeSSEConnectionEstablished = iota * 10
-	eventTypeOccupancyPri
-	eventTypeOccupancySec
-	eventTypeStreamingStatus
-	eventTypeConnectionError
-	eventTypeTokenRefresh
-	eventTypeAblyError
-	eventTypeSyncMode
 )
 
 // FacadeImpl keeps track metrics
@@ -170,50 +155,23 @@ func (t *FacadeImpl) PopTokenRefreshes() int64 {
 // RecordStreamingEvent records streaming event
 func (t *FacadeImpl) RecordStreamingEvent(eventType int, data int64) {
 	switch eventType {
-	case eventTypeOccupancyPri:
+	case constants.EventTypeOccupancySec:
+		fallthrough
+	case constants.EventTypeSSEConnectionEstablished:
+		fallthrough
+	case constants.EventTypeStreamingStatus:
+		fallthrough
+	case constants.EventTypeTokenRefresh:
+		fallthrough
+	case constants.EventTypeAblyError:
+		fallthrough
+	case constants.EventTypeConnectionError:
+		fallthrough
+	case constants.EventTypeSyncMode:
+		fallthrough
+	case constants.EventTypeOccupancyPri:
 		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeOccupancyPri,
-			Data:      data,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeOccupancySec:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeOccupancySec,
-			Data:      data,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeSSEConnectionEstablished:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeSSEConnectionEstablished,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeStreamingStatus:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeStreamingStatus,
-			Data:      int64(data),
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeTokenRefresh:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeTokenRefresh,
-			Data:      data,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeAblyError:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeAblyError,
-			Data:      data,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeConnectionError:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeConnectionError,
-			Data:      data,
-			Timestamp: time.Now().UTC().Unix(),
-		})
-	case eventTypeSyncMode:
-		t.storage.RecordStreamingEvent(dto.StreamingEvent{
-			Type:      eventTypeSyncMode,
+			Type:      eventType,
 			Data:      data,
 			Timestamp: time.Now().UTC().Unix(),
 		})

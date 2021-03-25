@@ -83,6 +83,7 @@ type AdvancedConfig struct {
 	SdkURL               string
 	EventsURL            string
 	StreamingServiceURL  string
+	TelemetryServiceURL  string
 	EventsBulkSize       int64
 	EventsQueueSize      int
 	ImpressionsQueueSize int
@@ -126,9 +127,9 @@ func Default() *SplitSdkConfig {
 			Prefix:   "",
 		},
 		TaskPeriods: TaskPeriods{
-			GaugeSync:      defaultTaskPeriod,
-			CounterSync:    defaultTaskPeriod,
-			LatencySync:    defaultTaskPeriod,
+			GaugeSync:      defaultTelemetrySync,
+			CounterSync:    defaultTelemetrySync,
+			LatencySync:    defaultTelemetrySync,
 			ImpressionSync: defaultImpressionSyncOptimized,
 			SegmentSync:    defaultTaskPeriod,
 			SplitSync:      defaultTaskPeriod,
@@ -139,6 +140,7 @@ func Default() *SplitSdkConfig {
 			EventsURL:            "",
 			SdkURL:               "",
 			StreamingServiceURL:  "",
+			TelemetryServiceURL:  "",
 			HTTPTimeout:          0,
 			ImpressionListener:   nil,
 			SegmentQueueSize:     500,
@@ -248,6 +250,7 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 		cfg.Advanced.SdkURL = cfg.SplitSyncProxyURL
 		cfg.Advanced.EventsURL = cfg.SplitSyncProxyURL
 		cfg.Advanced.StreamingServiceURL = cfg.SplitSyncProxyURL
+		cfg.Advanced.TelemetryServiceURL = cfg.SplitSyncProxyURL
 	}
 
 	if !cfg.IPAddressesEnabled {

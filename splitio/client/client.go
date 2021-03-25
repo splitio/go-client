@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -18,15 +19,17 @@ import (
 
 // SplitClient is the entry-point of the split SDK.
 type SplitClient struct {
-	logger             logging.LoggerInterface
-	evaluator          evaluator.Interface
-	impressions        storage.ImpressionStorageProducer
-	metrics            storage.MetricsStorageProducer
-	events             storage.EventStorageProducer
-	validator          inputValidation
-	factory            *SplitFactory
-	impressionListener *impressionlistener.WrapperImpressionListener
-	impressionManager  provisional.ImpressionManager
+	logger              logging.LoggerInterface
+	evaluator           evaluator.Interface
+	impressions         storage.ImpressionStorageProducer
+	events              storage.EventStorageProducer
+	validator           inputValidation
+	factory             *SplitFactory
+	impressionListener  *impressionlistener.WrapperImpressionListener
+	impressionManager   provisional.ImpressionManager
+	initTelemetry       storage.TelemetryInitProducer
+	evaluationTelemetry storage.TelemetryEvaluationProducer
+	runtimeTelemetry    storage.TelemetryRuntimeProducer
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -47,6 +50,7 @@ func (c *SplitClient) getEvaluationResult(
 		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, feature, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
 		Treatment: evaluator.Control,
 		Label:     impressionlabels.ClientNotReady,
@@ -66,6 +70,7 @@ func (c *SplitClient) getEvaluationsResult(
 		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, features, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+	c.initTelemetry.RecordNonReadyUsage()
 	result := evaluator.Results{
 		EvaluationTimeNs: 0,
 		Evaluations:      make(map[string]evaluator.Result),
@@ -126,12 +131,15 @@ func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[st
 	}
 
 	// Store latency
-	if c.metrics != nil {
-		bucket := util.Bucket(evaluationTimeNs)
-		c.metrics.IncLatency(metricsLabel, bucket)
-	} else {
-		c.logger.Warning("No metrics storage set in client. Not sending latencies!")
-	}
+	fmt.Println(util.Bucket(evaluationTimeNs))
+	/*
+		if c.metrics != nil {
+			bucket := util.Bucket(evaluationTimeNs)
+			c.metrics.IncLatency(metricsLabel, bucket)
+		} else {
+			c.logger.Warning("No metrics storage set in client. Not sending latencies!")
+		}
+	*/
 }
 
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present
@@ -338,7 +346,6 @@ func (c *SplitClient) Track(
 			)
 			ret = errors.New("Track is panicking. Please check logs")
 		}
-		return
 	}()
 
 	if c.isDestroyed() {
@@ -348,6 +355,7 @@ func (c *SplitClient) Track(
 
 	if !c.isReady() {
 		c.logger.Warning("Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+		c.initTelemetry.RecordNonReadyUsage()
 	}
 
 	key, trafficType, eventType, value, err := c.validator.ValidateTrackInputs(

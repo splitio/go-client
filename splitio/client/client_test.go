@@ -24,12 +24,12 @@ import (
 	"github.com/splitio/go-split-commons/v3/provisional"
 	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
 	"github.com/splitio/go-split-commons/v3/storage"
+	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
 	"github.com/splitio/go-split-commons/v3/storage/mocks"
-	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
-	"github.com/splitio/go-split-commons/v3/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/v3/storage/redis"
 	"github.com/splitio/go-split-commons/v3/synchronizer"
 	syncMock "github.com/splitio/go-split-commons/v3/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v3/telemetry"
 	"github.com/splitio/go-split-commons/v3/util"
 	"github.com/splitio/go-toolkit/v4/datastructures/set"
 	"github.com/splitio/go-toolkit/v4/logging"
@@ -94,7 +94,6 @@ func (e *mockEvaluator) EvaluateFeatures(
 				SplitChangeNumber: 123,
 				Treatment:         "TreatmentA",
 			}
-			break
 		case "feature2":
 			results.Evaluations["feature2"] = evaluator.Result{
 				EvaluationTimeNs:  0,
@@ -102,7 +101,6 @@ func (e *mockEvaluator) EvaluateFeatures(
 				SplitChangeNumber: 123,
 				Treatment:         "TreatmentB",
 			}
-			break
 		case "some_feature":
 			results.Evaluations["some_feature"] = evaluator.Result{
 				EvaluationTimeNs:  0,
@@ -110,7 +108,6 @@ func (e *mockEvaluator) EvaluateFeatures(
 				SplitChangeNumber: 123,
 				Treatment:         evaluator.Control,
 			}
-			break
 		default:
 			results.Evaluations[feature] = evaluator.Result{
 				EvaluationTimeNs:  0,
@@ -118,7 +115,6 @@ func (e *mockEvaluator) EvaluateFeatures(
 				SplitChangeNumber: 123,
 				Treatment:         evaluator.Control,
 			}
-			break
 		}
 	}
 	return results
@@ -137,7 +133,6 @@ func getFactory() SplitFactory {
 		cfg: cfg,
 		storages: sdkStorages{
 			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			telemetry:   mutexmap.NewMMMetricsStorage(),
 			events:      mocks.MockEventStorage{},
 		},
 		impressionManager: impressionManager,
@@ -371,10 +366,7 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 		return false
 	}
 	attr1, _ := ilTest["Attributes"].(map[string]interface{})
-	if attr1["One"] != a {
-		return false
-	}
-	return true
+	return attr1["One"] == a
 }
 
 func getClientForListener() SplitClient {
@@ -397,7 +389,6 @@ func getClientForListener() SplitClient {
 		cfg: cfg,
 		storages: sdkStorages{
 			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			telemetry:   mutexmap.NewMMMetricsStorage(),
 			events:      mocks.MockEventStorage{},
 		},
 		logger: logger,
@@ -411,7 +402,6 @@ func getClientForListener() SplitClient {
 		evaluator:          &mockEvaluator{},
 		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:             logger,
-		metrics:            mutexmap.NewMMMetricsStorage(),
 		impressionListener: impresionL,
 		factory:            factory,
 		impressionManager:  impressionManager,
@@ -644,6 +634,7 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 	if err != nil {
 		t.Error("Error was not expected")
 	}
+	deleteDataGenerated(getRedisConfWithIP(true))
 }
 
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
@@ -719,6 +710,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 }
 
 func TestBlockUntilReadyInMemoryOk(t *testing.T) {
+	metricsInitCalled := 0
 	mockedSplit1 := dtos.SplitDTO{
 		Algo:                  2,
 		ChangeNumber:          123,
@@ -747,8 +739,8 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(3 * time.Second)
-		if r.URL.Path != "/splits" && r.Method != "GET" {
-			t.Error("Invalid request. Should be GET to /splits")
+		if r.URL.Path != "/splitChanges" || r.Method != "GET" {
+			t.Error("Invalid request. Should be GET to /splitChanges")
 		}
 
 		splitChanges := dtos.SplitChangesDTO{
@@ -770,14 +762,50 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	eventsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
-
 	defer eventsServer.Close()
+
+	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/metrics/init":
+			metricsInitCalled++
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost dtos.Init
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if dataInPost.NonReadyUsages != 4 {
+				t.Error("It should call 4 methods in non ready state")
+			}
+			if dataInPost.BurTimeouts != 2 {
+				t.Error("It should excedeed two times")
+			}
+			if dataInPost.OperationMode != telemetry.Standalone {
+				t.Error("It should be Standalone")
+			}
+			if dataInPost.Storage != telemetry.Memory {
+				t.Error("It should initiate in memory mode")
+			}
+			if dataInPost.TimeUntilReady < 3000 {
+				t.Error("It should took more than timers set in test")
+			}
+			if !dataInPost.ImpressionsListenerEnabled {
+				t.Error("It should have impression listener")
+			}
+		}
+
+		fmt.Fprintln(w, "ok")
+	}))
+	defer telemetryServer.Close()
 
 	sdkConf := conf.Default()
 	sdkConf.LoggerConfig.StandardLoggerFlags = log.Llongfile
 	sdkConf.Advanced.EventsURL = eventsServer.URL
 	sdkConf.Advanced.SdkURL = sdkServer.URL
-	//sdkConf.Advanced.StreamingEnabled = false
+	sdkConf.Advanced.TelemetryServiceURL = telemetryServer.URL
+	sdkConf.Advanced.StreamingEnabled = false
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
@@ -870,6 +898,10 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	}
 
 	client.Destroy()
+
+	if metricsInitCalled != 1 {
+		t.Error("It should send init data")
+	}
 }
 
 var valid = &dtos.SplitDTO{
@@ -1036,10 +1068,8 @@ func TestClient(t *testing.T) {
 					default:
 					case "valid":
 						splits[feature] = valid
-						break
 					case "killed":
 						splits["killed"] = killed
-						break
 					}
 				}
 				return splits
@@ -1078,7 +1108,6 @@ func TestClient(t *testing.T) {
 		evaluator:         evaluator,
 		impressions:       mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
 		logger:            logger,
-		metrics:           mutexmap.NewMMMetricsStorage(),
 		validator:         inputValidation{logger: logger},
 		factory:           factory,
 		impressionManager: impressionManager,
@@ -1227,7 +1256,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
 	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
-	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till")
+	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.init")
 	prefixedClient.Del(keys...)
 }
 

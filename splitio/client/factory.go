@@ -366,6 +366,7 @@ func setupInMemoryFactory(
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 	splitFactory.impressionManager = impressionManager
+	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	go splitFactory.initializationInMemory(readyChannel)
 
@@ -410,6 +411,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		return nil, err
 	}
 	factory.impressionManager = impressionManager
+	setFactory(factory.apikey, factory.logger)
 	factory.broadcastReadiness(sdkStatusReady, make([]string, 0))
 	return factory, nil
 }
@@ -470,6 +472,7 @@ func setupLocalhostFactory(
 		return nil, err
 	}
 	splitFactory.impressionManager = impressionManager
+	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	// Call fetching tasks as goroutine
 	go splitFactory.initializationLocalhost(readyChannel)

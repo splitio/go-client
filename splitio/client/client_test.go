@@ -634,7 +634,14 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 	if err != nil {
 		t.Error("Error was not expected")
 	}
-	deleteDataGenerated(getRedisConfWithIP(true))
+
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "",
+	}, logging.NewLogger(&logging.LoggerOptions{}))
+	deleteDataGenerated(prefixedClient)
 }
 
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
@@ -1255,8 +1262,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
-	keys, _ := prefixedClient.Keys(fmt.Sprintf("SPLITIO/go-%s/*/latency.sdk.getTreatment.bucket.*", splitio.Version))
-	keys = append(keys, "SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.init")
+	keys := []string{"SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.init"}
 	prefixedClient.Del(keys...)
 }
 
@@ -1674,4 +1680,193 @@ func TestClientDebug(t *testing.T) {
 		t.Error("The test couldn't send impressions to check headers")
 		return
 	}
+}
+
+func TestTelemetryMemory(t *testing.T) {
+	factoryInstances = make(map[string]int64)
+	metricsInitCalled := 0
+
+	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		splitChanges := dtos.SplitChangesDTO{
+			Splits: []dtos.SplitDTO{
+				{Name: "split1", Killed: true, Status: "ACTIVE"},
+				{Name: "split2", Killed: true, Status: "ACTIVE"},
+				{Name: "split3", Killed: true, Status: "INACTIVE"},
+			},
+			Since: 3,
+			Till:  3,
+		}
+
+		raw, err := json.Marshal(splitChanges)
+		if err != nil {
+			t.Error("Error building json")
+			return
+		}
+
+		w.Write(raw)
+	}))
+	defer sdkServer.Close()
+
+	eventsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}))
+	defer eventsServer.Close()
+
+	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/metrics/init":
+			metricsInitCalled++
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost dtos.Init
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if dataInPost.Storage != telemetry.Memory {
+				t.Error("It should initiate in memory mode")
+			}
+			if dataInPost.Rates.Events != 200 || dataInPost.Rates.Impressions != 300 || dataInPost.Rates.Segments != 100 || dataInPost.Rates.Splits != 60 || dataInPost.Rates.Telemetry != 3600 {
+				t.Error("Wrong rates")
+			}
+			if dataInPost.NonReadyUsages != 0 {
+				t.Error("It should not be non ready usages")
+			}
+			if dataInPost.BurTimeouts != 0 {
+				t.Error("It should not be bur timeouts")
+			}
+			if dataInPost.OperationMode != telemetry.Standalone {
+				t.Error("It should be Standalone")
+			}
+			switch metricsInitCalled {
+			case 1:
+				if dataInPost.RedundantFactories != 0 {
+					t.Error("It should be 0")
+				}
+				if dataInPost.ActiveFactories != 1 {
+					t.Error("It should be 1")
+				}
+			case 2:
+				if dataInPost.RedundantFactories != 1 {
+					t.Error("It should be 1")
+				}
+				if dataInPost.ActiveFactories != 1 {
+					t.Error("It should be 1")
+				}
+			case 3:
+				if dataInPost.RedundantFactories != 1 {
+					t.Error("It should be 1")
+				}
+				if dataInPost.ActiveFactories != 2 {
+					t.Error("It should be 2")
+				}
+			}
+
+			if dataInPost.TimeUntilReady > 10 {
+				t.Error("It should be ready almost immediately")
+			}
+			if dataInPost.ImpressionsListenerEnabled {
+				t.Error("It should not have impression listener")
+			}
+		}
+
+		fmt.Fprintln(w, "ok")
+	}))
+	defer telemetryServer.Close()
+
+	sdkConf := conf.Default()
+	sdkConf.LoggerConfig.StandardLoggerFlags = log.Llongfile
+	sdkConf.Advanced.EventsURL = eventsServer.URL
+	sdkConf.Advanced.SdkURL = sdkServer.URL
+	sdkConf.Advanced.TelemetryServiceURL = telemetryServer.URL
+	sdkConf.Advanced.StreamingEnabled = false
+	sdkConf.TaskPeriods.EventsSync = 200
+	sdkConf.TaskPeriods.SegmentSync = 100
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	client := factory.Client()
+	manager := factory.Manager()
+	client.BlockUntilReady(1)
+	if len(manager.SplitNames()) != 2 {
+		t.Error("It should return splits")
+	}
+	client.Track("something", "something", "something", nil, nil)
+
+	factory2, _ := NewSplitFactory("something", sdkConf)
+	manager2 := factory2.Manager()
+	manager2.BlockUntilReady(1)
+	if len(manager2.SplitNames()) != 2 {
+		t.Error("It should return splits")
+	}
+
+	factory3, _ := NewSplitFactory("something2", sdkConf)
+	manager3 := factory3.Manager()
+	manager3.BlockUntilReady(1)
+	if len(manager3.SplitNames()) != 2 {
+		t.Error("It should return splits")
+	}
+
+	factory.Destroy()
+	factory2.Destroy()
+	factory3.Destroy()
+
+	if metricsInitCalled != 3 {
+		t.Error("It should send init data")
+	}
+}
+
+func TestTelemetryRedis(t *testing.T) {
+	factoryInstances = make(map[string]int64)
+	sdkConf := conf.Default()
+	sdkConf.OperationMode = conf.RedisConsumer
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+
+	if !factory.IsReady() {
+		t.Error("Factory should be ready immediately")
+	}
+
+	client := factory.Client()
+	err := client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "",
+	}, logging.NewLogger(&logging.LoggerOptions{}))
+	data, err := prefixedClient.LRange("SPLITIO.telemetry.init", 0, 100)
+	if err != nil {
+		t.Error("It should not return err")
+	}
+	if len(data) != 1 {
+		t.Error("It should store one")
+	}
+
+	var dataInRedis dtos.TelemetryQueueObject
+	err = json.Unmarshal([]byte(data[0]), &dataInRedis)
+	if err != nil {
+		t.Error("Should not return error umarshalling")
+	}
+
+	if dataInRedis.Metadata.SDKVersion != fmt.Sprintf("go-%s", splitio.Version) {
+		t.Error("Wrong sdkVersion stored")
+	}
+	if dataInRedis.Init.ActiveFactories != 1 {
+		t.Error("Wrong value")
+	}
+	if dataInRedis.Init.OperationMode != telemetry.Consumer {
+		t.Error("It should be consumer")
+	}
+	if dataInRedis.Init.Storage != telemetry.Redis {
+		t.Error("It should be redis")
+	}
+
+	deleteDataGenerated(prefixedClient)
+	factory.Destroy()
 }

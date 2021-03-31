@@ -24,6 +24,7 @@ import (
 	"github.com/splitio/go-split-commons/v3/storage/inmemory"
 	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexmap"
 	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v3/storage/mocks"
 	"github.com/splitio/go-split-commons/v3/storage/redis"
 	"github.com/splitio/go-split-commons/v3/synchronizer"
 	"github.com/splitio/go-split-commons/v3/synchronizer/worker/event"
@@ -49,7 +50,7 @@ type sdkStorages struct {
 	segments            storage.SegmentStorageConsumer
 	impressions         storage.ImpressionStorageProducer
 	events              storage.EventStorageProducer
-	initTelemetry       storage.TelemetryInitProducer
+	initTelemetry       storage.TelemetryConfigProducer
 	runtimeTelemetry    storage.TelemetryRuntimeProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 }
@@ -141,7 +142,7 @@ func (f *SplitFactory) recordInitTelemetry(tags []string) {
 		return
 	}
 	f.logger.Debug("Sending init telemetry")
-	f.telemetrySync.SynchronizeInit(
+	f.telemetrySync.SynchronizeConfig(
 		telemetry.InitConfig{
 			AdvancedConfig: config.AdvancedConfig{
 				HTTPTimeout:          f.cfg.Advanced.HTTPTimeout,
@@ -251,6 +252,9 @@ func (f *SplitFactory) Destroy() {
 		removeInstanceFromTracker(f.apikey)
 	}
 	f.status.Store(sdkStatusDestroyed)
+	if f.storages.runtimeTelemetry != nil {
+		f.storages.runtimeTelemetry.RecordSessionLength(int64(time.Since(f.startTime) * time.Millisecond))
+	}
 
 	if f.cfg.OperationMode == conf.RedisConsumer {
 		return
@@ -285,9 +289,9 @@ func setupInMemoryFactory(
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	splitsStorage := mutexmap.NewMMSplitStorage()
 	segmentsStorage := mutexmap.NewMMSegmentStorage()
-	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger)
-	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger)
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
+	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
+	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -299,11 +303,11 @@ func setupInMemoryFactory(
 	}
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
 	workers := synchronizer.Workers{
-		SplitFetcher:       split.NewSplitFetcher(splitsStorage, splitAPI.SplitFetcher, logger),
-		SegmentFetcher:     segment.NewSegmentFetcher(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger),
-		EventRecorder:      event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata),
-		ImpressionRecorder: impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, logger, metadata, managerConfig),
-		TelemetryRecorder:  telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata),
+		SplitFetcher:       split.NewSplitFetcher(splitsStorage, splitAPI.SplitFetcher, logger, telemetryStorage),
+		SegmentFetcher:     segment.NewSegmentFetcher(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger, telemetryStorage),
+		EventRecorder:      event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata, telemetryStorage),
+		ImpressionRecorder: impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, logger, metadata, managerConfig, telemetryStorage),
+		TelemetryRecorder:  telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage),
 	}
 	splitTasks := synchronizer.SplitTasks{
 		SplitSyncTask:      tasks.NewFetchSplitsTask(workers.SplitFetcher, cfg.TaskPeriods.SplitSync, logger),
@@ -315,10 +319,10 @@ func setupInMemoryFactory(
 	var impressionsCounter *provisional.ImpressionsCounter
 	if cfg.ImpressionsMode == config.ImpressionsModeOptimized {
 		impressionsCounter = provisional.NewImpressionsCounter()
-		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger)
+		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
 		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger)
 	}
-	impressionManager, err := provisional.NewImpressionManager(managerConfig, impressionsCounter)
+	impressionManager, err := provisional.NewImpressionManager(managerConfig, impressionsCounter, telemetryStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -332,6 +336,7 @@ func setupInMemoryFactory(
 	)
 
 	readyChannel := make(chan int, 1)
+	clientKey := apikey[len(apikey)-4:]
 	syncManager, err := synchronizer.NewSynchronizerManager(
 		syncImpl,
 		logger,
@@ -339,6 +344,9 @@ func setupInMemoryFactory(
 		splitAPI.AuthClient,
 		splitsStorage,
 		readyChannel,
+		telemetryStorage,
+		metadata,
+		&clientKey,
 	)
 	if err != nil {
 		return nil, err
@@ -406,7 +414,10 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
-	}, nil)
+	}, nil, mocks.MockTelemetryStorage{
+		RecordSyncLatencyCall:      func(resource int, latency int64) {},
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -423,26 +434,29 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
+	telemetryStorage, err := inmemory.NewTelemetryStorage()
+	if err != nil {
+		return nil, err
+	}
 	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan int, 1)
 	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger)}
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(splitPeriod, splitAPI, splitStorage, logger),
+		synchronizer.NewLocal(splitPeriod, splitAPI, splitStorage, logger, telemetryStorage),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,
 		splitStorage,
 		readyChannel,
+		telemetryStorage,
+		metadata,
+		nil,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	telemetryStorage, err := inmemory.NewTelemetryStorage()
-	if err != nil {
-		return nil, err
-	}
 	splitFactory := &SplitFactory{
 		startTime: time.Now().UTC(),
 		apikey:    apikey,
@@ -451,8 +465,8 @@ func setupLocalhostFactory(
 		logger:    logger,
 		storages: sdkStorages{
 			splits:              splitStorage,
-			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger),
+			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger, telemetryStorage),
 			segments:            mutexmap.NewMMSegmentStorage(),
 			initTelemetry:       telemetryStorage,
 			evaluationTelemetry: telemetryStorage,
@@ -467,7 +481,7 @@ func setupLocalhostFactory(
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
-	}, nil)
+	}, nil, telemetryStorage)
 	if err != nil {
 		return nil, err
 	}

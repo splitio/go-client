@@ -14,7 +14,7 @@ type SplitManager struct {
 	validator     inputValidation
 	logger        logging.LoggerInterface
 	factory       *SplitFactory
-	initTelemetry storage.TelemetryInitProducer
+	initTelemetry storage.TelemetryConfigProducer
 }
 
 // SplitView is a partial representation of a currently stored split

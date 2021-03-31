@@ -24,6 +24,7 @@ import (
 	"github.com/splitio/go-split-commons/v3/provisional"
 	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
 	"github.com/splitio/go-split-commons/v3/storage"
+	"github.com/splitio/go-split-commons/v3/storage/inmemory"
 	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
 	"github.com/splitio/go-split-commons/v3/storage/mocks"
 	"github.com/splitio/go-split-commons/v3/storage/redis"
@@ -121,19 +122,23 @@ func (e *mockEvaluator) EvaluateFeatures(
 }
 
 func getFactory() SplitFactory {
+	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
 		ImpressionsMode: cfg.ImpressionsMode,
 		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter())
+	}, provisional.NewImpressionsCounter(), telemetryStorage)
 
 	return SplitFactory{
 		cfg: cfg,
 		storages: sdkStorages{
-			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			events:      mocks.MockEventStorage{},
+			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			events:              mocks.MockEventStorage{},
+			initTelemetry:       telemetryStorage,
+			runtimeTelemetry:    telemetryStorage,
+			evaluationTelemetry: telemetryStorage,
 		},
 		impressionManager: impressionManager,
 		logger:            logger,
@@ -271,6 +276,7 @@ func TestClientDestroy(t *testing.T) {
 	var periodicDataRecordingStopped int64
 	var periodicDataFetchingStopped int64
 	logger := logging.NewLogger(nil)
+	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 
 	sync, _ := synchronizer.NewSynchronizerManager(
 		syncMock.MockSynchronizer{
@@ -285,16 +291,27 @@ func TestClientDestroy(t *testing.T) {
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
+		telemetryStorage,
+		dtos.Metadata{},
+		nil,
 	)
 	sync.Start()
 
 	factory := &SplitFactory{
 		syncManager: sync,
 		cfg:         conf.Default(),
+		storages: sdkStorages{
+			initTelemetry:       telemetryStorage,
+			runtimeTelemetry:    telemetryStorage,
+			evaluationTelemetry: telemetryStorage,
+		},
 	}
 	client := SplitClient{
-		logger:  logger,
-		factory: factory,
+		logger:              logger,
+		factory:             factory,
+		runtimeTelemetry:    telemetryStorage,
+		initTelemetry:       telemetryStorage,
+		evaluationTelemetry: telemetryStorage,
 	}
 
 	time.Sleep(1 * time.Second)
@@ -380,16 +397,22 @@ func getClientForListener() SplitClient {
 		MachineIP:   "123.123.123.123",
 		MachineName: "ip-123-123-123-123",
 	})
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordLatencyCall:          func(method string, latency int64) {},
+	}
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage)
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
 		ImpressionsMode: cfg.ImpressionsMode,
 		OperationMode:   cfg.OperationMode,
 		ListenerEnabled: true,
-	}, provisional.NewImpressionsCounter())
+	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
 	factory := &SplitFactory{
 		cfg: cfg,
 		storages: sdkStorages{
-			impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-			events:      mocks.MockEventStorage{},
+			impressions:         impressionStorage,
+			events:              mocks.MockEventStorage{},
+			evaluationTelemetry: telemetryMockedStorage,
 		},
 		logger: logger,
 		metadata: dtos.Metadata{
@@ -399,12 +422,13 @@ func getClientForListener() SplitClient {
 	}
 
 	client := SplitClient{
-		evaluator:          &mockEvaluator{},
-		impressions:        mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:             logger,
-		impressionListener: impresionL,
-		factory:            factory,
-		impressionManager:  impressionManager,
+		evaluator:           &mockEvaluator{},
+		impressions:         impressionStorage,
+		logger:              logger,
+		impressionListener:  impresionL,
+		factory:             factory,
+		impressionManager:   impressionManager,
+		evaluationTelemetry: telemetryMockedStorage,
 	}
 
 	factory.status.Store(sdkStatusReady)
@@ -655,6 +679,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 	sdkConf.Advanced.SdkURL = ts.URL
 	sdkConf.Advanced.EventsURL = ts.URL
 	sdkConf.Advanced.AuthServiceURL = ts.URL
+	sdkConf.Advanced.TelemetryServiceURL = ts.URL
 	impTest := &ImpressionListenerTest{}
 	sdkConf.Advanced.ImpressionListener = impTest
 
@@ -773,10 +798,10 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 
 	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/metrics/init":
+		case "/metrics/config":
 			metricsInitCalled++
 			rBody, _ := ioutil.ReadAll(r.Body)
-			var dataInPost dtos.Init
+			var dataInPost dtos.Config
 			err := json.Unmarshal(rBody, &dataInPost)
 			if err != nil {
 				t.Error(err)
@@ -802,7 +827,6 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 				t.Error("It should have impression listener")
 			}
 		}
-
 		fmt.Fprintln(w, "ok")
 	}))
 	defer telemetryServer.Close()
@@ -1106,18 +1130,25 @@ func TestClient(t *testing.T) {
 		logger,
 	)
 
+	mockedTelemetryStorage := mocks.MockTelemetryStorage{
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordLatencyCall:          func(method string, latency int64) {},
+		RecordExceptionCall:        func(method string) {},
+	}
+
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
 		ImpressionsMode: commonsCfg.ImpressionsModeDebug,
 		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter())
+	}, provisional.NewImpressionsCounter(), mockedTelemetryStorage)
 	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
 	client := SplitClient{
-		evaluator:         evaluator,
-		impressions:       mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		logger:            logger,
-		validator:         inputValidation{logger: logger},
-		factory:           factory,
-		impressionManager: impressionManager,
+		evaluator:           evaluator,
+		impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, mockedTelemetryStorage),
+		logger:              logger,
+		validator:           inputValidation{logger: logger},
+		factory:             factory,
+		impressionManager:   impressionManager,
+		evaluationTelemetry: mockedTelemetryStorage,
 	}
 
 	factory.status.Store(sdkStatusReady)
@@ -1262,7 +1293,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
-	keys := []string{"SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.init"}
+	keys := []string{"SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.config"}
 	prefixedClient.Del(keys...)
 }
 
@@ -1685,6 +1716,7 @@ func TestClientDebug(t *testing.T) {
 func TestTelemetryMemory(t *testing.T) {
 	factoryInstances = make(map[string]int64)
 	metricsInitCalled := 0
+	metricsStatsCalled := 0
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		splitChanges := dtos.SplitChangesDTO{
@@ -1714,10 +1746,10 @@ func TestTelemetryMemory(t *testing.T) {
 
 	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/metrics/init":
+		case "/metrics/config":
 			metricsInitCalled++
 			rBody, _ := ioutil.ReadAll(r.Body)
-			var dataInPost dtos.Init
+			var dataInPost dtos.Config
 			err := json.Unmarshal(rBody, &dataInPost)
 			if err != nil {
 				t.Error(err)
@@ -1769,6 +1801,25 @@ func TestTelemetryMemory(t *testing.T) {
 			if dataInPost.ImpressionsListenerEnabled {
 				t.Error("It should not have impression listener")
 			}
+		case "/metrics/usage":
+			metricsStatsCalled++
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost dtos.Stats
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if dataInPost.LastSynchronizations.Splits == 0 || dataInPost.LastSynchronizations.Telemetry == 0 {
+				t.Error("It should record lastSynchronizations")
+			}
+			if dataInPost.SplitCount != 2 {
+				t.Error("It should have 2 splits")
+			}
+			if dataInPost.SessionLengthMs == 0 {
+				t.Error("It should record sessionsLength")
+			}
 		}
 
 		fmt.Fprintln(w, "ok")
@@ -1815,6 +1866,9 @@ func TestTelemetryMemory(t *testing.T) {
 	if metricsInitCalled != 3 {
 		t.Error("It should send init data")
 	}
+	if metricsStatsCalled != 3 {
+		t.Error("It should send stats data")
+	}
 }
 
 func TestTelemetryRedis(t *testing.T) {
@@ -1840,7 +1894,7 @@ func TestTelemetryRedis(t *testing.T) {
 		Password: "",
 		Prefix:   "",
 	}, logging.NewLogger(&logging.LoggerOptions{}))
-	data, err := prefixedClient.LRange("SPLITIO.telemetry.init", 0, 100)
+	data, err := prefixedClient.LRange("SPLITIO.telemetry.config", 0, 100)
 	if err != nil {
 		t.Error("It should not return err")
 	}
@@ -1857,13 +1911,13 @@ func TestTelemetryRedis(t *testing.T) {
 	if dataInRedis.Metadata.SDKVersion != fmt.Sprintf("go-%s", splitio.Version) {
 		t.Error("Wrong sdkVersion stored")
 	}
-	if dataInRedis.Init.ActiveFactories != 1 {
+	if dataInRedis.Config.ActiveFactories != 1 {
 		t.Error("Wrong value")
 	}
-	if dataInRedis.Init.OperationMode != telemetry.Consumer {
+	if dataInRedis.Config.OperationMode != telemetry.Consumer {
 		t.Error("It should be consumer")
 	}
-	if dataInRedis.Init.Storage != telemetry.Redis {
+	if dataInRedis.Config.Storage != telemetry.Redis {
 		t.Error("It should be redis")
 	}
 

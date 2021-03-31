@@ -72,15 +72,25 @@ func getMockedLogger() logging.LoggerInterface {
 func getClient() SplitClient {
 	logger := getMockedLogger()
 	cfg := conf.Default()
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordExceptionCall:        func(method string) {},
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordLatencyCall:          func(method string, latency int64) {},
+	}
 	impressionManager, _ := provisional.NewImpressionManager(spConf.ManagerConfig{
 		ImpressionsMode: spConf.ImpressionsModeDebug,
 		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter())
-	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
+	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager,
+		storages: sdkStorages{
+			runtimeTelemetry:    telemetryMockedStorage,
+			initTelemetry:       telemetryMockedStorage,
+			evaluationTelemetry: telemetryMockedStorage,
+		}}
 
 	client := SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage),
 		logger:      logger,
 		validator: inputValidation{
 			logger: logger,
@@ -98,8 +108,11 @@ func getClient() SplitClient {
 		events: mocks.MockEventStorage{
 			PushCall: func(event dtos.EventDTO, size int) error { return nil },
 		},
-		factory:           factory,
-		impressionManager: impressionManager,
+		factory:             factory,
+		impressionManager:   impressionManager,
+		initTelemetry:       telemetryMockedStorage,
+		evaluationTelemetry: telemetryMockedStorage,
+		runtimeTelemetry:    telemetryMockedStorage,
 	}
 	factory.status.Store(sdkStatusReady)
 	return client
@@ -325,32 +338,48 @@ func TestTreatmentsValidator(t *testing.T) {
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordExceptionCall:     func(method string) {},
+		RecordSessionLengthCall: func(session int64) {},
+	}
 	logger := getMockedLogger()
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger, telemetryMockedStorage),
 		logger,
 		spConf.AdvancedConfig{},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
+		telemetryMockedStorage,
+		dtos.Metadata{},
+		nil,
 	)
 	factory := &SplitFactory{
 		cfg:         conf.Default(),
 		syncManager: sync,
+		storages: sdkStorages{
+			initTelemetry:       telemetryMockedStorage,
+			runtimeTelemetry:    telemetryMockedStorage,
+			evaluationTelemetry: telemetryMockedStorage,
+		},
 	}
 	factory.status.Store(sdkStatusReady)
 	var client2 = SplitClient{
-		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
-		logger:      logger,
-		validator:   inputValidation{logger: logger},
-		factory:     factory,
+		evaluator:           &mockEvaluator{},
+		impressions:         mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger, telemetryMockedStorage),
+		logger:              logger,
+		validator:           inputValidation{logger: logger},
+		factory:             factory,
+		initTelemetry:       telemetryMockedStorage,
+		evaluationTelemetry: telemetryMockedStorage,
+		runtimeTelemetry:    telemetryMockedStorage,
 	}
 
 	var manager = SplitManager{
-		logger:    logger,
-		validator: inputValidation{logger: logger},
-		factory:   factory,
+		logger:        logger,
+		validator:     inputValidation{logger: logger},
+		factory:       factory,
+		initTelemetry: telemetryMockedStorage,
 	}
 
 	client2.Destroy()
@@ -493,7 +522,7 @@ func TestNotReadyYet(t *testing.T) {
 	factoryNotReady := &SplitFactory{}
 	clientNotReady := SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
+		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger, mocks.MockTelemetryStorage{}),
 		logger:      logger,
 		validator: inputValidation{
 			logger:       logger,

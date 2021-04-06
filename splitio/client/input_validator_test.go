@@ -73,7 +73,6 @@ func getClient() SplitClient {
 	logger := getMockedLogger()
 	cfg := conf.Default()
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
-		RecordExceptionCall:        func(method string) {},
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
 		RecordLatencyCall:          func(method string, latency int64) {},
 	}
@@ -339,7 +338,6 @@ func TestTreatmentsValidator(t *testing.T) {
 
 func TestValidatorOnDestroy(t *testing.T) {
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
-		RecordExceptionCall:     func(method string) {},
 		RecordSessionLengthCall: func(session int64) {},
 	}
 	logger := getMockedLogger()
@@ -518,6 +516,7 @@ func TestNotReadyYet(t *testing.T) {
 		RecordNonReadyUsageCall: func() {
 			nonReadyUsages++
 		},
+		RecordExceptionCall: func(method string) {},
 	}
 	factoryNotReady := &SplitFactory{}
 	clientNotReady := SplitClient{
@@ -531,8 +530,9 @@ func TestNotReadyYet(t *testing.T) {
 		events: mocks.MockEventStorage{
 			PushCall: func(event dtos.EventDTO, size int) error { return nil },
 		},
-		factory:       factoryNotReady,
-		initTelemetry: telemetryStorage,
+		factory:             factoryNotReady,
+		initTelemetry:       telemetryStorage,
+		evaluationTelemetry: telemetryStorage,
 	}
 	maganerNotReady := SplitManager{
 		initTelemetry: telemetryStorage,

@@ -67,7 +67,6 @@ func NewSplitFactory(apikey string, cfg *conf.SplitSdkConfig) (*SplitFactory, er
 	}
 
 	splitFactory, err := newFactory(apikey, cfg, logger)
-	// setFactory(apikey, logger)
 	return splitFactory, err
 }
 

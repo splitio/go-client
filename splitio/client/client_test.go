@@ -256,7 +256,55 @@ func TestClientGetTreatmentConsideringValidationInputs(t *testing.T) {
 }
 
 func TestClientPanicking(t *testing.T) {
-	factory := getFactory()
+	call := 0
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordExceptionCall: func(method string) {
+			switch call {
+			case 0:
+				if method != telemetry.Treatment {
+					t.Error("Should be Treatment")
+				}
+			case 1:
+				if method != telemetry.Treatments {
+					t.Error("Should be Treatments")
+				}
+			case 2:
+				if method != telemetry.TreatmentWithConfig {
+					t.Error("Should be TreatmentWithConfig")
+				}
+			case 3:
+				if method != telemetry.TreatmentsWithConfig {
+					t.Error("Should be TreatmentsWithConfig")
+				}
+			case 4:
+				if method != telemetry.Track {
+					t.Error("Should be Track")
+				}
+			}
+
+			call++
+		},
+	}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	logger := logging.NewLogger(nil)
+	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
+		ImpressionsMode: cfg.ImpressionsMode,
+		OperationMode:   cfg.OperationMode,
+	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+
+	factory := SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage),
+			events:              mocks.MockEventStorage{},
+			initTelemetry:       telemetryMockedStorage,
+			runtimeTelemetry:    telemetryMockedStorage,
+			evaluationTelemetry: telemetryMockedStorage,
+		},
+		impressionManager: impressionManager,
+		logger:            logger,
+	}
 
 	client := factory.Client()
 	client.evaluator = evaluatorMock.MockEvaluator{
@@ -270,6 +318,14 @@ func TestClientPanicking(t *testing.T) {
 	factory.status.Store(sdkStatusReady)
 
 	expectedTreatment(client.Treatment("key", "some", nil), evaluator.Control, t)
+	expectedTreatment(client.Treatments("key", []string{"some"}, nil)["some"], evaluator.Control, t)
+	expectedTreatment(client.TreatmentWithConfig("key", "some", nil).Treatment, evaluator.Control, t)
+	expectedTreatment(client.TreatmentsWithConfig("key", []string{"some"}, nil)["some"].Treatment, evaluator.Control, t)
+
+	err := client.Track("some", "some", "some", nil, nil)
+	if err == nil || err.Error() != "Track is panicking. Please check logs" {
+		t.Error("It should panic")
+	}
 }
 
 func TestClientDestroy(t *testing.T) {
@@ -1133,7 +1189,6 @@ func TestClient(t *testing.T) {
 	mockedTelemetryStorage := mocks.MockTelemetryStorage{
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
 		RecordLatencyCall:          func(method string, latency int64) {},
-		RecordExceptionCall:        func(method string) {},
 	}
 
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{

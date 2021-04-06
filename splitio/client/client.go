@@ -133,6 +133,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
+			c.evaluationTelemetry.RecordException(metricsLabel)
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
@@ -143,28 +144,24 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 
 	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return controlTreatment
 	}
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return controlTreatment
 	}
 
 	feature, err = c.validator.ValidateFeatureName(feature, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return controlTreatment
 	}
 
 	evaluationResult := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
 
 	if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return controlTreatment
 	}
 
@@ -218,30 +215,28 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking trust
 			// that the logger isn't panicking
+			c.evaluationTelemetry.RecordException(metricsLabel)
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n")
-			t = treatments
+			t = c.generateControlTreatments(features, operation)
 		}
 	}()
 
 	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return c.generateControlTreatments(features, operation)
 	}
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return c.generateControlTreatments(features, operation)
 	}
 
 	filteredFeatures, err := c.validator.ValidateFeatureNames(features, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		c.evaluationTelemetry.RecordException(metricsLabel)
 		return map[string]TreatmentResult{}
 	}
 
@@ -249,7 +244,6 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 	for feature, evaluation := range evaluationsResult.Evaluations {
 		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
-			c.evaluationTelemetry.RecordException(metricsLabel)
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluator.Control,
 				Config:    nil,
@@ -306,6 +300,7 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 	defer func() {
 		if r := recover(); r != nil {
 			// At this point we'll only trust that the logger isn't panicking
+			c.evaluationTelemetry.RecordException(telemetry.Track)
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n",
@@ -316,7 +311,6 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 
 	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		c.evaluationTelemetry.RecordException(telemetry.Track)
 		return errors.New("Client has already been destroyed - no calls possible")
 	}
 
@@ -334,13 +328,11 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 	)
 	if err != nil {
 		c.logger.Error(err.Error())
-		c.evaluationTelemetry.RecordException(telemetry.Track)
 		return err
 	}
 
 	properties, size, err := c.validator.validateTrackProperties(properties)
 	if err != nil {
-		c.evaluationTelemetry.RecordException(telemetry.Track)
 		return err
 	}
 
@@ -355,7 +347,6 @@ func (c *SplitClient) Track(key string, trafficType string, eventType string, va
 
 	if err != nil {
 		c.logger.Error("Error tracking event", err.Error())
-		c.evaluationTelemetry.RecordException(telemetry.Track)
 		return err
 	}
 

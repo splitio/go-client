@@ -1774,6 +1774,7 @@ func TestTelemetryMemory(t *testing.T) {
 	metricsStatsCalled := 0
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
 		splitChanges := dtos.SplitChangesDTO{
 			Splits: []dtos.SplitDTO{
 				{Name: "split1", Killed: true, Status: "ACTIVE"},
@@ -1850,8 +1851,8 @@ func TestTelemetryMemory(t *testing.T) {
 				}
 			}
 
-			if dataInPost.TimeUntilReady > 10 {
-				t.Error("It should be ready almost immediately")
+			if dataInPost.TimeUntilReady == 0 || dataInPost.TimeUntilReady > 200 {
+				t.Error("It should be ready almost immediately", dataInPost.TimeUntilReady)
 			}
 			if dataInPost.ImpressionsListenerEnabled {
 				t.Error("It should not have impression listener")

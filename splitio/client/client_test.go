@@ -1851,8 +1851,8 @@ func TestTelemetryMemory(t *testing.T) {
 				}
 			}
 
-			if dataInPost.TimeUntilReady == 0 || dataInPost.TimeUntilReady > 200 {
-				t.Error("It should be ready almost immediately", dataInPost.TimeUntilReady)
+			if dataInPost.TimeUntilReady == 0 {
+				t.Error("It should record ready")
 			}
 			if dataInPost.ImpressionsListenerEnabled {
 				t.Error("It should not have impression listener")

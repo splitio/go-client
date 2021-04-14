@@ -314,7 +314,7 @@ func setupInMemoryFactory(
 		SegmentSyncTask:    tasks.NewFetchSegmentsTask(workers.SegmentFetcher, cfg.TaskPeriods.SegmentSync, advanced.SegmentWorkers, advanced.SegmentQueueSize, logger),
 		EventSyncTask:      tasks.NewRecordEventsTask(workers.EventRecorder, advanced.EventsBulkSize, cfg.TaskPeriods.EventsSync, logger),
 		ImpressionSyncTask: tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize),
-		TelemetrySyncTask:  tasks.NewRecordTelemetryTask(workers.TelemetryRecorder, cfg.TaskPeriods.CounterSync, logger),
+		TelemetrySyncTask:  tasks.NewRecordTelemetryTask(workers.TelemetryRecorder, cfg.TaskPeriods.TelemetrySync, logger),
 	}
 	var impressionsCounter *provisional.ImpressionsCounter
 	if cfg.ImpressionsMode == config.ImpressionsModeOptimized {

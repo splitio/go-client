@@ -52,23 +52,9 @@ func TestValidRates(t *testing.T) {
 		t.Error("It should not return err")
 	}
 
-	cfg.TaskPeriods.CounterSync = 0
+	cfg.TaskPeriods.TelemetrySync = 0
 	err = Normalize("asd", cfg)
-	if err == nil || err.Error() != "CounterSync must be >= 30. Actual is: 0" {
-		t.Error("It should return err")
-	}
-
-	cfg = Default()
-	cfg.TaskPeriods.LatencySync = 10
-	err = Normalize("asd", cfg)
-	if err == nil || err.Error() != "LatencySync must be >= 30. Actual is: 10" {
-		t.Error("It should return err")
-	}
-
-	cfg = Default()
-	cfg.TaskPeriods.GaugeSync = 20
-	err = Normalize("asd", cfg)
-	if err == nil || err.Error() != "GaugeSync must be >= 30. Actual is: 20" {
+	if err == nil || err.Error() != "TelemetrySync must be >= 30. Actual is: 0" {
 		t.Error("It should return err")
 	}
 

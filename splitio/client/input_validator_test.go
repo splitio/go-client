@@ -9,15 +9,14 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	redisCfg "github.com/splitio/go-split-commons/v3/conf"
 	spConf "github.com/splitio/go-split-commons/v3/conf"
 	"github.com/splitio/go-split-commons/v3/dtos"
 	"github.com/splitio/go-split-commons/v3/provisional"
-	"github.com/splitio/go-split-commons/v3/service"
+	"github.com/splitio/go-split-commons/v3/service/api"
 	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
+	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
 	"github.com/splitio/go-split-commons/v3/storage/mocks"
-	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
-	"github.com/splitio/go-split-commons/v3/storage/mutexqueue"
 	"github.com/splitio/go-split-commons/v3/synchronizer"
 	"github.com/splitio/go-toolkit/v4/logging"
 )
@@ -73,16 +72,24 @@ func getMockedLogger() logging.LoggerInterface {
 func getClient() SplitClient {
 	logger := getMockedLogger()
 	cfg := conf.Default()
-	impressionManager, _ := provisional.NewImpressionManager(redisCfg.ManagerConfig{
-		ImpressionsMode: redisCfg.ImpressionsModeDebug,
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordLatencyCall:          func(method string, latency int64) {},
+	}
+	impressionManager, _ := provisional.NewImpressionManager(spConf.ManagerConfig{
+		ImpressionsMode: spConf.ImpressionsModeDebug,
 		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter())
-	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
+	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager,
+		storages: sdkStorages{
+			runtimeTelemetry:    telemetryMockedStorage,
+			initTelemetry:       telemetryMockedStorage,
+			evaluationTelemetry: telemetryMockedStorage,
+		}}
 
 	client := SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger),
-		metrics:     mutexmap.NewMMMetricsStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage),
 		logger:      logger,
 		validator: inputValidation{
 			logger: logger,
@@ -100,8 +107,11 @@ func getClient() SplitClient {
 		events: mocks.MockEventStorage{
 			PushCall: func(event dtos.EventDTO, size int) error { return nil },
 		},
-		factory:           factory,
-		impressionManager: impressionManager,
+		factory:             factory,
+		impressionManager:   impressionManager,
+		initTelemetry:       telemetryMockedStorage,
+		evaluationTelemetry: telemetryMockedStorage,
+		runtimeTelemetry:    telemetryMockedStorage,
 	}
 	factory.status.Store(sdkStatusReady)
 	return client
@@ -327,33 +337,47 @@ func TestTreatmentsValidator(t *testing.T) {
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
+	telemetryMockedStorage := mocks.MockTelemetryStorage{
+		RecordSessionLengthCall: func(session int64) {},
+	}
 	logger := getMockedLogger()
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(3, &service.SplitAPI{}, mocks.MockSplitStorage{}, logger),
+		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger, telemetryMockedStorage),
 		logger,
 		spConf.AdvancedConfig{},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
+		telemetryMockedStorage,
+		dtos.Metadata{},
+		nil,
 	)
 	factory := &SplitFactory{
 		cfg:         conf.Default(),
 		syncManager: sync,
+		storages: sdkStorages{
+			initTelemetry:       telemetryMockedStorage,
+			runtimeTelemetry:    telemetryMockedStorage,
+			evaluationTelemetry: telemetryMockedStorage,
+		},
 	}
 	factory.status.Store(sdkStatusReady)
 	var client2 = SplitClient{
-		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
-		metrics:     mutexmap.NewMMMetricsStorage(),
-		logger:      logger,
-		validator:   inputValidation{logger: logger},
-		factory:     factory,
+		evaluator:           &mockEvaluator{},
+		impressions:         mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger, telemetryMockedStorage),
+		logger:              logger,
+		validator:           inputValidation{logger: logger},
+		factory:             factory,
+		initTelemetry:       telemetryMockedStorage,
+		evaluationTelemetry: telemetryMockedStorage,
+		runtimeTelemetry:    telemetryMockedStorage,
 	}
 
 	var manager = SplitManager{
-		logger:    logger,
-		validator: inputValidation{logger: logger},
-		factory:   factory,
+		logger:        logger,
+		validator:     inputValidation{logger: logger},
+		factory:       factory,
+		initTelemetry: telemetryMockedStorage,
 	}
 
 	client2.Destroy()
@@ -485,13 +509,19 @@ func TestLocalhostTrafficType(t *testing.T) {
 	mW.Reset()
 }
 
-func TestTrackNotReadyYetTrafficType(t *testing.T) {
+func TestNotReadyYet(t *testing.T) {
+	nonReadyUsages := 0
 	logger := getMockedLogger()
-	var factoryNotReady = &SplitFactory{}
-	var clientNotReady = SplitClient{
+	telemetryStorage := mocks.MockTelemetryStorage{
+		RecordNonReadyUsageCall: func() {
+			nonReadyUsages++
+		},
+		RecordExceptionCall: func(method string) {},
+	}
+	factoryNotReady := &SplitFactory{}
+	clientNotReady := SplitClient{
 		evaluator:   &mockEvaluator{},
-		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger),
-		metrics:     mutexmap.NewMMMetricsStorage(),
+		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger, mocks.MockTelemetryStorage{}),
 		logger:      logger,
 		validator: inputValidation{
 			logger:       logger,
@@ -500,13 +530,62 @@ func TestTrackNotReadyYetTrafficType(t *testing.T) {
 		events: mocks.MockEventStorage{
 			PushCall: func(event dtos.EventDTO, size int) error { return nil },
 		},
-		factory: factoryNotReady,
+		factory:             factoryNotReady,
+		initTelemetry:       telemetryStorage,
+		evaluationTelemetry: telemetryStorage,
+	}
+	maganerNotReady := SplitManager{
+		initTelemetry: telemetryStorage,
+		factory:       factoryNotReady,
+		logger:        logger,
+		splitStorage:  mutexmap.NewMMSplitStorage(),
 	}
 
 	factoryNotReady.status.Store(sdkStatusInitializing)
 
+	expectedMessage := "{operation}: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
+
+	clientNotReady.Treatment("test", "feature", nil)
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatment", 1)) {
+		t.Error("Wrong message")
+	}
+
+	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatments", 1)) {
+		t.Error("Wrong message")
+	}
+
+	clientNotReady.TreatmentWithConfig("test", "feature", nil)
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentWithConfig", 1)) {
+		t.Error("Wrong message")
+	}
+
+	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentsWithConfig", 1)) {
+		t.Error("Wrong message")
+	}
+
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
+
+	maganerNotReady.Split("feature")
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
+		t.Error("Wrong message")
+	}
+
+	maganerNotReady.Splits()
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
+		t.Error("Wrong message")
+	}
+
+	maganerNotReady.SplitNames()
+	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
+		t.Error("Wrong message")
+	}
+
+	if nonReadyUsages != 8 {
+		t.Error("It should track a non ready usage")
+	}
 }
 
 func TestManagerWithEmptySplit(t *testing.T) {

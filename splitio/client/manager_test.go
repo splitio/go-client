@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/storage/mutexmap"
+	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexmap"
 	"github.com/splitio/go-toolkit/v4/datastructures/set"
 	"github.com/splitio/go-toolkit/v4/logging"
 )

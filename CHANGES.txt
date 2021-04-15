@@ -1,3 +1,6 @@
+6.1.0 (Apr 14, 2021)
+- Update SDK telemetry storage, metrics and updater to be more effective and send less often.
+
 6.0.2 (Feb 25, 2021)
 - Fix SSE race conditions on token refresh & general push revamp (implemented in commons and toolkit)
 

@@ -1,0 +1,69 @@
+name: ci-cd
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-test:
+    name: Build and run Tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go version
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13.1'
+
+      - name: Execute tests
+        run: |
+          bash test.sh
+
+      - name: SonarQube Scan (Push)
+        if: github.event_name == 'push'
+        uses: SonarSource/sonarcloud-github-action@v1.5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
+            -Dsonar.projectName=${{ github.event.repository.name }}
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.projectVersion=${{ env.VERSION }}
+            -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
+            -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
+
+      - name: SonarQube Scan (Pull Request)
+        if: github.event_name == 'pull_request'
+        uses: SonarSource/sonarcloud-github-action@v1.5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
+            -Dsonar.projectName=${{ github.event.repository.name }}
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.projectVersion=${{ env.VERSION }}
+            -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
+            -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
+            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}

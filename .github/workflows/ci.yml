@@ -32,7 +32,7 @@ jobs:
         run: go mod tidy
 
       - name: Execute tests
-        run: go test ./... -count=1 -race
+        run: go test -coverprofile=coverage.out -count=1 -race ./...
 
       - name: SonarQube Scan (Push)
         if: github.event_name == 'push'
@@ -45,9 +45,7 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
             -Dsonar.projectName=${{ github.event.repository.name }}
             -Dsonar.projectKey=${{ github.event.repository.name }}
-            -Dsonar.projectVersion=${{ env.VERSION }}
             -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
-            -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
             -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
 
@@ -61,10 +59,8 @@ jobs:
           args: >
             -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
             -Dsonar.projectName=${{ github.event.repository.name }}
-            -Dsonar.projectKey=${{ github.event.repository.name }}
-            -Dsonar.projectVersion=${{ env.VERSION }}
+            -Dsonar.projectKey=${{ github.event.repository.name }}            
             -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
-            -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
             -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}

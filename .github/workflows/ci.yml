@@ -1,4 +1,4 @@
-name: ci-cd
+name: ci
 on:
   push:
     branches:
@@ -9,8 +9,8 @@ on:
       - feature/modules_support
 
 jobs:
-  build-and-test:
-    name: Build and run Tests
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     services:
       redis:
@@ -60,7 +60,7 @@ jobs:
           args: >
             -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
             -Dsonar.projectName=${{ github.event.repository.name }}
-            -Dsonar.projectKey=${{ github.event.repository.name }}            
+            -Dsonar.projectKey=${{ github.event.repository.name }}
             -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
             -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"

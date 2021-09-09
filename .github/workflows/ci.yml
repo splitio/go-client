@@ -46,6 +46,7 @@ jobs:
             -Dsonar.projectName=${{ github.event.repository.name }}
             -Dsonar.projectKey=${{ github.event.repository.name }}
             -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
+            -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
             -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
 
@@ -61,6 +62,7 @@ jobs:
             -Dsonar.projectName=${{ github.event.repository.name }}
             -Dsonar.projectKey=${{ github.event.repository.name }}            
             -Dsonar.exclusions='**/*_test.go,**/vendor/**,**/testdata/*'
+            -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
             -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}

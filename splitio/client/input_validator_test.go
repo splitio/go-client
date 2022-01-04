@@ -7,18 +7,20 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	spConf "github.com/splitio/go-split-commons/v3/conf"
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/provisional"
-	"github.com/splitio/go-split-commons/v3/service/api"
-	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
-	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v3/storage/mocks"
-	"github.com/splitio/go-split-commons/v3/synchronizer"
-	"github.com/splitio/go-toolkit/v4/logging"
+	spConf "github.com/splitio/go-split-commons/v4/conf"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-split-commons/v4/healthcheck/application"
+	"github.com/splitio/go-split-commons/v4/provisional"
+	"github.com/splitio/go-split-commons/v4/service/api"
+	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v4/storage/mocks"
+	"github.com/splitio/go-split-commons/v4/synchronizer"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 type MockWriter struct {
@@ -74,7 +76,7 @@ func getClient() SplitClient {
 	cfg := conf.Default()
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
-		RecordLatencyCall:          func(method string, latency int64) {},
+		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
 	impressionManager, _ := provisional.NewImpressionManager(spConf.ManagerConfig{
 		ImpressionsMode: spConf.ImpressionsModeDebug,
@@ -342,7 +344,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	}
 	logger := getMockedLogger()
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger, telemetryMockedStorage),
+		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
 		spConf.AdvancedConfig{},
 		authMocks.MockAuthClient{},
@@ -351,6 +353,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 		telemetryMockedStorage,
 		dtos.Metadata{},
 		nil,
+		&application.Dummy{},
 	)
 	factory := &SplitFactory{
 		cfg:         conf.Default(),

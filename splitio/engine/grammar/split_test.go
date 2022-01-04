@@ -3,8 +3,8 @@ package grammar
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestSplitCreation(t *testing.T) {

@@ -19,22 +19,23 @@ import (
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
 	evaluatorMock "github.com/splitio/go-client/v6/splitio/engine/evaluator/mocks"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	commonsCfg "github.com/splitio/go-split-commons/v3/conf"
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/provisional"
-	authMocks "github.com/splitio/go-split-commons/v3/service/mocks"
-	"github.com/splitio/go-split-commons/v3/storage"
-	"github.com/splitio/go-split-commons/v3/storage/inmemory"
-	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v3/storage/mocks"
-	"github.com/splitio/go-split-commons/v3/storage/redis"
-	"github.com/splitio/go-split-commons/v3/synchronizer"
-	syncMock "github.com/splitio/go-split-commons/v3/synchronizer/mocks"
-	"github.com/splitio/go-split-commons/v3/telemetry"
-	"github.com/splitio/go-split-commons/v3/util"
-	"github.com/splitio/go-toolkit/v4/datastructures/set"
-	"github.com/splitio/go-toolkit/v4/logging"
-	predis "github.com/splitio/go-toolkit/v4/redis"
+	commonsCfg "github.com/splitio/go-split-commons/v4/conf"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-split-commons/v4/healthcheck/application"
+	"github.com/splitio/go-split-commons/v4/provisional"
+	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
+	"github.com/splitio/go-split-commons/v4/storage"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v4/storage/mocks"
+	"github.com/splitio/go-split-commons/v4/storage/redis"
+	"github.com/splitio/go-split-commons/v4/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/v4/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v4/telemetry"
+	"github.com/splitio/go-split-commons/v4/util"
+	"github.com/splitio/go-toolkit/v5/datastructures/set"
+	"github.com/splitio/go-toolkit/v5/logging"
+	predis "github.com/splitio/go-toolkit/v5/redis"
 )
 
 type mockEvaluator struct{}
@@ -48,28 +49,28 @@ func (e *mockEvaluator) EvaluateFeature(
 	switch feature {
 	case "feature":
 		return &evaluator.Result{
-			EvaluationTimeNs:  0,
+			EvaluationTime:    0,
 			Label:             "aLabel",
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentA",
 		}
 	case "feature2":
 		return &evaluator.Result{
-			EvaluationTimeNs:  0,
+			EvaluationTime:    0,
 			Label:             "bLabel",
 			SplitChangeNumber: 123,
 			Treatment:         "TreatmentB",
 		}
 	case "some_feature":
 		return &evaluator.Result{
-			EvaluationTimeNs:  0,
+			EvaluationTime:    0,
 			Label:             "bLabel",
 			SplitChangeNumber: 123,
 			Treatment:         evaluator.Control,
 		}
 	default:
 		return &evaluator.Result{
-			EvaluationTimeNs:  0,
+			EvaluationTime:    0,
 			Label:             impressionlabels.SplitNotFound,
 			SplitChangeNumber: 123,
 			Treatment:         evaluator.Control,
@@ -83,35 +84,35 @@ func (e *mockEvaluator) EvaluateFeatures(
 	attributes map[string]interface{},
 ) evaluator.Results {
 	results := evaluator.Results{
-		Evaluations:      make(map[string]evaluator.Result),
-		EvaluationTimeNs: 0,
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
 	}
 	for _, feature := range features {
 		switch feature {
 		case "feature":
 			results.Evaluations["feature"] = evaluator.Result{
-				EvaluationTimeNs:  0,
+				EvaluationTime:    0,
 				Label:             "aLabel",
 				SplitChangeNumber: 123,
 				Treatment:         "TreatmentA",
 			}
 		case "feature2":
 			results.Evaluations["feature2"] = evaluator.Result{
-				EvaluationTimeNs:  0,
+				EvaluationTime:    0,
 				Label:             "bLabel",
 				SplitChangeNumber: 123,
 				Treatment:         "TreatmentB",
 			}
 		case "some_feature":
 			results.Evaluations["some_feature"] = evaluator.Result{
-				EvaluationTimeNs:  0,
+				EvaluationTime:    0,
 				Label:             "bLabel",
 				SplitChangeNumber: 123,
 				Treatment:         evaluator.Control,
 			}
 		default:
 			results.Evaluations[feature] = evaluator.Result{
-				EvaluationTimeNs:  0,
+				EvaluationTime:    0,
 				Label:             impressionlabels.SplitNotFound,
 				SplitChangeNumber: 123,
 				Treatment:         evaluator.Control,
@@ -350,6 +351,7 @@ func TestClientDestroy(t *testing.T) {
 		telemetryStorage,
 		dtos.Metadata{},
 		nil,
+		&application.Dummy{},
 	)
 	sync.Start()
 
@@ -455,7 +457,7 @@ func getClientForListener() SplitClient {
 	})
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
-		RecordLatencyCall:          func(method string, latency int64) {},
+		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
 	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage)
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
@@ -1188,7 +1190,7 @@ func TestClient(t *testing.T) {
 
 	mockedTelemetryStorage := mocks.MockTelemetryStorage{
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
-		RecordLatencyCall:          func(method string, latency int64) {},
+		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
 
 	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{

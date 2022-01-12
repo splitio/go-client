@@ -10,10 +10,10 @@ import (
 	"github.com/splitio/go-client/v6/splitio/engine"
 	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
 	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers"
-	"github.com/splitio/go-split-commons/v3/dtos"
-	"github.com/splitio/go-split-commons/v3/storage/inmemory/mutexmap"
-	"github.com/splitio/go-toolkit/v4/injection"
-	"github.com/splitio/go-toolkit/v4/logging"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
+	"github.com/splitio/go-toolkit/v5/injection"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 type mockEvaluator struct {
@@ -61,7 +61,7 @@ func TestDependencyMatcher(t *testing.T) {
 	}
 
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitStorage.PutMany([]dtos.SplitDTO{
+	splitStorage.Update([]dtos.SplitDTO{
 		{
 			Name: "feature1",
 			Conditions: []dtos.ConditionDTO{
@@ -112,7 +112,7 @@ func TestDependencyMatcher(t *testing.T) {
 			},
 			DefaultTreatment: "off",
 		},
-	}, 1)
+	}, nil, 1)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
 
 	ctx := injection.NewContext()
@@ -181,7 +181,7 @@ func TestDependencyMatcherWithBucketingKey(t *testing.T) {
 	}
 
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitStorage.PutMany([]dtos.SplitDTO{
+	splitStorage.Update([]dtos.SplitDTO{
 		{
 			Name: "feature1",
 			Conditions: []dtos.ConditionDTO{
@@ -232,7 +232,7 @@ func TestDependencyMatcherWithBucketingKey(t *testing.T) {
 			},
 			DefaultTreatment: "off",
 		},
-	}, 1)
+	}, nil, 1)
 
 	ctx := injection.NewContext()
 	ctx.AddDependency("evaluator", &mockEvaluator{expectedBucketingKey: "bucketingKey_1", t: t})
@@ -248,5 +248,4 @@ func TestDependencyMatcherWithBucketingKey(t *testing.T) {
 
 	ctx.AddDependency("evaluator", &mockEvaluator{expectedBucketingKey: "", t: t})
 	matcher.Match("asd", map[string]interface{}{"value": "something"}, nil)
-
 }

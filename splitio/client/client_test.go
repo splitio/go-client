@@ -336,12 +336,13 @@ func TestClientDestroy(t *testing.T) {
 	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 
 	sync, _ := synchronizer.NewSynchronizerManager(
-		syncMock.MockSynchronizer{
+		&syncMock.MockSynchronizer{
 			SyncAllCall:                    func(bool) error { return nil },
 			StartPeriodicDataRecordingCall: func() {},
 			StartPeriodicFetchingCall:      func() {},
 			StopPeriodicDataRecordingCall:  func() { atomic.AddInt64(&periodicDataRecordingStopped, 1) },
 			StopPeriodicFetchingCall:       func() { atomic.AddInt64(&periodicDataFetchingStopped, 1) },
+			RefreshRatesCall:               func() (time.Duration, time.Duration) { return time.Minute, time.Minute },
 		},
 		logger,
 		commonsCfg.AdvancedConfig{StreamingEnabled: false},

@@ -2,11 +2,12 @@ name: ci
 on:
   push:
     branches:
-      - feature/modules_support
-      # - master - review this for breaking change releases
+      - feature/modules_support # remove once this is merged
+      - main
   pull_request:
     branches:
-      - feature/modules_support
+      - feature/modules_support # remove once this is merged
+      - main
 
 jobs:
   test:

@@ -790,7 +790,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("Wrong error")
 	}
 
-	err = client.BlockUntilReady(1)
+	err = client.BlockUntilReady(5)
 	if err == nil {
 		t.Error("It should return error")
 	}

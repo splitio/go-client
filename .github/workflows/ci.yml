@@ -2,11 +2,11 @@ name: ci
 on:
   push:
     branches:
-      - feature/modules_support # remove once this is merged
+      - development
       - main
   pull_request:
     branches:
-      - feature/modules_support # remove once this is merged
+      - development
       - main
 
 jobs:

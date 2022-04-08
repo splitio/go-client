@@ -3,15 +3,15 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/storage/mutexmap"
-	"github.com/splitio/go-toolkit/datastructures/set"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
+	"github.com/splitio/go-toolkit/v5/datastructures/set"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestSplitManager(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitStorage.PutMany([]dtos.SplitDTO{
+	splitStorage.Update([]dtos.SplitDTO{
 		{
 			ChangeNumber:    123,
 			Name:            "split1",
@@ -42,7 +42,7 @@ func TestSplitManager(t *testing.T) {
 				},
 			},
 		},
-	}, 123)
+	}, nil, 123)
 
 	logger := logging.NewLogger(nil)
 	factory := SplitFactory{}
@@ -90,7 +90,7 @@ func TestSplitManager(t *testing.T) {
 
 func TestSplitManagerWithConfigs(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage()
-	splitStorage.PutMany([]dtos.SplitDTO{*valid, *killed, *noConfig}, 123)
+	splitStorage.Update([]dtos.SplitDTO{*valid, *killed, *noConfig}, nil, 123)
 
 	logger := logging.NewLogger(nil)
 	factory := SplitFactory{}

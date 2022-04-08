@@ -1,7 +1,7 @@
 package matchers
 
 import (
-	"github.com/splitio/go-client/splitio/engine/grammar/matchers/datatypes"
+	"github.com/splitio/go-client/v6/splitio/engine/grammar/matchers/datatypes"
 )
 
 // GreaterThanOrEqualToMatcher will match if two numbers or two datetimes are equal

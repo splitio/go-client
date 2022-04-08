@@ -1,4 +1,20 @@
-5.3.0 (Oct 5, 2020)
+6.1.1 (Jan 12, 2022)
+- Fix 100% cpu issue in localhost mode
+- Bump toolkit & commons dependencies
+
+6.1.0 (Apr 14, 2021)
+- Update SDK telemetry storage, metrics and updater to be more effective and send less often.
+
+6.0.2 (Feb 25, 2021)
+- Fix SSE race conditions on token refresh & general push revamp (implemented in commons and toolkit)
+
+6.0.1 (Dec 22, 2020)
+- Point to new versions of commons & toolkit which remove unnecessary log message.
+
+6.0.0 (Oct 6, 2020)
+- BREAKING CHANGE: Migrated to go modules (dep & bare-bones go-dep no longer supported)
+
+5.3.0 (Oct 6, 2020)
 - Added local impressions deduping (enabled by default).
 
 5.2.2 (Sep 10, 2020)

@@ -4,11 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-split-commons/storage/mutexmap"
-	"github.com/splitio/go-toolkit/datastructures/set"
-	"github.com/splitio/go-toolkit/injection"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
+	"github.com/splitio/go-toolkit/v5/datastructures/set"
+	"github.com/splitio/go-toolkit/v5/injection"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestInSegmentMatcher(t *testing.T) {

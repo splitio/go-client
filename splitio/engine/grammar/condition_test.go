@@ -3,8 +3,8 @@ package grammar
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestConditionWrapperObject(t *testing.T) {

@@ -3,10 +3,10 @@ package evaluator
 import (
 	"testing"
 
-	"github.com/splitio/go-client/splitio/conf"
-	"github.com/splitio/go-split-commons/dtos"
-	"github.com/splitio/go-toolkit/datastructures/set"
-	"github.com/splitio/go-toolkit/logging"
+	"github.com/splitio/go-client/v6/splitio/conf"
+	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-toolkit/v5/datastructures/set"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 type mockStorage struct{}
@@ -362,7 +362,7 @@ func TestMultipleEvaluations(t *testing.T) {
 		t.Error("Unexpected configs")
 	}
 
-	if result.EvaluationTimeNs <= 0 {
+	if result.EvaluationTime <= 0 {
 		t.Error("It should be greater than 0")
 	}
 }

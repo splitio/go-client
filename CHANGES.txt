@@ -1,4 +1,4 @@
-6.1.3 (TBD)
+6.1.3 (Apr 18, 2022)
 - Fixed panic on initialization when redis is down
 
 6.1.2 (April 8, 2022)

@@ -1,3 +1,6 @@
+6.1.4 (Apr 20, 2022)
+- Updated config telemetry redis storage
+
 6.1.3 (Apr 18, 2022)
 - Fixed panic on initialization when redis is down
 

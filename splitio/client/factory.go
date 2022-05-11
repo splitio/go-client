@@ -184,7 +184,7 @@ func (f *SplitFactory) broadcastReadiness(status int, tags []string) {
 		subscriptor <- status
 	}
 	// At this point the SDK is ready for sending telemetry
-	f.recordInitTelemetry(tags)
+	go f.recordInitTelemetry(tags)
 }
 
 // subscribes listener
@@ -506,7 +506,7 @@ func setupLocalhostFactory(
 
 // newFactory instantiates a new SplitFactory object. Accepts a SplitSdkConfig struct as an argument,
 // which will be used to instantiate both the client and the manager
-func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
+func newFactory(apikey string, cfg conf.SplitSdkConfig, logger logging.LoggerInterface) (*SplitFactory, error) {
 	metadata := dtos.Metadata{
 		SDKVersion:  "go-" + splitio.Version,
 		MachineIP:   cfg.IPAddress,
@@ -518,11 +518,11 @@ func newFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerIn
 
 	switch cfg.OperationMode {
 	case conf.InMemoryStandAlone:
-		splitFactory, err = setupInMemoryFactory(apikey, cfg, logger, metadata)
+		splitFactory, err = setupInMemoryFactory(apikey, &cfg, logger, metadata)
 	case conf.RedisConsumer:
-		splitFactory, err = setupRedisFactory(apikey, cfg, logger, metadata)
+		splitFactory, err = setupRedisFactory(apikey, &cfg, logger, metadata)
 	case conf.Localhost:
-		splitFactory, err = setupLocalhostFactory(apikey, cfg, logger, metadata)
+		splitFactory, err = setupLocalhostFactory(apikey, &cfg, logger, metadata)
 	default:
 		err = fmt.Errorf("Invalid operation mode \"%s\"", cfg.OperationMode)
 	}

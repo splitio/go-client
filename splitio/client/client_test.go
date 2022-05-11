@@ -1936,6 +1936,7 @@ func TestTelemetryRedis(t *testing.T) {
 	sdkConf.OperationMode = conf.RedisConsumer
 
 	factory, _ := NewSplitFactory("something", sdkConf)
+	md := fmt.Sprintf("go-%s/%s/%s", splitio.Version, sdkConf.InstanceName, sdkConf.IPAddress)
 
 	if !factory.IsReady() {
 		t.Error("Factory should be ready immediately")
@@ -1953,7 +1954,7 @@ func TestTelemetryRedis(t *testing.T) {
 		Password: "",
 		Prefix:   "",
 	}, logging.NewLogger(&logging.LoggerOptions{}))
-	data, err := prefixedClient.LRange("SPLITIO.telemetry.config", 0, 100)
+	data, err := prefixedClient.HGetAll("SPLITIO.telemetry.init")
 	if err != nil {
 		t.Error("It should not return err")
 	}
@@ -1961,22 +1962,25 @@ func TestTelemetryRedis(t *testing.T) {
 		t.Error("It should store one")
 	}
 
-	var dataInRedis dtos.TelemetryQueueObject
-	err = json.Unmarshal([]byte(data[0]), &dataInRedis)
+	forMd, ok := data[md]
+	if !ok {
+		t.Error("no config found for calculated metadata: ", md)
+		t.Error(data)
+	}
+
+	var dataInRedis dtos.Config
+	err = json.Unmarshal([]byte(forMd), &dataInRedis)
 	if err != nil {
 		t.Error("Should not return error umarshalling")
 	}
 
-	if dataInRedis.Metadata.SDKVersion != fmt.Sprintf("go-%s", splitio.Version) {
-		t.Error("Wrong sdkVersion stored")
-	}
-	if dataInRedis.Config.ActiveFactories != 1 {
+	if dataInRedis.ActiveFactories != 1 {
 		t.Error("Wrong value")
 	}
-	if dataInRedis.Config.OperationMode != telemetry.Consumer {
+	if dataInRedis.OperationMode != telemetry.Consumer {
 		t.Error("It should be consumer")
 	}
-	if dataInRedis.Config.Storage != telemetry.Redis {
+	if dataInRedis.Storage != telemetry.Redis {
 		t.Error("It should be redis")
 	}
 

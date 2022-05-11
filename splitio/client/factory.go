@@ -184,7 +184,7 @@ func (f *SplitFactory) broadcastReadiness(status int, tags []string) {
 		subscriptor <- status
 	}
 	// At this point the SDK is ready for sending telemetry
-	f.recordInitTelemetry(tags)
+	go f.recordInitTelemetry(tags)
 }
 
 // subscribes listener

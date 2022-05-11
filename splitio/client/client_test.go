@@ -1773,8 +1773,8 @@ func TestClientDebug(t *testing.T) {
 
 func TestTelemetryMemory(t *testing.T) {
 	factoryInstances = make(map[string]int64)
-	metricsInitCalled := 0
-	metricsStatsCalled := 0
+	var metricsInitCalled int64
+	var metricsStatsCalled int64
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
@@ -1806,7 +1806,7 @@ func TestTelemetryMemory(t *testing.T) {
 	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/metrics/config":
-			metricsInitCalled++
+			atomic.AddInt64(&metricsInitCalled, 1)
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost dtos.Config
 			err := json.Unmarshal(rBody, &dataInPost)
@@ -1861,7 +1861,7 @@ func TestTelemetryMemory(t *testing.T) {
 				t.Error("It should not have impression listener")
 			}
 		case "/metrics/usage":
-			metricsStatsCalled++
+			atomic.AddInt64(&metricsStatsCalled, 1)
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost dtos.Stats
 			err := json.Unmarshal(rBody, &dataInPost)
@@ -1922,10 +1922,10 @@ func TestTelemetryMemory(t *testing.T) {
 	factory2.Destroy()
 	factory3.Destroy()
 
-	if metricsInitCalled != 3 {
+	if atomic.LoadInt64(&metricsInitCalled) != 3 {
 		t.Error("It should send init data")
 	}
-	if metricsStatsCalled != 3 {
+	if atomic.LoadInt64(&metricsStatsCalled) != 3 {
 		t.Error("It should send stats data")
 	}
 }

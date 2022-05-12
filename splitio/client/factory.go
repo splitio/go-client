@@ -137,7 +137,7 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
 }
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
-func (f *SplitFactory) recordInitTelemetry(tags []string) {
+func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[string]int64) {
 	if f.telemetrySync == nil {
 		f.logger.Debug("Discarding init telemetry")
 		return
@@ -168,7 +168,7 @@ func (f *SplitFactory) recordInitTelemetry(tags []string) {
 			},
 		},
 		time.Now().UTC().Sub(f.startTime).Milliseconds(),
-		getFactories(),
+		currentFactories,
 		tags,
 	)
 }
@@ -184,7 +184,7 @@ func (f *SplitFactory) broadcastReadiness(status int, tags []string) {
 		subscriptor <- status
 	}
 	// At this point the SDK is ready for sending telemetry
-	go f.recordInitTelemetry(tags)
+	go f.recordInitTelemetry(tags, getFactories())
 }
 
 // subscribes listener

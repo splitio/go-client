@@ -1903,7 +1903,6 @@ func TestTelemetryMemory(t *testing.T) {
 		t.Error("It should return splits")
 	}
 	client.Track("something", "something", "something", nil, nil)
-	time.Sleep(500 * time.Millisecond)
 
 	factory2, _ := NewSplitFactory("something", sdkConf)
 	manager2 := factory2.Manager()
@@ -1911,7 +1910,6 @@ func TestTelemetryMemory(t *testing.T) {
 	if len(manager2.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
-	time.Sleep(500 * time.Millisecond)
 
 	factory3, _ := NewSplitFactory("something2", sdkConf)
 	manager3 := factory3.Manager()

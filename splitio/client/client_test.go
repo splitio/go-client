@@ -1351,7 +1351,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 	// Deletes generated data
-	keys := []string{"SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.config"}
+	keys := []string{"SPLITIO.impressions", "SPLITIO.events", "SPLITIO.split.valid", "SPLITIO.splits.till", "SPLITIO.telemetry.config", "SPLITIO.telemetry.init"}
 	prefixedClient.Del(keys...)
 }
 

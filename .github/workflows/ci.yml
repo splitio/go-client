@@ -45,9 +45,9 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }}
             -Dsonar.projectName=${{ github.event.repository.name }}
             -Dsonar.projectKey=${{ github.event.repository.name }}
-            -Dsonar.sources=/splitio
+            -Dsonar.sources=.
             -Dsonar.exclusions=**/*_test.go
-            -Dsonar.tests=/splitio
+            -Dsonar.tests=.
             -Dsonar.test.inclusions=**/*_test.go
             -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
@@ -65,9 +65,9 @@ jobs:
             -Dsonar.projectName=${{ github.event.repository.name }}
             -Dsonar.projectKey=${{ github.event.repository.name }}
             -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.sources=/splitio
+            -Dsonar.sources=.
             -Dsonar.exclusions=**/*_test.go
-            -Dsonar.tests=/splitio
+            -Dsonar.tests=.
             -Dsonar.test.inclusions=**/*_test.go
             -Dsonar.links.ci="https://github.com/splitio/${{ github.event.repository.name }}/actions"
             -Dsonar.links.scm="https://github.com/splitio/${{ github.event.repository.name }}"

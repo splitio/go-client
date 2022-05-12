@@ -1,3 +1,10 @@
+6.1.4 (May 12, 2022)
+- Updated config telemetry redis storage
+- Made the synchronization for telemetry cfg as goroutine to not degrade SDK readiness.
+
+6.1.3 (Apr 18, 2022)
+- Fixed panic on initialization when redis is down.
+
 6.1.2 (April 8, 2022)
 - Fixed SDK library version.
 

@@ -1773,8 +1773,8 @@ func TestClientDebug(t *testing.T) {
 
 func TestTelemetryMemory(t *testing.T) {
 	factoryInstances = make(map[string]int64)
-	metricsInitCalled := 0
-	metricsStatsCalled := 0
+	var metricsInitCalled int64
+	var metricsStatsCalled int64
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
@@ -1806,7 +1806,7 @@ func TestTelemetryMemory(t *testing.T) {
 	telemetryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/metrics/config":
-			metricsInitCalled++
+			atomic.AddInt64(&metricsInitCalled, 1)
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost dtos.Config
 			err := json.Unmarshal(rBody, &dataInPost)
@@ -1861,7 +1861,7 @@ func TestTelemetryMemory(t *testing.T) {
 				t.Error("It should not have impression listener")
 			}
 		case "/metrics/usage":
-			metricsStatsCalled++
+			atomic.AddInt64(&metricsStatsCalled, 1)
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost dtos.Stats
 			err := json.Unmarshal(rBody, &dataInPost)
@@ -1922,10 +1922,10 @@ func TestTelemetryMemory(t *testing.T) {
 	factory2.Destroy()
 	factory3.Destroy()
 
-	if metricsInitCalled != 3 {
+	if atomic.LoadInt64(&metricsInitCalled) != 3 {
 		t.Error("It should send init data")
 	}
-	if metricsStatsCalled != 3 {
+	if atomic.LoadInt64(&metricsStatsCalled) != 3 {
 		t.Error("It should send stats data")
 	}
 }
@@ -1936,6 +1936,7 @@ func TestTelemetryRedis(t *testing.T) {
 	sdkConf.OperationMode = conf.RedisConsumer
 
 	factory, _ := NewSplitFactory("something", sdkConf)
+	md := fmt.Sprintf("go-%s/%s/%s", splitio.Version, sdkConf.InstanceName, sdkConf.IPAddress)
 
 	if !factory.IsReady() {
 		t.Error("Factory should be ready immediately")
@@ -1953,7 +1954,7 @@ func TestTelemetryRedis(t *testing.T) {
 		Password: "",
 		Prefix:   "",
 	}, logging.NewLogger(&logging.LoggerOptions{}))
-	data, err := prefixedClient.LRange("SPLITIO.telemetry.config", 0, 100)
+	data, err := prefixedClient.HGetAll("SPLITIO.telemetry.init")
 	if err != nil {
 		t.Error("It should not return err")
 	}
@@ -1961,22 +1962,25 @@ func TestTelemetryRedis(t *testing.T) {
 		t.Error("It should store one")
 	}
 
-	var dataInRedis dtos.TelemetryQueueObject
-	err = json.Unmarshal([]byte(data[0]), &dataInRedis)
+	forMd, ok := data[md]
+	if !ok {
+		t.Error("no config found for calculated metadata: ", md)
+		t.Error(data)
+	}
+
+	var dataInRedis dtos.Config
+	err = json.Unmarshal([]byte(forMd), &dataInRedis)
 	if err != nil {
 		t.Error("Should not return error umarshalling")
 	}
 
-	if dataInRedis.Metadata.SDKVersion != fmt.Sprintf("go-%s", splitio.Version) {
-		t.Error("Wrong sdkVersion stored")
-	}
-	if dataInRedis.Config.ActiveFactories != 1 {
+	if dataInRedis.ActiveFactories != 1 {
 		t.Error("Wrong value")
 	}
-	if dataInRedis.Config.OperationMode != telemetry.Consumer {
+	if dataInRedis.OperationMode != telemetry.Consumer {
 		t.Error("It should be consumer")
 	}
-	if dataInRedis.Config.Storage != telemetry.Redis {
+	if dataInRedis.Storage != telemetry.Redis {
 		t.Error("It should be redis")
 	}
 

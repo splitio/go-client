@@ -48,8 +48,8 @@ github.com/onsi/gomega v1.17.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAl
 github.com/onsi/gomega v1.18.1 h1:M1GfJqGRrBrrGGsbxzV5dqM2U2ApXefZCQpkukxYRLE=
 github.com/onsi/gomega v1.18.1/go.mod h1:0q+aL8jAiMXy9hbwj2mr5GziHiwhAIQpFmmtT5hitRs=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/splitio/go-split-commons/v4 v4.0.5-0.20220529210814-0484c299e6a9 h1:u6X4+PhGpYq9NKF9Ens/luG+Blbgfyg5ChSeGWtjNq0=
-github.com/splitio/go-split-commons/v4 v4.0.5-0.20220529210814-0484c299e6a9/go.mod h1:E9ssLjhj9FaTkJoqZT6oSP4ee5kPUnMHokiFyiYNHQA=
+github.com/splitio/go-split-commons/v4 v4.0.5-0.20220529230149-03d813d5b47a h1:cMkWX4xApuX0LfflQY2rMHu7qfXbUU2Qo2JO/4I0C/I=
+github.com/splitio/go-split-commons/v4 v4.0.5-0.20220529230149-03d813d5b47a/go.mod h1:E9ssLjhj9FaTkJoqZT6oSP4ee5kPUnMHokiFyiYNHQA=
 github.com/splitio/go-toolkit/v5 v5.1.1-0.20220529172937-5a5b0ed38ceb h1:AnAOAJGa3ibOPfFOlNKNZFHKmu6rGbHtMPqFqt7xmh0=
 github.com/splitio/go-toolkit/v5 v5.1.1-0.20220529172937-5a5b0ed38ceb/go.mod h1:SYi/svhhtEgdMSb5tNcDcMjOSUH/7XVkvjp5dPL+nBE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

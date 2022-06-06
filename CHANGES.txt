@@ -1,5 +1,5 @@
 6.1.5 (Jun 6, 2022)
-- Fixed cn default on inMemory storages.
+ - Updated segments and splits storage to return -1 as default changeNumber instead of zero
 
 6.1.4 (May 12, 2022)
 - Updated config telemetry redis storage

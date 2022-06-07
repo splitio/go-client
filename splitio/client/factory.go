@@ -117,7 +117,7 @@ func (f *SplitFactory) IsReady() bool {
 
 // initializates task for localhost mode
 func (f *SplitFactory) initializationLocalhost(readyChannel chan int) {
-	f.syncManager.Start()
+	go f.syncManager.Start()
 
 	<-readyChannel
 	f.broadcastReadiness(sdkStatusReady, make([]string, 0))

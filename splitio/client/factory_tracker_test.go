@@ -19,8 +19,8 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	})
 	sdkConf.SplitFile = "../../testdata/splits.yaml"
 
-	delete(factoryInstances, conf.Localhost)
-	delete(factoryInstances, "something")
+	removeInstanceFromTracker(conf.Localhost)
+	removeInstanceFromTracker("something")
 
 	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	client := factory.Client()
@@ -96,6 +96,6 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 		t.Error("It should be 3")
 	}
 
-	delete(factoryInstances, conf.Localhost)
-	delete(factoryInstances, "asdadd")
+	removeInstanceFromTracker(conf.Localhost)
+	removeInstanceFromTracker("asdadd")
 }

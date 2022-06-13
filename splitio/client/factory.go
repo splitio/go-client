@@ -138,10 +138,6 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
 func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[string]int64) {
-	if f.telemetrySync == nil {
-		f.logger.Debug("Discarding init telemetry")
-		return
-	}
 	f.logger.Debug("Sending init telemetry")
 	f.telemetrySync.SynchronizeConfig(
 		telemetry.InitConfig{
@@ -484,6 +480,7 @@ func setupLocalhostFactory(
 		},
 		readinessSubscriptors: make(map[int]chan int),
 		syncManager:           syncManager,
+		telemetrySync:         &telemetry.NoOp{},
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 

@@ -1,4 +1,4 @@
-6.1.6 (June XX, 2022)
+6.1.6 (June 14, 2022)
 - Updated the synchronization flow to be more reliable in the event of an edge case generating delay in cache purge propagation, keeping the SDK cache properly synced.
 
 6.1.5 (Jun 6, 2022)

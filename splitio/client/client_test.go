@@ -337,7 +337,7 @@ func TestClientDestroy(t *testing.T) {
 
 	sync, _ := synchronizer.NewSynchronizerManager(
 		&syncMock.MockSynchronizer{
-			SyncAllCall:                    func(bool) error { return nil },
+			SyncAllCall:                    func() error { return nil },
 			StartPeriodicDataRecordingCall: func() {},
 			StartPeriodicFetchingCall:      func() {},
 			StopPeriodicDataRecordingCall:  func() { atomic.AddInt64(&periodicDataRecordingStopped, 1) },

@@ -322,10 +322,7 @@ func setupInMemoryFactory(
 		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
 		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger)
 	}
-	impressionManager, err := provisional.NewImpressionManager(managerConfig, impressionsCounter, telemetryStorage)
-	if err != nil {
-		return nil, err
-	}
+	impressionManager, _ := provisional.NewImpressionManager(managerConfig, impressionsCounter, telemetryStorage)
 
 	syncImpl := synchronizer.NewSynchronizer(
 		advanced,
@@ -412,7 +409,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
 	}
 	factory.status.Store(sdkStatusInitializing)
-	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+	impressionManager, _ := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
@@ -484,7 +481,7 @@ func setupLocalhostFactory(
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
-	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+	impressionManager, _ := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,

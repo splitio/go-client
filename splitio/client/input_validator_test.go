@@ -31,30 +31,32 @@ type MockWriter struct {
 func (m *MockWriter) Write(p []byte) (n int, err error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	if m.messages == nil {
-		m.messages = make([]string, 0)
-	}
 	m.messages = append(m.messages, string(p[:]))
-	return 0, nil
+	return len(p), nil
 }
 
 func (m *MockWriter) Reset() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.messages = make([]string, 0)
+	m.messages = nil
+}
+
+func (m *MockWriter) Length() int {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	return len(m.messages)
 }
 
 func (m *MockWriter) Matches(expected string) bool {
 	m.mutex.Lock()
-	defer func() {
-		m.messages = make([]string, 0)
-		m.mutex.Unlock()
-	}()
+	defer m.mutex.Unlock()
 	for _, msg := range m.messages {
 		if strings.Contains(msg, expected) {
+			m.messages = nil
 			return true
 		}
 	}
+	m.messages = nil
 	return false
 }
 
@@ -62,10 +64,10 @@ var mW MockWriter
 
 func getMockedLogger() logging.LoggerInterface {
 	return logging.NewLogger(&logging.LoggerOptions{
-		LogLevel:      5,
+		LogLevel:      logging.LevelInfo,
 		ErrorWriter:   &mW,
 		WarningWriter: &mW,
-		InfoWriter:    nil,
+		InfoWriter:    &mW,
 		DebugWriter:   nil,
 		VerboseWriter: nil,
 	})
@@ -144,10 +146,9 @@ func getLongKey() string {
 
 func TestValidationEmpty(t *testing.T) {
 	client := getClient()
-	// String
 	mW.Reset()
 	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
-	if len(mW.messages) > 0 {
+	if mW.Length() > 0 {
 		t.Error("Wrong message")
 	}
 	mW.Reset()
@@ -252,7 +253,7 @@ func TestTreatmentValidatorWithKeyObject(t *testing.T) {
 	// Ok
 	mW.Reset()
 	expectedTreatment(client.Treatment(getKey("matching", "bucketing"), "feature", nil), "TreatmentA", t)
-	if len(mW.messages) > 0 {
+	if mW.Length() > 0 {
 		t.Error("Wrong message")
 	}
 	mW.Reset()
@@ -506,8 +507,8 @@ func TestLocalhostTrafficType(t *testing.T) {
 	}
 
 	mW.Reset()
-	if len(mW.messages) > 0 {
-		t.Error("Wrong message", mW.messages)
+	if mW.Length() > 0 {
+		t.Error("Wrong message")
 	}
 	mW.Reset()
 }

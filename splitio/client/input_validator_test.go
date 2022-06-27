@@ -14,6 +14,7 @@ import (
 	"github.com/splitio/go-split-commons/v4/dtos"
 	"github.com/splitio/go-split-commons/v4/healthcheck/application"
 	"github.com/splitio/go-split-commons/v4/provisional"
+	"github.com/splitio/go-split-commons/v4/provisional/strategy"
 	"github.com/splitio/go-split-commons/v4/service/api"
 	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
@@ -80,10 +81,12 @@ func getClient() SplitClient {
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
 		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
-	impressionManager, _ := provisional.NewImpressionManager(spConf.ManagerConfig{
-		ImpressionsMode: spConf.ImpressionsModeDebug,
-		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryMockedStorage, true)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+
 	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager,
 		storages: sdkStorages{
 			runtimeTelemetry:    telemetryMockedStorage,

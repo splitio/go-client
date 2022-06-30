@@ -138,10 +138,6 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
 func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[string]int64) {
-	if f.telemetrySync == nil {
-		f.logger.Debug("Discarding init telemetry")
-		return
-	}
 	f.logger.Debug("Sending init telemetry")
 	f.telemetrySync.SynchronizeConfig(
 		telemetry.InitConfig{
@@ -326,10 +322,7 @@ func setupInMemoryFactory(
 		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
 		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger)
 	}
-	impressionManager, err := provisional.NewImpressionManager(managerConfig, impressionsCounter, telemetryStorage)
-	if err != nil {
-		return nil, err
-	}
+	impressionManager, _ := provisional.NewImpressionManager(managerConfig, impressionsCounter, telemetryStorage)
 
 	syncImpl := synchronizer.NewSynchronizer(
 		advanced,
@@ -416,7 +409,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
 	}
 	factory.status.Store(sdkStatusInitializing)
-	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+	impressionManager, _ := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,
@@ -484,10 +477,11 @@ func setupLocalhostFactory(
 		},
 		readinessSubscriptors: make(map[int]chan int),
 		syncManager:           syncManager,
+		telemetrySync:         &telemetry.NoOp{},
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
-	impressionManager, err := provisional.NewImpressionManager(config.ManagerConfig{
+	impressionManager, _ := provisional.NewImpressionManager(config.ManagerConfig{
 		OperationMode:   cfg.OperationMode,
 		ImpressionsMode: cfg.ImpressionsMode,
 		ListenerEnabled: cfg.Advanced.ImpressionListener != nil,

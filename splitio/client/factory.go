@@ -60,6 +60,7 @@ const (
 type sdkStorages struct {
 	splits              storage.SplitStorageConsumer
 	segments            storage.SegmentStorageConsumer
+	impressionsConsumer storage.ImpressionStorageConsumer
 	impressions         storage.ImpressionStorageProducer
 	events              storage.EventStorageProducer
 	initTelemetry       storage.TelemetryConfigProducer
@@ -84,7 +85,6 @@ type SplitFactory struct {
 	syncManager           synchronizer.Manager
 	telemetrySync         telemetry.TelemetrySynchronizer // To execute SynchronizeInit
 	impressionManager     provisional.ImpressionManager
-	synchronizer          synchronizer.Synchronizer
 }
 
 // Client returns the split client instantiated by the factory
@@ -149,8 +149,9 @@ func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
 	}
 }
 
-func (f *SplitFactory) initializationRedis(syncImp synchronizer.Synchronizer) {
-	syncImp.StartPeriodicDataRecording()
+func (f *SplitFactory) initializationRedis() {
+	go f.syncManager.Start()
+	f.broadcastReadiness(sdkStatusReady, make([]string, 0))
 }
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
@@ -267,11 +268,6 @@ func (f *SplitFactory) Destroy() {
 		f.storages.runtimeTelemetry.RecordSessionLength(int64(time.Since(f.startTime) * time.Millisecond))
 	}
 
-	if f.cfg.OperationMode == conf.RedisConsumer {
-		f.synchronizer.StopPeriodicDataRecording()
-		return
-	}
-
 	f.syncManager.Stop()
 }
 
@@ -324,44 +320,20 @@ func setupInMemoryFactory(
 		TelemetrySyncTask: tasks.NewRecordTelemetryTask(workers.TelemetryRecorder, cfg.TaskPeriods.TelemetrySync, logger),
 	}
 
-	listenerEnabled := cfg.Advanced.ImpressionListener != nil
+	storages := sdkStorages{
+		splits:              splitsStorage,
+		events:              eventsStorage,
+		impressionsConsumer: impressionsStorage,
+		impressions:         impressionsStorage,
+		segments:            segmentsStorage,
+		initTelemetry:       telemetryStorage,
+		evaluationTelemetry: telemetryStorage,
+		runtimeTelemetry:    telemetryStorage,
+	}
 
-	var impressionManager provisional.ImpressionManager
-	switch cfg.ImpressionsMode {
-	case config.ImpressionsModeNone:
-		impressionsCounter := strategy.NewImpressionsCounter()
-		filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
-		uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
-		impressionsStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-
-		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
-		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
-		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskInMemory, logger)
-		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
-	case config.ImpressionsModeDebug:
-		impressionObserver, err := strategy.NewImpressionObserver(500)
-		if err != nil {
-			return nil, err
-		}
-		impressionsStrategy := strategy.NewDebugImpl(impressionObserver, listenerEnabled)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-
-		workers.ImpressionRecorder = impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, telemetryStorage)
-		splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
-	default:
-		impressionObserver, err := strategy.NewImpressionObserver(500)
-		if err != nil {
-			return nil, err
-		}
-		impressionsCounter := strategy.NewImpressionsCounter()
-		impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, listenerEnabled)
-		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
-		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-
-		workers.ImpressionRecorder = impression.NewRecorderSingle(impressionsStorage, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, telemetryStorage)
-		splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI)
+	if err != nil {
+		return nil, err
 	}
 
 	syncImpl := synchronizer.NewSynchronizer(
@@ -392,21 +364,13 @@ func setupInMemoryFactory(
 	}
 
 	splitFactory := SplitFactory{
-		startTime:     time.Now().UTC(),
-		apikey:        apikey,
-		cfg:           cfg,
-		metadata:      metadata,
-		logger:        logger,
-		operationMode: conf.InMemoryStandAlone,
-		storages: sdkStorages{
-			splits:              splitsStorage,
-			events:              eventsStorage,
-			impressions:         impressionsStorage,
-			segments:            segmentsStorage,
-			initTelemetry:       telemetryStorage,
-			evaluationTelemetry: telemetryStorage,
-			runtimeTelemetry:    telemetryStorage,
-		},
+		startTime:             time.Now().UTC(),
+		apikey:                apikey,
+		cfg:                   cfg,
+		metadata:              metadata,
+		logger:                logger,
+		operationMode:         conf.InMemoryStandAlone,
+		storages:              storages,
 		readinessSubscriptors: make(map[int]chan int),
 		syncManager:           syncManager,
 		telemetrySync:         workers.TelemetryRecorder,
@@ -436,56 +400,32 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		impressionsCount:    redis.NewImpressionsCountStorage(redisClient, logger),
+		runtimeTelemetry: mocks.MockTelemetryStorage{
+			RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
+			RecordImpressionsStatsCall: func(dataType int, count int64) {},
+			RecordSessionLengthCall:    func(session int64) {},
+		},
 	}
 
 	splitTasks := synchronizer.SplitTasks{}
+	workers := synchronizer.Workers{}
+	advanced := config.AdvancedConfig{}
 
-	listenerEnabled := cfg.Advanced.ImpressionListener != nil
-	var impressionManager provisional.ImpressionManager
-	switch cfg.ImpressionsMode {
-	case config.ImpressionsModeNone:
-		impressionsCounter := strategy.NewImpressionsCounter()
-		filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
-		uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
-		impressionsStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-
-		impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
-		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
-		telemetryRecorder := telemetry.NewSynchronizerRedis(telemetryStorage, logger)
-		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskRedis, logger)
-		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
-	case config.ImpressionsModeDebug:
-		impressionObserver, err := strategy.NewImpressionObserver(500)
-		if err != nil {
-			return nil, err
-		}
-		impressionsStrategy := strategy.NewDebugImpl(impressionObserver, listenerEnabled)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-	default:
-		impressionObserver, err := strategy.NewImpressionObserver(500)
-		if err != nil {
-			return nil, err
-		}
-		impressionsCounter := strategy.NewImpressionsCounter()
-		impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, mocks.MockTelemetryStorage{
-			RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
-			RecordImpressionsStatsCall: func(dataType int, count int64) {},
-		}, listenerEnabled)
-		impressionManager = provisional.NewImpressionManager(impressionsStrategy)
-
-		impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
-		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	syncImpl := synchronizer.NewSynchronizer(
-		config.AdvancedConfig{},
+		advanced,
 		splitTasks,
-		synchronizer.Workers{},
+		workers,
 		logger,
 		nil,
 		nil,
 	)
+
+	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl)
 
 	factory := &SplitFactory{
 		startTime:             time.Now().UTC(),
@@ -498,14 +438,12 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		readinessSubscriptors: make(map[int]chan int),
 		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
 		impressionManager:     impressionManager,
-		synchronizer:          syncImpl,
+		syncManager:           syncManager,
 	}
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
 
-	go factory.initializationRedis(syncImpl)
-
-	factory.broadcastReadiness(sdkStatusReady, make([]string, 0))
+	factory.initializationRedis()
 
 	return factory, nil
 }
@@ -614,4 +552,73 @@ func newFactory(apikey string, cfg conf.SplitSdkConfig, logger logging.LoggerInt
 	}
 
 	return splitFactory, nil
+}
+
+func buildImpressionManager(
+	cfg *conf.SplitSdkConfig,
+	advanced config.AdvancedConfig,
+	logger logging.LoggerInterface,
+	inMemory bool,
+	splitTasks *synchronizer.SplitTasks,
+	workers *synchronizer.Workers,
+	storages sdkStorages,
+	metadata dtos.Metadata,
+	splitAPI *api.SplitAPI,
+) (provisional.ImpressionManager, error) {
+	listenerEnabled := cfg.Advanced.ImpressionListener != nil
+	switch cfg.ImpressionsMode {
+	case config.ImpressionsModeNone:
+		impressionsCounter := strategy.NewImpressionsCounter()
+		filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
+		uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
+
+		if inMemory {
+			workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, storages.runtimeTelemetry)
+			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
+			splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskInMemory, logger)
+		} else {
+			telemetryRecorder := telemetry.NewSynchronizerRedis(storages.initTelemetry, logger)
+			impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
+			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
+			splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskRedis, logger)
+		}
+
+		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
+		impressionsStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
+
+		return provisional.NewImpressionManager(impressionsStrategy), nil
+	case config.ImpressionsModeDebug:
+		if inMemory {
+			workers.ImpressionRecorder = impression.NewRecorderSingle(storages.impressionsConsumer, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, storages.runtimeTelemetry)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
+		}
+
+		impressionObserver, err := strategy.NewImpressionObserver(500)
+		if err != nil {
+			return nil, err
+		}
+		impressionsStrategy := strategy.NewDebugImpl(impressionObserver, listenerEnabled)
+
+		return provisional.NewImpressionManager(impressionsStrategy), nil
+	default:
+		impressionsCounter := strategy.NewImpressionsCounter()
+
+		if inMemory {
+			workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, storages.runtimeTelemetry)
+			workers.ImpressionRecorder = impression.NewRecorderSingle(storages.impressionsConsumer, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, storages.runtimeTelemetry)
+			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
+		} else {
+			impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
+			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
+		}
+
+		impressionObserver, err := strategy.NewImpressionObserver(500)
+		if err != nil {
+			return nil, err
+		}
+		impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, storages.runtimeTelemetry, listenerEnabled)
+
+		return provisional.NewImpressionManager(impressionsStrategy), nil
+	}
 }

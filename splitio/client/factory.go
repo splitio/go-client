@@ -51,10 +51,10 @@ const (
 const (
 	bfExpectedElemenets                = 10000000
 	bfFalsePositiveProbability         = 0.01
-	uniqueKeysTaskPeriodInMemory       = 900
-	uniqueKeysTaskPeriodredis          = 300
+	uniqueKeysPeriodTaskInMemory       = 900  // 15 min
+	uniqueKeysPeriodTaskRedis          = 300  // 5 min
 	impressionsCountPeriodTaskInMemory = 1800 // 30 min
-	impressionsCountPeriodTaskRedis    = 300
+	impressionsCountPeriodTaskRedis    = 300  // 5 min
 )
 
 type sdkStorages struct {
@@ -337,7 +337,8 @@ func setupInMemoryFactory(
 
 		workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
 		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
-		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysTracker, uniqueKeysTaskPeriodInMemory, logger)
+		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskInMemory, logger)
+		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
 	case config.ImpressionsModeDebug:
 		impressionObserver, err := strategy.NewImpressionObserver(500)
 		if err != nil {
@@ -452,7 +453,8 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
 		splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
 		telemetryRecorder := telemetry.NewSynchronizerRedis(telemetryStorage, logger)
-		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysTaskPeriodredis, logger)
+		splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskRedis, logger)
+		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
 	case config.ImpressionsModeDebug:
 		impressionObserver, err := strategy.NewImpressionObserver(500)
 		if err != nil {

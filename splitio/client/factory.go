@@ -51,10 +51,12 @@ const (
 const (
 	bfExpectedElemenets                = 10000000
 	bfFalsePositiveProbability         = 0.01
-	uniqueKeysPeriodTaskInMemory       = 900  // 15 min
-	uniqueKeysPeriodTaskRedis          = 300  // 5 min
-	impressionsCountPeriodTaskInMemory = 1800 // 30 min
-	impressionsCountPeriodTaskRedis    = 300  // 5 min
+	bfCleaningPeriod                   = 86400 // 24 hours
+	uniqueKeysPeriodTaskInMemory       = 900   // 15 min
+	uniqueKeysPeriodTaskRedis          = 300   // 5 min
+	impressionsCountPeriodTaskInMemory = 1800  // 30 min
+	impressionsCountPeriodTaskRedis    = 300   // 5 min
+
 )
 
 type sdkStorages struct {
@@ -583,7 +585,7 @@ func buildImpressionManager(
 			splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskRedis, logger)
 		}
 
-		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger)
+		splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger, bfCleaningPeriod)
 		impressionsStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
 
 		return provisional.NewImpressionManager(impressionsStrategy), nil

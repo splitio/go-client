@@ -425,7 +425,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		nil,
 	)
 
-	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl)
+	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl, logger)
 
 	factory := &SplitFactory{
 		startTime:             time.Now().UTC(),

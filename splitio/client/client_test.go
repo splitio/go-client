@@ -2142,14 +2142,14 @@ func TestClientNoneRedis(t *testing.T) {
 
 	// Validate unique keys
 	uniques, _ := prefixedClient.LRange("SPLITIO.uniquekeys", 0, -1)
-	var uniquesDto dtos.Uniques
+	var uniquesDto []dtos.Key
 	_ = json.Unmarshal([]byte(uniques[0]), &uniquesDto)
 
-	if len(uniquesDto.Keys) != 2 {
-		t.Error("Lenght should be 2")
+	if len(uniquesDto) != 2 {
+		t.Errorf("Lenght should be 2, Actual %d", len(uniquesDto))
 	}
 
-	for _, unique := range uniquesDto.Keys {
+	for _, unique := range uniquesDto {
 		if unique.Feature == "valid" && len(unique.Keys) != 3 {
 			t.Error("Keys should be 3")
 		}

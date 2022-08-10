@@ -404,8 +404,8 @@ func setupRedisFactory(
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
 		RecordSessionLengthCall:    func(session int64) {},
 	}
-	inMememoryFullQueue := make(chan string, 2)                                                                 // Size 2: So that it's able to accept one event from each resource simultaneously.
-	impressionStorage := mutexqueue.NewMQImpressionsStorage(100, inMememoryFullQueue, logger, runtimeTelemetry) // TODO: update params
+	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, runtimeTelemetry)
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger),
 		segments:            redis.NewSegmentStorage(redisClient, logger),
@@ -432,7 +432,7 @@ func setupRedisFactory(
 		splitTasks,
 		workers,
 		logger,
-		nil,
+		inMememoryFullQueue,
 		nil,
 	)
 

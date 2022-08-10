@@ -270,9 +270,7 @@ func (f *SplitFactory) Destroy() {
 	if f.storages.runtimeTelemetry != nil {
 		f.storages.runtimeTelemetry.RecordSessionLength(int64(time.Since(f.startTime) * time.Millisecond))
 	}
-	fmt.Println("#### STOP")
 	f.syncManager.Stop()
-	fmt.Println("#### AFET STOP")
 }
 
 // setupLogger sets up the logger according to the parameters submitted by the sdk user

@@ -56,7 +56,8 @@ const (
 	uniqueKeysPeriodTaskRedis          = 300   // 5 min
 	impressionsCountPeriodTaskInMemory = 1800  // 30 min
 	impressionsCountPeriodTaskRedis    = 300   // 5 min
-
+	impressionsPeriodTaskRedis         = 300   // 5 min
+	impressionsBulkSizeRedis           = 100
 )
 
 type sdkStorages struct {
@@ -269,7 +270,6 @@ func (f *SplitFactory) Destroy() {
 	if f.storages.runtimeTelemetry != nil {
 		f.storages.runtimeTelemetry.RecordSessionLength(int64(time.Since(f.startTime) * time.Millisecond))
 	}
-
 	f.syncManager.Stop()
 }
 
@@ -333,7 +333,7 @@ func setupInMemoryFactory(
 		runtimeTelemetry:    telemetryStorage,
 	}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +386,12 @@ func setupInMemoryFactory(
 	return &splitFactory, nil
 }
 
-func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface, metadata dtos.Metadata) (*SplitFactory, error) {
+func setupRedisFactory(
+	apikey string,
+	cfg *conf.SplitSdkConfig,
+	logger logging.LoggerInterface,
+	metadata dtos.Metadata,
+) (*SplitFactory, error) {
 	redisClient, err := redis.NewRedisClient(&cfg.Redis, logger)
 	if err != nil {
 		logger.Error("Failed to instantiate redis client.")
@@ -394,26 +399,30 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	}
 
 	telemetryStorage := redis.NewTelemetryStorage(redisClient, logger, metadata)
+	runtimeTelemetry := mocks.MockTelemetryStorage{
+		RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordSessionLengthCall:    func(session int64) {},
+	}
+	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
+	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, runtimeTelemetry)
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger),
 		segments:            redis.NewSegmentStorage(redisClient, logger),
-		impressions:         redis.NewImpressionStorage(redisClient, metadata, logger),
+		impressionsConsumer: impressionStorage,
+		impressions:         impressionStorage,
 		events:              redis.NewEventsStorage(redisClient, metadata, logger),
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		impressionsCount:    redis.NewImpressionsCountStorage(redisClient, logger),
-		runtimeTelemetry: mocks.MockTelemetryStorage{
-			RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
-			RecordImpressionsStatsCall: func(dataType int, count int64) {},
-			RecordSessionLengthCall:    func(session int64) {},
-		},
+		runtimeTelemetry:    runtimeTelemetry,
 	}
 
 	splitTasks := synchronizer.SplitTasks{}
 	workers := synchronizer.Workers{}
 	advanced := config.AdvancedConfig{}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, redis.NewImpressionStorage(redisClient, metadata, logger))
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +432,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		splitTasks,
 		workers,
 		logger,
-		nil,
+		inMememoryFullQueue,
 		nil,
 	)
 
@@ -566,6 +575,7 @@ func buildImpressionManager(
 	storages sdkStorages,
 	metadata dtos.Metadata,
 	splitAPI *api.SplitAPI,
+	impressionRedisStorage storage.ImpressionStorageProducer,
 ) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 	switch cfg.ImpressionsMode {
@@ -593,6 +603,9 @@ func buildImpressionManager(
 		if inMemory {
 			workers.ImpressionRecorder = impression.NewRecorderSingle(storages.impressionsConsumer, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, storages.runtimeTelemetry)
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
+		} else {
+			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, impressionsPeriodTaskRedis, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)
@@ -611,8 +624,10 @@ func buildImpressionManager(
 			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
 		} else {
-			impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
-			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
+			workers.ImpressionsCountRecorder = impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
+			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
+			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, impressionsPeriodTaskRedis, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)

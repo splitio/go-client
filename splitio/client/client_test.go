@@ -1310,9 +1310,9 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
-func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
+func getRedisConfWithIP(IPAddressesEnabled bool) (*predis.PrefixedRedisClient, *SplitClient) {
 	// Create prefixed client for adding Split
-	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
+	prefixedClient, err := redis.NewRedisClient(&commonsCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1322,7 +1322,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 
 	raw, err := json.Marshal(*valid)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
 	prefixedClient.Set("SPLITIO.splits.till", 1494593336752, 0)
@@ -1351,7 +1351,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	client.Treatment("user1", "valid", nil)
 	client.Track("user1", "my-traffic", "my-event", nil, nil)
 
-	return prefixedClient
+	return prefixedClient, client
 }
 
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
@@ -1361,12 +1361,25 @@ func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 }
 
 func TestRedisClientWithIPDisabled(t *testing.T) {
-	prefixedClient := getRedisConfWithIP(false)
+	prefixedClient, splitClient := getRedisConfWithIP(false)
+
+	// Grabs created event
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(resEvent[0]), &event)
+	metadata := event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] != "NA" || metadata["n"] != "NA" {
+		t.Error("Instance Name and Machine IP should have 'NA' values")
+	}
+
+	splitClient.Destroy()
+
 	// Grabs created impression
 	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(resImpression[0]), &impression)
-	metadata := impression["m"]
+	metadata = impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
 		t.Error("Instance Name and Machine IP should have 'NA' values")
@@ -1376,26 +1389,29 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 		t.Error("InstanceName should be 'NA")
 	}
 
-	// Grabs created event
-	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
-	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(resEvent[0]), &event)
-	metadata = event["m"]
-	// Checks if metadata was created with "NA" values
-	if metadata["i"] != "NA" || metadata["n"] != "NA" {
-		t.Error("Instance Name and Machine IP should have 'NA' values")
-	}
-
 	deleteDataGenerated(prefixedClient)
 }
 
 func TestRedisClientWithIPEnabled(t *testing.T) {
-	prefixedClient := getRedisConfWithIP(true)
+	prefixedClient, splitClient := getRedisConfWithIP(true)
+
+	// Grabs created event
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(resEvent[0]), &event)
+	metadata := event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] == "NA" || metadata["n"] == "NA" {
+		t.Error("Instance Name and Machine IP should not have 'NA' values")
+	}
+
+	splitClient.Destroy()
+
 	// Grabs created impression
 	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(resImpression[0]), &impression)
-	metadata := impression["m"]
+	metadata = impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
 		t.Error("Instance Name and Machine IP should not have 'NA' values")
@@ -1403,16 +1419,6 @@ func TestRedisClientWithIPEnabled(t *testing.T) {
 	listenerData, _ := ilResult["valid"].(map[string]interface{})
 	if listenerData["InstanceName"] == "NA" {
 		t.Error("InstanceName should not be 'NA")
-	}
-
-	// Grabs created event
-	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
-	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(resEvent[0]), &event)
-	metadata = event["m"]
-	// Checks if metadata was created with "NA" values
-	if metadata["i"] == "NA" || metadata["n"] == "NA" {
-		t.Error("Instance Name and Machine IP should not have 'NA' values")
 	}
 
 	deleteDataGenerated(prefixedClient)
@@ -2312,7 +2318,7 @@ func TestClientDebugRedis(t *testing.T) {
 	// Validate impressions
 	impressions, _ := prefixedClient.LRange("SPLITIO.impressions", 0, -1)
 	if len(impressions) != 8 {
-		t.Error("Impression length shold be 4")
+		t.Errorf("Impression length should be 8. Actual %d", len(impressions))
 	}
 
 	// Validate impression counts

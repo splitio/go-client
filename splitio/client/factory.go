@@ -386,12 +386,7 @@ func setupInMemoryFactory(
 	return &splitFactory, nil
 }
 
-func setupRedisFactory(
-	apikey string,
-	cfg *conf.SplitSdkConfig,
-	logger logging.LoggerInterface,
-	metadata dtos.Metadata,
-) (*SplitFactory, error) {
+func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.LoggerInterface, metadata dtos.Metadata) (*SplitFactory, error) {
 	redisClient, err := redis.NewRedisClient(&cfg.Redis, logger)
 	if err != nil {
 		logger.Error("Failed to instantiate redis client.")

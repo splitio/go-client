@@ -54,8 +54,7 @@ func (e *Engine) calculateBucket(algo int, bucketingKey string, seed int64) int 
 	var hashedKey uint32
 	switch algo {
 	case grammar.SplitAlgoMurmur:
-		murmurHasher := hasher.NewMurmur332Hasher(uint32(seed))
-		hashedKey = murmurHasher.Hash([]byte(bucketingKey))
+		hashedKey = hasher.Sum32WithSeed([]byte(bucketingKey), uint32(seed))
 	case grammar.SplitAlgoLegacy:
 		fallthrough
 	default:

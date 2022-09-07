@@ -17,8 +17,7 @@ import (
 func TestProperHashFunctionIsUsed(t *testing.T) {
 	eng := Engine{}
 
-	mHash := hasher.NewMurmur332Hasher(12345)
-	murmurHash := mHash.Hash([]byte("SOME_TEST"))
+	murmurHash := hasher.Sum32WithSeed([]byte("SOME_TEST"), 12345)
 	murmurBucket := int(math.Abs(float64(murmurHash%100)) + 1)
 	if murmurBucket != eng.calculateBucket(2, "SOME_TEST", 12345) {
 		t.Error("Incorrect hash!")
@@ -34,8 +33,7 @@ func TestProperHashFunctionIsUsed(t *testing.T) {
 func TestProperHashFunctionIsUsedWithConstants(t *testing.T) {
 	eng := Engine{}
 
-	mHash := hasher.NewMurmur332Hasher(12345)
-	murmurHash := mHash.Hash([]byte("SOME_TEST"))
+	murmurHash := hasher.Sum32WithSeed([]byte("SOME_TEST"), 12345)
 	murmurBucket := int(math.Abs(float64(murmurHash%100)) + 1)
 	if murmurBucket != eng.calculateBucket(grammar.SplitAlgoMurmur, "SOME_TEST", 12345) {
 		t.Error("Incorrect hash!")

@@ -143,7 +143,7 @@ func Default() *SplitSdkConfig {
 			SdkURL:               "",
 			StreamingServiceURL:  "",
 			TelemetryServiceURL:  "",
-			HTTPTimeout:          0,
+			HTTPTimeout:          defaultHTTPTimeout,
 			ImpressionListener:   nil,
 			SegmentQueueSize:     500,
 			SegmentWorkers:       10,

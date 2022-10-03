@@ -10,13 +10,14 @@ import (
 	"github.com/splitio/go-client/v6/splitio/engine/grammar"
 	"github.com/splitio/go-client/v6/splitio/engine/hash"
 	"github.com/splitio/go-split-commons/v4/dtos"
+	"github.com/splitio/go-toolkit/v5/hasher"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestProperHashFunctionIsUsed(t *testing.T) {
 	eng := Engine{}
 
-	murmurHash := hash.Murmur3_32([]byte("SOME_TEST"), 12345)
+	murmurHash := hasher.Sum32WithSeed([]byte("SOME_TEST"), 12345)
 	murmurBucket := int(math.Abs(float64(murmurHash%100)) + 1)
 	if murmurBucket != eng.calculateBucket(2, "SOME_TEST", 12345) {
 		t.Error("Incorrect hash!")
@@ -32,7 +33,7 @@ func TestProperHashFunctionIsUsed(t *testing.T) {
 func TestProperHashFunctionIsUsedWithConstants(t *testing.T) {
 	eng := Engine{}
 
-	murmurHash := hash.Murmur3_32([]byte("SOME_TEST"), 12345)
+	murmurHash := hasher.Sum32WithSeed([]byte("SOME_TEST"), 12345)
 	murmurBucket := int(math.Abs(float64(murmurHash%100)) + 1)
 	if murmurBucket != eng.calculateBucket(grammar.SplitAlgoMurmur, "SOME_TEST", 12345) {
 		t.Error("Incorrect hash!")

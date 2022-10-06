@@ -1312,7 +1312,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 
 func getRedisConfWithIP(IPAddressesEnabled bool) (*predis.PrefixedRedisClient, *SplitClient) {
 	// Create prefixed client for adding Split
-	prefixedClient, err := redis.NewRedisClient(&commonsCfg.RedisConfig{
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
 		Host:     "localhost",
 		Port:     6379,
 		Database: 1,
@@ -1431,6 +1431,8 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.TaskPeriods.ImpressionSync = 1
 	cfg.TaskPeriods.EventsSync = 1
@@ -1625,7 +1627,7 @@ func TestClientOptimized(t *testing.T) {
 					}
 					switch v["f"] {
 					case "DEMO_MURMUR2":
-						if v["rc"].(float64) != 3 {
+						if v["rc"].(float64) != 2 {
 							t.Error("Wrong rc")
 						}
 						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
@@ -1654,6 +1656,8 @@ func TestClientOptimized(t *testing.T) {
 	cfg.LabelsEnabled = true
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = impTest
 
 	factory, _ := NewSplitFactory("test", cfg)
@@ -1854,6 +1858,8 @@ func TestClientDebug(t *testing.T) {
 	cfg.LabelsEnabled = true
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = impTest
 	cfg.ImpressionsMode = "Debug"
 
@@ -2171,7 +2177,7 @@ func TestClientNoneRedis(t *testing.T) {
 		if strings.HasPrefix(key, "valid::") && count != "6" {
 			t.Error("Expected: 6. actual: " + count)
 		}
-		if strings.HasPrefix(key, "vanoConfiglid::") && count != "2" {
+		if strings.HasPrefix(key, "noConfig::") && count != "2" {
 			t.Error("Expected: 2. actual: " + count)
 		}
 	}
@@ -2256,11 +2262,11 @@ func TestClientOptimizedRedis(t *testing.T) {
 	impressionscount, _ := prefixedClient.HGetAll("SPLITIO.impressions.count")
 
 	for key, count := range impressionscount {
-		if strings.HasPrefix(key, "valid::") && count != "6" {
-			t.Error("Expected: 6. actual: " + count)
+		if strings.HasPrefix(key, "valid::") && count != "3" {
+			t.Error("Expected: 3. actual: " + count)
 		}
-		if strings.HasPrefix(key, "vanoConfiglid::") && count != "2" {
-			t.Error("Expected: 2. actual: " + count)
+		if strings.HasPrefix(key, "noConfig::") && count != "1" {
+			t.Error("Expected: 1. actual: " + count)
 		}
 	}
 
@@ -2328,7 +2334,7 @@ func TestClientDebugRedis(t *testing.T) {
 		if strings.HasPrefix(key, "valid::") && count != "6" {
 			t.Error("Expected: 6. actual: " + count)
 		}
-		if strings.HasPrefix(key, "vanoConfiglid::") && count != "2" {
+		if strings.HasPrefix(key, "noConfig::") && count != "2" {
 			t.Error("Expected: 2. actual: " + count)
 		}
 	}

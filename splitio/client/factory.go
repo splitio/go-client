@@ -56,7 +56,6 @@ const (
 	uniqueKeysPeriodTaskRedis          = 300   // 5 min
 	impressionsCountPeriodTaskInMemory = 1800  // 30 min
 	impressionsCountPeriodTaskRedis    = 300   // 5 min
-	impressionsPeriodTaskRedis         = 300   // 5 min
 	impressionsBulkSizeRedis           = 100
 )
 
@@ -333,6 +332,10 @@ func setupInMemoryFactory(
 		runtimeTelemetry:    telemetryStorage,
 	}
 
+	if cfg.ImpressionsMode == "" {
+		cfg.ImpressionsMode = config.ImpressionsModeOptimized
+	}
+
 	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI, nil)
 	if err != nil {
 		return nil, err
@@ -416,6 +419,10 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	splitTasks := synchronizer.SplitTasks{}
 	workers := synchronizer.Workers{}
 	advanced := config.AdvancedConfig{}
+
+	if cfg.ImpressionsMode == "" {
+		cfg.ImpressionsMode = config.ImpressionsModeDebug
+	}
 
 	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, redis.NewImpressionStorage(redisClient, metadata, logger))
 	if err != nil {
@@ -600,7 +607,7 @@ func buildImpressionManager(
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
 		} else {
 			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, impressionsPeriodTaskRedis, logger, impressionsBulkSizeRedis)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)
@@ -622,7 +629,7 @@ func buildImpressionManager(
 			workers.ImpressionsCountRecorder = impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
 			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
 			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, impressionsPeriodTaskRedis, logger, impressionsBulkSizeRedis)
+			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)

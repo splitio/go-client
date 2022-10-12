@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/splitio/go-split-commons/v4/dtos"
 	"github.com/splitio/go-split-commons/v4/healthcheck/application"
 	"github.com/splitio/go-split-commons/v4/provisional"
+	"github.com/splitio/go-split-commons/v4/provisional/strategy"
 	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
 	"github.com/splitio/go-split-commons/v4/storage"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory"
@@ -127,10 +129,11 @@ func getFactory() SplitFactory {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
-	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
-		ImpressionsMode: cfg.ImpressionsMode,
-		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter(), telemetryStorage)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, false)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
 
 	return SplitFactory{
 		cfg: cfg,
@@ -289,10 +292,11 @@ func TestClientPanicking(t *testing.T) {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
-	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
-		ImpressionsMode: cfg.ImpressionsMode,
-		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryMockedStorage, false)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
 
 	factory := SplitFactory{
 		cfg: cfg,
@@ -448,6 +452,7 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 func getClientForListener() SplitClient {
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
+
 	logger := logging.NewLogger(nil)
 
 	impTest := &ImpressionListenerTest{}
@@ -461,11 +466,12 @@ func getClientForListener() SplitClient {
 		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
 	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryMockedStorage)
-	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
-		ImpressionsMode: cfg.ImpressionsMode,
-		OperationMode:   cfg.OperationMode,
-		ListenerEnabled: true,
-	}, provisional.NewImpressionsCounter(), telemetryMockedStorage)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryMockedStorage, true)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+
 	factory := &SplitFactory{
 		cfg: cfg,
 		storages: sdkStorages{
@@ -695,15 +701,14 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 	sdkConf.OperationMode = conf.RedisConsumer
 
 	factory, _ := NewSplitFactory("something", sdkConf)
-
 	if !factory.IsReady() {
 		t.Error("Factory should be ready immediately")
 	}
-
 	client := factory.Client()
 	if !client.factory.IsReady() {
 		t.Error("Client should be ready immediately")
 	}
+
 	err := client.BlockUntilReady(1)
 	if err != nil {
 		t.Error("Error was not expected")
@@ -1135,7 +1140,7 @@ func isInvalidImpression(client SplitClient, key string, feature string, treatme
 
 func TestClient(t *testing.T) {
 	cfg := conf.Default()
-
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeDebug
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
@@ -1194,10 +1199,10 @@ func TestClient(t *testing.T) {
 		RecordLatencyCall:          func(method string, latency time.Duration) {},
 	}
 
-	impressionManager, _ := provisional.NewImpressionManager(commonsCfg.ManagerConfig{
-		ImpressionsMode: commonsCfg.ImpressionsModeDebug,
-		OperationMode:   cfg.OperationMode,
-	}, provisional.NewImpressionsCounter(), mockedTelemetryStorage)
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsStrategy := strategy.NewDebugImpl(impressionObserver, true)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+
 	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
 	client := SplitClient{
 		evaluator:           evaluator,
@@ -1305,7 +1310,7 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
-func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
+func getRedisConfWithIP(IPAddressesEnabled bool) (*predis.PrefixedRedisClient, *SplitClient) {
 	// Create prefixed client for adding Split
 	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
 		Host:     "localhost",
@@ -1317,7 +1322,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 
 	raw, err := json.Marshal(*valid)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
 	prefixedClient.Set("SPLITIO.splits.till", 1494593336752, 0)
@@ -1346,7 +1351,7 @@ func getRedisConfWithIP(IPAddressesEnabled bool) *predis.PrefixedRedisClient {
 	client.Treatment("user1", "valid", nil)
 	client.Track("user1", "my-traffic", "my-event", nil, nil)
 
-	return prefixedClient
+	return prefixedClient, client
 }
 
 func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
@@ -1356,12 +1361,25 @@ func deleteDataGenerated(prefixedClient *predis.PrefixedRedisClient) {
 }
 
 func TestRedisClientWithIPDisabled(t *testing.T) {
-	prefixedClient := getRedisConfWithIP(false)
+	prefixedClient, splitClient := getRedisConfWithIP(false)
+
+	// Grabs created event
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(resEvent[0]), &event)
+	metadata := event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] != "NA" || metadata["n"] != "NA" {
+		t.Error("Instance Name and Machine IP should have 'NA' values")
+	}
+
+	splitClient.Destroy()
+
 	// Grabs created impression
 	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(resImpression[0]), &impression)
-	metadata := impression["m"]
+	metadata = impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] != "NA" || metadata["n"] != "NA" {
 		t.Error("Instance Name and Machine IP should have 'NA' values")
@@ -1371,26 +1389,29 @@ func TestRedisClientWithIPDisabled(t *testing.T) {
 		t.Error("InstanceName should be 'NA")
 	}
 
-	// Grabs created event
-	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
-	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(resEvent[0]), &event)
-	metadata = event["m"]
-	// Checks if metadata was created with "NA" values
-	if metadata["i"] != "NA" || metadata["n"] != "NA" {
-		t.Error("Instance Name and Machine IP should have 'NA' values")
-	}
-
 	deleteDataGenerated(prefixedClient)
 }
 
 func TestRedisClientWithIPEnabled(t *testing.T) {
-	prefixedClient := getRedisConfWithIP(true)
+	prefixedClient, splitClient := getRedisConfWithIP(true)
+
+	// Grabs created event
+	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
+	event := make(map[string]map[string]interface{})
+	json.Unmarshal([]byte(resEvent[0]), &event)
+	metadata := event["m"]
+	// Checks if metadata was created with "NA" values
+	if metadata["i"] == "NA" || metadata["n"] == "NA" {
+		t.Error("Instance Name and Machine IP should not have 'NA' values")
+	}
+
+	splitClient.Destroy()
+
 	// Grabs created impression
 	resImpression, _ := prefixedClient.LRange("SPLITIO.impressions", 0, 1)
 	impression := make(map[string]map[string]interface{})
 	json.Unmarshal([]byte(resImpression[0]), &impression)
-	metadata := impression["m"]
+	metadata = impression["m"]
 	// Checks if metadata was created with "NA" values
 	if metadata["i"] == "NA" || metadata["n"] == "NA" {
 		t.Error("Instance Name and Machine IP should not have 'NA' values")
@@ -1398,16 +1419,6 @@ func TestRedisClientWithIPEnabled(t *testing.T) {
 	listenerData, _ := ilResult["valid"].(map[string]interface{})
 	if listenerData["InstanceName"] == "NA" {
 		t.Error("InstanceName should not be 'NA")
-	}
-
-	// Grabs created event
-	resEvent, _ := prefixedClient.LRange("SPLITIO.events", 0, 1)
-	event := make(map[string]map[string]interface{})
-	json.Unmarshal([]byte(resEvent[0]), &event)
-	metadata = event["m"]
-	// Checks if metadata was created with "NA" values
-	if metadata["i"] == "NA" || metadata["n"] == "NA" {
-		t.Error("Instance Name and Machine IP should not have 'NA' values")
 	}
 
 	deleteDataGenerated(prefixedClient)
@@ -1420,6 +1431,8 @@ func getInMemoryClientWithIP(IPAddressesEnabled bool, ts *httptest.Server) Split
 	cfg.IPAddressesEnabled = IPAddressesEnabled
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
 	cfg.TaskPeriods.ImpressionSync = 1
 	cfg.TaskPeriods.EventsSync = 1
@@ -1614,7 +1627,7 @@ func TestClientOptimized(t *testing.T) {
 					}
 					switch v["f"] {
 					case "DEMO_MURMUR2":
-						if v["rc"].(float64) != 3 {
+						if v["rc"].(float64) != 2 {
 							t.Error("Wrong rc")
 						}
 						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
@@ -1643,6 +1656,8 @@ func TestClientOptimized(t *testing.T) {
 	cfg.LabelsEnabled = true
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = impTest
 
 	factory, _ := NewSplitFactory("test", cfg)
@@ -1670,6 +1685,115 @@ func TestClientOptimized(t *testing.T) {
 	if impL4["Pt"].(int64) != 0 {
 		t.Error("Pt should be equal to 0")
 	}
+
+	atomic.AddInt64(&isDestroyCalled, 1)
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
+func TestClientNone(t *testing.T) {
+	var isDestroyCalled int64
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_2.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			t.Error("Should not post impressions")
+		case "/testImpressions/count":
+			fmt.Fprintln(w, "ok")
+			if atomic.LoadInt64(&isDestroyCalled) == 1 {
+				rBody, _ := ioutil.ReadAll(r.Body)
+
+				var dataInPost map[string][]map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+
+				for _, v := range dataInPost["pf"] {
+					if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
+						t.Error("Wrong timeFrame")
+					}
+					switch v["f"] {
+					case "DEMO_MURMUR2":
+						if v["rc"].(float64) != 4 {
+							t.Error("Wrong rc")
+						}
+						if int64(v["m"].(float64)) != util.TruncateTimeFrame(time.Now().UTC().UnixNano()) {
+							t.Error("Wrong timeFrame")
+						}
+					case "DEMO_MURMUR":
+						if v["rc"].(float64) != 1 {
+							t.Error("Wrong rc")
+						}
+					}
+				}
+			}
+		case "/keys/ss":
+			rBody, _ := ioutil.ReadAll(r.Body)
+
+			var uniques dtos.Uniques
+			err := json.Unmarshal(rBody, &uniques)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if len(uniques.Keys) != 2 {
+				t.Error("Length should be 2")
+			}
+			for _, key := range uniques.Keys {
+				if key.Feature == "DEMO_MURMUR2" && len(key.Keys) != 2 {
+					t.Error("Length should be 2")
+				}
+				if key.Feature == "DEMO_MURMUR" && len(key.Keys) != 1 {
+					t.Error("Length should be 1")
+				}
+			}
+
+			postChannel <- "finished"
+		case "/events/bulk":
+			fmt.Fprintln(w, "ok")
+		case "/segmentChanges":
+			fallthrough
+		default:
+			fmt.Fprintln(w, "ok")
+		}
+	}))
+	defer ts.Close()
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeNone
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	client.Treatments("user1", []string{"DEMO_MURMUR2", "DEMO_MURMUR"}, nil)
+	client.Treatment("user2", "DEMO_MURMUR2", nil)
 
 	atomic.AddInt64(&isDestroyCalled, 1)
 	client.Destroy()
@@ -1734,6 +1858,8 @@ func TestClientDebug(t *testing.T) {
 	cfg.LabelsEnabled = true
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
 	cfg.Advanced.ImpressionListener = impTest
 	cfg.ImpressionsMode = "Debug"
 
@@ -1986,4 +2112,246 @@ func TestTelemetryRedis(t *testing.T) {
 
 	deleteDataGenerated(prefixedClient)
 	factory.Destroy()
+}
+
+func TestClientNoneRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-m",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	raw, _ := json.Marshal(*valid)
+	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
+	raw, _ = json.Marshal(*noConfig)
+	prefixedClient.Set("SPLITIO.split.noConfig", raw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeNone
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Destroy()
+
+	// Validate unique keys
+	uniques, _ := prefixedClient.LRange("SPLITIO.uniquekeys", 0, -1)
+	var uniquesDto []dtos.Key
+	_ = json.Unmarshal([]byte(uniques[0]), &uniquesDto)
+
+	if len(uniquesDto) != 2 {
+		t.Errorf("Lenght should be 2, Actual %d", len(uniquesDto))
+	}
+
+	for _, unique := range uniquesDto {
+		if unique.Feature == "valid" && len(unique.Keys) != 3 {
+			t.Error("Keys should be 3")
+		}
+		if unique.Feature == "noConfig" && len(unique.Keys) != 1 {
+			t.Error("Keys should be 1")
+		}
+	}
+
+	// Validate impression counts
+	impressionscount, _ := prefixedClient.HGetAll("SPLITIO.impressions.count")
+
+	for key, count := range impressionscount {
+		if strings.HasPrefix(key, "valid::") && count != "6" {
+			t.Error("Expected: 6. actual: " + count)
+		}
+		if strings.HasPrefix(key, "noConfig::") && count != "2" {
+			t.Error("Expected: 2. actual: " + count)
+		}
+	}
+
+	// Validate that impressions doesn't exist
+	exist, _ := prefixedClient.Exists("SPLITIO.impressions")
+	if exist != 0 {
+		t.Error("SPLITIO.impressions should not exist")
+	}
+
+	// Clean redis
+	keys, _ := prefixedClient.Keys("SPLITIO*")
+	for _, k := range keys {
+		prefixedClient.Del(k)
+	}
+}
+
+func TestClientOptimizedRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-m",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	raw, _ := json.Marshal(*valid)
+	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
+	raw, _ = json.Marshal(*noConfig)
+	prefixedClient.Set("SPLITIO.split.noConfig", raw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeOptimized
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Destroy()
+
+	// Validate impressions
+	impressions, _ := prefixedClient.LRange("SPLITIO.impressions", 0, -1)
+
+	if len(impressions) != 4 {
+		t.Error("Impression length shold be 4")
+	}
+
+	for _, imp := range impressions {
+		var imprObject dtos.ImpressionQueueObject
+		_ = json.Unmarshal([]byte(imp), &imprObject)
+
+		if imprObject.Impression.KeyName == "user1" && imprObject.Impression.FeatureName == "valid" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
+		if imprObject.Impression.KeyName == "user2" && imprObject.Impression.FeatureName == "valid" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
+		if imprObject.Impression.KeyName == "user3" && imprObject.Impression.FeatureName == "valid" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
+		if imprObject.Impression.KeyName == "user3" && imprObject.Impression.FeatureName == "noConfig" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
+	}
+
+	// Validate impression counts
+	impressionscount, _ := prefixedClient.HGetAll("SPLITIO.impressions.count")
+
+	for key, count := range impressionscount {
+		if strings.HasPrefix(key, "valid::") && count != "3" {
+			t.Error("Expected: 3. actual: " + count)
+		}
+		if strings.HasPrefix(key, "noConfig::") && count != "1" {
+			t.Error("Expected: 1. actual: " + count)
+		}
+	}
+
+	// Validate that uniquekeys doesn't exist
+	exist, _ := prefixedClient.Exists("SPLITIO.uniquekeys")
+	if exist != 0 {
+		t.Error("SPLITIO.uniquekeys should not exist")
+	}
+
+	// Clean redis
+	keys, _ := prefixedClient.Keys("SPLITIO*")
+	for _, k := range keys {
+		prefixedClient.Del(k)
+	}
+}
+
+func TestClientDebugRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-m",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	raw, _ := json.Marshal(*valid)
+	prefixedClient.Set("SPLITIO.split.valid", raw, 0)
+	raw, _ = json.Marshal(*noConfig)
+	prefixedClient.Set("SPLITIO.split.noConfig", raw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeDebug
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user1", "valid", nil)
+	client.Treatment("user2", "valid", nil)
+	client.Treatment("user3", "valid", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Treatment("user3", "noConfig", nil)
+	client.Destroy()
+
+	// Validate impressions
+	impressions, _ := prefixedClient.LRange("SPLITIO.impressions", 0, -1)
+	if len(impressions) != 8 {
+		t.Errorf("Impression length should be 8. Actual %d", len(impressions))
+	}
+
+	// Validate impression counts
+	impressionscount, _ := prefixedClient.HGetAll("SPLITIO.impressions.count")
+
+	for key, count := range impressionscount {
+		if strings.HasPrefix(key, "valid::") && count != "6" {
+			t.Error("Expected: 6. actual: " + count)
+		}
+		if strings.HasPrefix(key, "noConfig::") && count != "2" {
+			t.Error("Expected: 2. actual: " + count)
+		}
+	}
+
+	// Validate that uniquekeys doesn't exist
+	exist, _ := prefixedClient.Exists("SPLITIO.uniquekeys")
+	if exist != 0 {
+		t.Error("SPLITIO.uniquekeys should not exist")
+	}
+	exist, _ = prefixedClient.Exists("SPLITIO.impressions.count")
+	if exist != 0 {
+		t.Error("SPLITIO.impressions.count should not exist")
+	}
+
+	// Clean redis
+	keys, _ := prefixedClient.Keys("SPLITIO*")
+	for _, k := range keys {
+		prefixedClient.Del(k)
+	}
 }

@@ -133,7 +133,7 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 		t.Error("Should be error")
 	}
 
-	expected := "Factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
+	expected := "factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
 	if !mW.Matches(expected) {
 		t.Error("Error is distinct from the expected one")
 	}

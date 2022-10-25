@@ -1778,6 +1778,7 @@ func TestClientNone(t *testing.T) {
 	impTest := &ImpressionListenerTest{}
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
+	cfg.Advanced.StreamingEnabled = false
 	cfg.Advanced.EventsURL = ts.URL
 	cfg.Advanced.SdkURL = ts.URL
 	cfg.Advanced.TelemetryServiceURL = ts.URL

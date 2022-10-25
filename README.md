@@ -1,6 +1,6 @@
 # Split GO SDK
 
-[![build workflow](https://github.com/splitio/go-client/actions/workflows/build.yml/badge.svg)](https://github.com/splitio/go-client/actions)
+[![build workflow](https://github.com/splitio/go-client/actions/workflows/ci.yml/badge.svg)](https://github.com/splitio/go-client/actions)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/splitio/go-client/v6)](https://pkg.go.dev/github.com/splitio/go-client/v6/splitio?tab=doc)
 [![Documentation](https://img.shields.io/badge/go_client-documentation-informational)](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)
 

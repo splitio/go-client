@@ -104,7 +104,7 @@ func TestValidRates(t *testing.T) {
 	cfg = Default()
 	cfg.Advanced.SegmentWorkers = 0
 	err = Normalize("asd", cfg)
-	if err == nil || err.Error() != "Number of workers for fetching segments MUST be greater than zero" {
+	if err == nil || err.Error() != "number of workers for fetching segments MUST be greater than zero" {
 		t.Error("It should return err")
 	}
 

@@ -1,6 +1,8 @@
 # Split GO SDK
 
-[![Build Status](https://api.travis-ci.com/splitio/go-client.svg?branch=master)](https://api.travis-ci.com/splitio/go-client)
+[![build workflow](https://github.com/splitio/go-client/actions/workflows/ci.yml/badge.svg)](https://github.com/splitio/go-client/actions)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/splitio/go-client/v6)](https://pkg.go.dev/github.com/splitio/go-client/v6/splitio?tab=doc)
+[![Documentation](https://img.shields.io/badge/go_client-documentation-informational)](https://help.split.io/hc/en-us/articles/360020093652-Go-SDK)
 
 ## Overview
 
@@ -16,7 +18,7 @@ This SDK is compatible with Go 1.8.
 
 Below is a simple example that describes the instantiation and most basic usage of our SDK:
 
-Run `go get github.com/splitio/go-client/` or `dep ensure -add github.com/splitio/go-client`
+Run `go get github.com/splitio/go-client/`
 
 ```go
 package main

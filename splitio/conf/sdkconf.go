@@ -34,6 +34,7 @@ const (
 // - IPAddress (Optional) Address to be used when submitting metrics & impressions to split servers
 // - BlockUntilReady (Optional) How much to wait until the sdk is ready
 // - SplitFile (Optional) File with splits to use when running in localhost mode
+// - SegmentDirectory (Optional) Path where all the segment files are located to use when running in json localhost mode
 // - LabelsEnabled (Optional) Can be used to disable labels if the user does not want to send that info to split servers.
 // - Logger: (Optional) Custom logger complying with logging.LoggerInterface
 // - LoggerConfig: (Optional) Options to setup the sdk's own logger
@@ -48,6 +49,7 @@ type SplitSdkConfig struct {
 	IPAddressesEnabled bool
 	BlockUntilReady    int
 	SplitFile          string
+	SegmentDirectory   string
 	LabelsEnabled      bool
 	SplitSyncProxyURL  string
 	Logger             logging.LoggerInterface

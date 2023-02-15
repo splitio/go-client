@@ -42,22 +42,24 @@ const (
 // - Redis: (Required for "redis-consumer". Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 // - ImpressionsMode (Optional) Flag for enabling local impressions dedupe - Possible values <'optimized'|'debug'>
+// - LocalhostRefreshEnabled: (Optional) Flag to run synchronization refresh for Splits and Segments in localhost mode.
 type SplitSdkConfig struct {
-	OperationMode      string
-	InstanceName       string
-	IPAddress          string
-	IPAddressesEnabled bool
-	BlockUntilReady    int
-	SplitFile          string
-	SegmentDirectory   string
-	LabelsEnabled      bool
-	SplitSyncProxyURL  string
-	Logger             logging.LoggerInterface
-	LoggerConfig       logging.LoggerOptions
-	TaskPeriods        TaskPeriods
-	Advanced           AdvancedConfig
-	Redis              conf.RedisConfig
-	ImpressionsMode    string
+	OperationMode           string
+	InstanceName            string
+	IPAddress               string
+	IPAddressesEnabled      bool
+	BlockUntilReady         int
+	SplitFile               string
+	SegmentDirectory        string
+	LabelsEnabled           bool
+	SplitSyncProxyURL       string
+	Logger                  logging.LoggerInterface
+	LoggerConfig            logging.LoggerOptions
+	TaskPeriods             TaskPeriods
+	Advanced                AdvancedConfig
+	Redis                   conf.RedisConfig
+	ImpressionsMode         string
+	LocalhostRefreshEnabled bool
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -113,15 +115,16 @@ func Default() *SplitSdkConfig {
 	}
 
 	return &SplitSdkConfig{
-		OperationMode:      InMemoryStandAlone,
-		LabelsEnabled:      true,
-		IPAddress:          ipAddress,
-		IPAddressesEnabled: true,
-		InstanceName:       instanceName,
-		Logger:             nil,
-		LoggerConfig:       logging.LoggerOptions{},
-		SplitFile:          splitFile,
-		ImpressionsMode:    conf.ImpressionsModeOptimized,
+		OperationMode:           InMemoryStandAlone,
+		LabelsEnabled:           true,
+		IPAddress:               ipAddress,
+		IPAddressesEnabled:      true,
+		InstanceName:            instanceName,
+		Logger:                  nil,
+		LoggerConfig:            logging.LoggerOptions{},
+		SplitFile:               splitFile,
+		ImpressionsMode:         conf.ImpressionsModeOptimized,
+		LocalhostRefreshEnabled: false,
 		Redis: conf.RedisConfig{
 			Database: 0,
 			Host:     "localhost",

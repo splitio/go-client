@@ -347,8 +347,9 @@ func TestValidatorOnDestroy(t *testing.T) {
 		RecordSessionLengthCall: func(session int64) {},
 	}
 	logger := getMockedLogger()
+	localConfig := &synchronizer.LocalConfig{RefreshEnabled: false}
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(3, &api.SplitAPI{}, mocks.MockSplitStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
+		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
 		spConf.AdvancedConfig{},
 		authMocks.MockAuthClient{},

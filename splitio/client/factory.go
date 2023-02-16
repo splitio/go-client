@@ -468,18 +468,32 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	if err != nil {
 		return nil, err
 	}
-	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan int, 1)
-	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger)}
+	fileFormat := local.DefineFormat(cfg.SplitFile, logger)
+	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger, fileFormat)}
+
+	if cfg.SegmentDirectory != "" {
+		splitAPI.SegmentFetcher = local.NewFileSegmentFetcher(cfg.SegmentDirectory, logger)
+	}
 
 	var dummyHC = &application.Dummy{}
 
+	localConfig := &synchronizer.LocalConfig{
+		SplitPeriod:      cfg.TaskPeriods.SplitSync,
+		SegmentPeriod:    cfg.TaskPeriods.SegmentSync,
+		SegmentWorkers:   cfg.Advanced.SegmentWorkers,
+		QueueSize:        cfg.Advanced.SegmentQueueSize,
+		SegmentDirectory: cfg.SegmentDirectory,
+		RefreshEnabled:   cfg.LocalhostRefreshEnabled,
+	}
+
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(splitPeriod, splitAPI, splitStorage, logger, telemetryStorage, dummyHC),
+		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, logger, telemetryStorage, dummyHC),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,

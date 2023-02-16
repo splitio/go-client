@@ -468,6 +468,7 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	if err != nil {
 		return nil, err
@@ -476,10 +477,8 @@ func setupLocalhostFactory(
 	fileFormat := local.DefineFormat(cfg.SplitFile, logger)
 	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger, fileFormat)}
 
-	segmentStorage := &mutexmap.MMSegmentStorage{}
 	if cfg.SegmentDirectory != "" {
 		splitAPI.SegmentFetcher = local.NewFileSegmentFetcher(cfg.SegmentDirectory, logger)
-		segmentStorage = mutexmap.NewMMSegmentStorage()
 	}
 
 	var dummyHC = &application.Dummy{}

@@ -519,7 +519,7 @@ func setupLocalhostFactory(
 			splits:              splitStorage,
 			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
 			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger, telemetryStorage),
-			segments:            mutexmap.NewMMSegmentStorage(),
+			segments:            segmentStorage,
 			initTelemetry:       telemetryStorage,
 			evaluationTelemetry: telemetryStorage,
 			runtimeTelemetry:    telemetryStorage,

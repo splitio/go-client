@@ -130,16 +130,8 @@ func (f *SplitFactory) IsReady() bool {
 	return f.status.Load() == sdkStatusReady
 }
 
-// initializates task for localhost mode
-func (f *SplitFactory) initializationLocalhost(readyChannel chan int) {
-	go f.syncManager.Start()
-
-	<-readyChannel
-	f.broadcastReadiness(sdkStatusReady, make([]string, 0))
-}
-
 // initializates tasks for in-memory mode
-func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
+func (f *SplitFactory) initializationManager(readyChannel chan int) {
 	go f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
@@ -384,7 +376,7 @@ func setupInMemoryFactory(
 	splitFactory.status.Store(sdkStatusInitializing)
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
-	go splitFactory.initializationInMemory(readyChannel)
+	go splitFactory.initializationManager(readyChannel)
 
 	return &splitFactory, nil
 }
@@ -539,7 +531,7 @@ func setupLocalhostFactory(
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	// Call fetching tasks as goroutine
-	go splitFactory.initializationLocalhost(readyChannel)
+	go splitFactory.initializationManager(readyChannel)
 
 	return splitFactory, nil
 }

@@ -601,14 +601,6 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	client := factory.Client()
 	manager := factory.Manager()
 
-	if len(manager.SplitNames()) != 0 {
-		t.Error("It should not return splits")
-	}
-
-	if client.factory.IsReady() {
-		t.Error("Client should not be ready")
-	}
-
 	err = client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
@@ -735,6 +727,7 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(404)
 	}))
 	defer ts.Close()

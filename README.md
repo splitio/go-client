@@ -12,7 +12,7 @@ This SDK is designed to work with Split, the platform for controlled rollouts, w
 
 ## Compatibility
 
-This SDK is compatible with Go 1.8.
+This SDK is compatible with Go 1.18.
 
 ## Getting started
 

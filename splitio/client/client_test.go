@@ -2157,7 +2157,7 @@ func TestClientNoneRedis(t *testing.T) {
 	}
 
 	if len(keysDto) != 2 {
-		t.Errorf("Lenght should be 2, Actual %d", len(keysDto))
+		t.Errorf("Lenght should be 2. Actual %d", len(keysDto))
 	}
 
 	for _, unique := range keysDto {

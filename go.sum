@@ -12,8 +12,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cu
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/redis/go-redis/v9 v9.0.2 h1:BA426Zqe/7r56kCcvxYLWe1mkaz71LKF77GwgFzSxfE=
 github.com/redis/go-redis/v9 v9.0.2/go.mod h1:/xDTe9EF1LM61hek62Poq2nzQSGj0xSrEtEHbBQevps=
-github.com/splitio/go-split-commons/v4 v4.3.0 h1:1wsQ0PKpLXjr3tDDoIlODdS1XEBTQkiUmXjyLBVpFKU=
-github.com/splitio/go-split-commons/v4 v4.3.0/go.mod h1:tjtSYwuIMDGTEifO1dMcKk9UYf0Q2gz0xypkT//cdLc=
+github.com/splitio/go-split-commons/v4 v4.3.1 h1:+BaNoyuxOWopYN603Pbk1etiysHaEz8EghVx20CbwDk=
+github.com/splitio/go-split-commons/v4 v4.3.1/go.mod h1:tjtSYwuIMDGTEifO1dMcKk9UYf0Q2gz0xypkT//cdLc=
 github.com/splitio/go-toolkit/v5 v5.3.0 h1:NSUBIkyRwyMQ6ruPOiG1Kl1pni/pW3Gqiu7L+11mIMw=
 github.com/splitio/go-toolkit/v5 v5.3.0/go.mod h1:yn9f3Bmka+97BNnNnnlM1V484jMqu7MNoM/RBZLbZZs=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=

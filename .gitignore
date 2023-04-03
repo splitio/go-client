@@ -31,3 +31,6 @@ _testmain.go
 Gopkg.lock
 
 .vscode/*
+
+coverage.out
+.scannerwork

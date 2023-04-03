@@ -50,7 +50,7 @@
 - BREAKING CHANGE: Migrated to go modules (dep & bare-bones go-dep no longer supported).
 
 5.3.0 (Oct 6, 2020)
-- Added impressions dedupe logic to avoid sending duplicated impressions:  
+- Added impressions dedupe logic to avoid sending duplicated impressions:
    - Added `OPTIMIZED` and `DEBUG` modes in order to enabling/disabling how impressions are going to be sent into Split servers,
         - `OPTIMIZED`: will send unique impressions in a timeframe in order to reduce how many times impressions are posted to Split.
         - `DEBUG`: will send every impression generated to Split.

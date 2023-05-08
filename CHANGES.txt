@@ -1,3 +1,10 @@
+6.3.1 (March 21, 2023)
+- Fixed Unique Keys dto in redis.
+
+6.3.0 (March 13, 2023)
+- Added support to use JSON files in localhost mode.
+- Pointed to new version of go-split-commons v4.3.0 for vulnerability fixes
+
 6.2.1 (Oct 28, 2022)
 - Updated Matchers logging: demoted the log message to "warning".
 
@@ -43,7 +50,7 @@
 - BREAKING CHANGE: Migrated to go modules (dep & bare-bones go-dep no longer supported).
 
 5.3.0 (Oct 6, 2020)
-- Added impressions dedupe logic to avoid sending duplicated impressions:  
+- Added impressions dedupe logic to avoid sending duplicated impressions:
    - Added `OPTIMIZED` and `DEBUG` modes in order to enabling/disabling how impressions are going to be sent into Split servers,
         - `OPTIMIZED`: will send unique impressions in a timeframe in order to reduce how many times impressions are posted to Split.
         - `DEBUG`: will send every impression generated to Split.

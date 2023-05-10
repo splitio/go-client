@@ -165,8 +165,8 @@ func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExi
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
 	if shouldValidateExistence && !i.splitStorage.TrafficTypeExists(toLower) {
-		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
-			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Feature flag in this environment, " +
+			"make sure you’re tracking your events to a valid traffic type defined in the Split user interface")
 	}
 	return toLower, nil
 }
@@ -220,7 +220,7 @@ func (i *inputValidation) ValidateTrackInputs(
 
 // ValidateManagerInputs implements the validation for Track call
 func (i *inputValidation) ValidateManagerInputs(featureFlag string) error {
-	return checkIsEmptyString(featureFlag, "split name", "Split")
+	return checkIsEmptyString(featureFlag, "feature flag name", "Split")
 }
 
 // ValidateFeatureNames implements the validation for Treatments call

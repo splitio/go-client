@@ -17,7 +17,7 @@ import (
 // InputValidation struct is responsible for cheking any input of treatment and
 // track methods.
 
-// MaxLength constant to check the length of the splits
+// MaxLength constant to check the length of the feature flags
 const MaxLength = 250
 
 // MaxEventLength constant to limit the event size
@@ -58,7 +58,7 @@ func parseIfNumeric(value interface{}, operation string) (string, error) {
 func (i *inputValidation) checkWhitespaces(value string, operation string) string {
 	trimmed := strings.TrimSpace(value)
 	if strings.TrimSpace(value) != value {
-		i.logger.Warning(fmt.Sprintf(operation+": split name '%s' has extra whitespace, trimming", value))
+		i.logger.Warning(fmt.Sprintf(operation+": feature flag name '%s' has extra whitespace, trimming", value))
 	}
 	return trimmed
 }
@@ -165,7 +165,7 @@ func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExi
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
 	if shouldValidateExistence && !i.splitStorage.TrafficTypeExists(toLower) {
-		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Feature flag in this environment, " +
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Feature flags in this environment, " +
 			"make sure you’re tracking your events to a valid traffic type defined in the Split user interface")
 	}
 	return toLower, nil
@@ -287,7 +287,7 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 
 func (i *inputValidation) IsSplitFound(label string, featureFlag string, operation string) bool {
 	if label == impressionlabels.SplitNotFound {
-		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Feature flags exist in the Split user interface .", featureFlag))
+		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Feature flags exist in the Split user interface.", featureFlag))
 		return false
 	}
 	return true

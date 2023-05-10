@@ -133,7 +133,7 @@ func TestFactoryWithNilApiKey(t *testing.T) {
 		t.Error("Should be error")
 	}
 
-	expected := "factory instantiation: you passed an empty apikey, apikey must be a non-empty string"
+	expected := "factory instantiation: you passed an empty SDK key, SDK key must be a non-empty string"
 	if !mW.Matches(expected) {
 		t.Error("Error is distinct from the expected one")
 	}
@@ -613,7 +613,7 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	}
 
 	manager.Split("non_existent")
-	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console.") {
+	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface.") {
 		t.Error("Wrong message")
 	}
 }

@@ -69,8 +69,8 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 		EvaluationTime: 0,
 		Evaluations:    make(map[string]evaluator.Result),
 	}
-	for _, feature := range featureFlags {
-		result.Evaluations[feature] = evaluator.Result{
+	for _, featureFlag := range featureFlags {
+		result.Evaluations[featureFlag] = evaluator.Result{
 			Treatment: evaluator.Control,
 			Label:     impressionlabels.ClientNotReady,
 			Config:    nil,
@@ -121,7 +121,7 @@ func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[st
 	c.evaluationTelemetry.RecordLatency(metricsLabel, evaluationTime)
 }
 
-// doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present for a certain key and set of attributes
+// doTreatmentCall retrieves treatments of an specific feature flag with configurations object if it is present for a certain key and set of attributes
 func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attributes map[string]interface{}, operation string, metricsLabel string) (t TreatmentResult) {
 	controlTreatment := TreatmentResult{
 		Treatment: evaluator.Control,

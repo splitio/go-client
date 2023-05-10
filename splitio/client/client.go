@@ -45,9 +45,9 @@ type TreatmentResult struct {
 }
 
 // getEvaluationResult calls evaluation for one particular split
-func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *string, feature string, attributes map[string]interface{}, operation string) *evaluator.Result {
+func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *string, featureFlag string, attributes map[string]interface{}, operation string) *evaluator.Result {
 	if c.isReady() {
-		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, feature, attributes)
+		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, featureFlag, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	c.initTelemetry.RecordNonReadyUsage()
@@ -59,9 +59,9 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 }
 
 // getEvaluationsResult calls evaluation for multiple treatments at once
-func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *string, features []string, attributes map[string]interface{}, operation string) evaluator.Results {
+func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *string, featureFlags []string, attributes map[string]interface{}, operation string) evaluator.Results {
 	if c.isReady() {
-		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, features, attributes)
+		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, featureFlags, attributes)
 	}
 	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
 	c.initTelemetry.RecordNonReadyUsage()
@@ -69,7 +69,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 		EvaluationTime: 0,
 		Evaluations:    make(map[string]evaluator.Result),
 	}
-	for _, feature := range features {
+	for _, feature := range featureFlags {
 		result.Evaluations[feature] = evaluator.Result{
 			Treatment: evaluator.Control,
 			Label:     impressionlabels.ClientNotReady,
@@ -80,7 +80,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 }
 
 // createImpression creates impression to be stored and used by listener
-func (c *SplitClient) createImpression(feature string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64) dtos.Impression {
+func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64) dtos.Impression {
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
@@ -92,7 +92,7 @@ func (c *SplitClient) createImpression(feature string, bucketingKey *string, eva
 	}
 
 	return dtos.Impression{
-		FeatureName:  feature,
+		FeatureName:  featureFlag,
 		BucketingKey: impressionBucketingKey,
 		ChangeNumber: changeNumber,
 		KeyName:      matchingKey,
@@ -122,7 +122,7 @@ func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[st
 }
 
 // doTreatmentCall retrieves treatments of an specific feature with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attributes map[string]interface{}, operation string, metricsLabel string) (t TreatmentResult) {
+func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attributes map[string]interface{}, operation string, metricsLabel string) (t TreatmentResult) {
 	controlTreatment := TreatmentResult{
 		Treatment: evaluator.Control,
 		Config:    nil,
@@ -153,20 +153,20 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 		return controlTreatment
 	}
 
-	feature, err = c.validator.ValidateFeatureName(feature, operation)
+	featureFlag, err = c.validator.ValidateFeatureName(featureFlag, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return controlTreatment
 	}
 
-	evaluationResult := c.getEvaluationResult(matchingKey, bucketingKey, feature, attributes, operation)
+	evaluationResult := c.getEvaluationResult(matchingKey, bucketingKey, featureFlag, attributes, operation)
 
-	if !c.validator.IsSplitFound(evaluationResult.Label, feature, operation) {
+	if !c.validator.IsSplitFound(evaluationResult.Label, featureFlag, operation) {
 		return controlTreatment
 	}
 
 	c.storeData(
-		[]dtos.Impression{c.createImpression(feature, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
+		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -178,27 +178,27 @@ func (c *SplitClient) doTreatmentCall(key interface{}, feature string, attribute
 	}
 }
 
-// Treatment implements the main functionality of split. Retrieve treatments of a specific feature
+// Treatment implements the main functionality of split. Retrieve treatments of a specific feature flag
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, feature string, attributes map[string]interface{}) string {
-	return c.doTreatmentCall(key, feature, attributes, treatment, telemetry.Treatment).Treatment
+func (c *SplitClient) Treatment(key interface{}, featureFlag string, attributes map[string]interface{}) string {
+	return c.doTreatmentCall(key, featureFlag, attributes, treatment, telemetry.Treatment).Treatment
 }
 
-// TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature with
+// TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature flag with
 // the corresponding configuration if it is present
-func (c *SplitClient) TreatmentWithConfig(key interface{}, feature string, attributes map[string]interface{}) TreatmentResult {
-	return c.doTreatmentCall(key, feature, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig)
+func (c *SplitClient) TreatmentWithConfig(key interface{}, featureFlag string, attributes map[string]interface{}) TreatmentResult {
+	return c.doTreatmentCall(key, featureFlag, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig)
 }
 
 // Generates control treatments
-func (c *SplitClient) generateControlTreatments(features []string, operation string) map[string]TreatmentResult {
+func (c *SplitClient) generateControlTreatments(featureFlags []string, operation string) map[string]TreatmentResult {
 	treatments := make(map[string]TreatmentResult)
-	filtered, err := c.validator.ValidateFeatureNames(features, operation)
+	filtered, err := c.validator.ValidateFeatureNames(featureFlags, operation)
 	if err != nil {
 		return treatments
 	}
-	for _, feature := range filtered {
-		treatments[feature] = TreatmentResult{
+	for _, featureFlag := range filtered {
+		treatments[featureFlag] = TreatmentResult{
 			Treatment: evaluator.Control,
 			Config:    nil,
 		}
@@ -206,8 +206,8 @@ func (c *SplitClient) generateControlTreatments(features []string, operation str
 	return treatments
 }
 
-// doTreatmentsCall retrieves treatments of an specific array of features with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+// doTreatmentsCall retrieves treatments of an specific array of feature flags with configurations object if it is present for a certain key and set of attributes
+func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlags []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
 
 	// Set up a guard deferred function to recover if the SDK starts panicking
@@ -219,22 +219,22 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n")
-			t = c.generateControlTreatments(features, operation)
+			t = c.generateControlTreatments(featureFlags, operation)
 		}
 	}()
 
 	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return c.generateControlTreatments(features, operation)
+		return c.generateControlTreatments(featureFlags, operation)
 	}
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return c.generateControlTreatments(features, operation)
+		return c.generateControlTreatments(featureFlags, operation)
 	}
 
-	filteredFeatures, err := c.validator.ValidateFeatureNames(features, operation)
+	filteredFeatures, err := c.validator.ValidateFeatureNames(featureFlags, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return map[string]TreatmentResult{}
@@ -263,19 +263,19 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, features []string, attri
 	return treatments
 }
 
-// Treatments evaluates multiple featers for a single user and set of attributes at once
-func (c *SplitClient) Treatments(key interface{}, features []string, attributes map[string]interface{}) map[string]string {
+// Treatments evaluates multiple feature flags for a single user and set of attributes at once
+func (c *SplitClient) Treatments(key interface{}, featureFlags []string, attributes map[string]interface{}) map[string]string {
 	treatmentsResult := map[string]string{}
-	result := c.doTreatmentsCall(key, features, attributes, treatments, telemetry.Treatments)
+	result := c.doTreatmentsCall(key, featureFlags, attributes, treatments, telemetry.Treatments)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
 	return treatmentsResult
 }
 
-// TreatmentsWithConfig evaluates multiple featers for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfig(key interface{}, features []string, attributes map[string]interface{}) map[string]TreatmentResult {
-	return c.doTreatmentsCall(key, features, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
+// TreatmentsWithConfig evaluates multiple feature flags for a single user and set of attributes at once and returns configurations
+func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlags []string, attributes map[string]interface{}) map[string]TreatmentResult {
+	return c.doTreatmentsCall(key, featureFlags, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
 }
 
 // isDestroyed returns true if the client has been destroyed

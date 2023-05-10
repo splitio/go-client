@@ -17,7 +17,7 @@ import (
 // InputValidation struct is responsible for cheking any input of treatment and
 // track methods.
 
-// MaxLength constant to check the length of the splits
+// MaxLength constant to check the length of the feature flags
 const MaxLength = 250
 
 // MaxEventLength constant to limit the event size
@@ -58,7 +58,7 @@ func parseIfNumeric(value interface{}, operation string) (string, error) {
 func (i *inputValidation) checkWhitespaces(value string, operation string) string {
 	trimmed := strings.TrimSpace(value)
 	if strings.TrimSpace(value) != value {
-		i.logger.Warning(fmt.Sprintf(operation+": split name '%s' has extra whitespace, trimming", value))
+		i.logger.Warning(fmt.Sprintf(operation+": feature flag name '%s' has extra whitespace, trimming", value))
 	}
 	return trimmed
 }
@@ -130,13 +130,13 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 	return sMatchingKey, nil, nil
 }
 
-// ValidateFeatureName implements the validation for FetureName
-func (i *inputValidation) ValidateFeatureName(featureName string, operation string) (string, error) {
-	err := checkIsEmptyString(featureName, "featureName", operation)
+// ValidateFeatureName implements the validation for FeatureFlagName
+func (i *inputValidation) ValidateFeatureName(featureFlagName string, operation string) (string, error) {
+	err := checkIsEmptyString(featureFlagName, "featureFlagName", operation)
 	if err != nil {
 		return "", err
 	}
-	return i.checkWhitespaces(featureName, operation), nil
+	return i.checkWhitespaces(featureFlagName, operation), nil
 }
 
 func checkEventType(eventType string) error {
@@ -165,8 +165,8 @@ func (i *inputValidation) checkTrafficType(trafficType string, shouldValidateExi
 		i.logger.Warning("Track: traffic type should be all lowercase - converting string to lowercase")
 	}
 	if shouldValidateExistence && !i.splitStorage.TrafficTypeExists(toLower) {
-		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Splits in this environment, " +
-			"make sure you’re tracking your events to a valid traffic type defined in the Split console")
+		i.logger.Warning("Track: traffic type " + toLower + " does not have any corresponding Feature flags in this environment, " +
+			"make sure you’re tracking your events to a valid traffic type defined in the Split user interface")
 	}
 	return toLower, nil
 }
@@ -219,29 +219,29 @@ func (i *inputValidation) ValidateTrackInputs(
 }
 
 // ValidateManagerInputs implements the validation for Track call
-func (i *inputValidation) ValidateManagerInputs(feature string) error {
-	return checkIsEmptyString(feature, "split name", "Split")
+func (i *inputValidation) ValidateManagerInputs(featureFlag string) error {
+	return checkIsEmptyString(featureFlag, "feature flag name", "Split")
 }
 
 // ValidateFeatureNames implements the validation for Treatments call
-func (i *inputValidation) ValidateFeatureNames(features []string, operation string) ([]string, error) {
-	var featuresSet = set.NewSet()
-	if len(features) == 0 {
-		return []string{}, errors.New(operation + ": features must be a non-empty array")
+func (i *inputValidation) ValidateFeatureNames(featureFlags []string, operation string) ([]string, error) {
+	var featureFlagsSet = set.NewSet()
+	if len(featureFlags) == 0 {
+		return []string{}, errors.New(operation + ": feature flags must be a non-empty array")
 	}
-	for _, feature := range features {
-		f, err := i.ValidateFeatureName(feature, operation)
+	for _, featureFlag := range featureFlags {
+		f, err := i.ValidateFeatureName(featureFlag, operation)
 		if err != nil {
 			i.logger.Error(err.Error())
 		} else {
-			featuresSet.Add(f)
+			featureFlagsSet.Add(f)
 		}
 	}
-	if featuresSet.IsEmpty() {
-		return []string{}, errors.New(operation + ": features must be a non-empty array")
+	if featureFlagsSet.IsEmpty() {
+		return []string{}, errors.New(operation + ": feature flags must be a non-empty array")
 	}
-	f := make([]string, featuresSet.Size())
-	for i, v := range featuresSet.List() {
+	f := make([]string, featureFlagsSet.Size())
+	for i, v := range featureFlagsSet.List() {
 		s, ok := v.(string)
 		if ok {
 			f[i] = s
@@ -285,9 +285,9 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 	return processed, size, nil
 }
 
-func (i *inputValidation) IsSplitFound(label string, feature string, operation string) bool {
+func (i *inputValidation) IsSplitFound(label string, featureFlag string, operation string) bool {
 	if label == impressionlabels.SplitNotFound {
-		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what Feature flags exist in the Split user interface.", featureFlag))
 		return false
 	}
 	return true

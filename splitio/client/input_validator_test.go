@@ -266,25 +266,25 @@ func TestTreatmentValidatorOnFeatureName(t *testing.T) {
 	client := getClient()
 	// Empty
 	expectedTreatment(client.Treatment("key", "", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an empty featureName, featureName must be a non-empty string") {
+	if !mW.Matches("Treatment: you passed an empty featureFlagName, featureFlagName must be a non-empty string") {
 		t.Error("Wrong message")
 	}
 
 	// Trimmed
 	expectedTreatment(client.Treatment("key", "  feature   ", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: split name '  feature   ' has extra whitespace, trimming") {
+	if !mW.Matches("Treatment: feature flag name '  feature   ' has extra whitespace, trimming") {
 		t.Error("Wrong message")
 	}
 
 	// Non Existent
 	expectedTreatment(client.Treatment("key", "feature_non_existent", nil), "control", t)
-	if !mW.Matches("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+	if !mW.Matches("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface") {
 		t.Error("Wrong message")
 	}
 
 	// Non Existent
 	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_non_existent", nil), "control", "", t)
-	if !mW.Matches("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+	if !mW.Matches("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface") {
 		t.Error("Wrong message")
 	}
 }
@@ -302,7 +302,7 @@ func TestTreatmentsValidator(t *testing.T) {
 	client := getClient()
 	// Empty features
 	expectedTreatments("key", []string{""}, 0, t)
-	if !mW.Matches("Treatments: features must be a non-empty array") {
+	if !mW.Matches("Treatments: feature flags must be a non-empty array") {
 		t.Error("Wrong message")
 	}
 
@@ -323,21 +323,21 @@ func TestTreatmentsValidator(t *testing.T) {
 	// Trimmed
 	result = expectedTreatments("key", []string{" some_feature  "}, 1, t)
 	expectedTreatment(result["some_feature"], "control", t)
-	if !mW.Matches("Treatments: split name ' some_feature  ' has extra whitespace, trimming") {
+	if !mW.Matches("Treatments: feature flag name ' some_feature  ' has extra whitespace, trimming") {
 		t.Error("Wrong message")
 	}
 
 	// Non Existent
 	result = expectedTreatments("key", []string{"feature_non_existent"}, 1, t)
 	expectedTreatment(result["feature_non_existent"], "control", t)
-	if !mW.Matches("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+	if !mW.Matches("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface") {
 		t.Error("Wrong message")
 	}
 
 	// Non Existent Config
 	resultWithConfig := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
 	expectedTreatmentAndConfig(resultWithConfig["feature_non_existent"], "control", "", t)
-	if !mW.Matches("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+	if !mW.Matches("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface") {
 		t.Error("Wrong message")
 	}
 }
@@ -450,7 +450,7 @@ func TestTrackValidators(t *testing.T) {
 	expectedTrack(client.Track("key", "", "eventType", nil, nil), "Track: you passed an empty traffic type, traffic type must be a non-empty string", t)
 
 	// Not matching traffic type
-	expected = "Track: traffic type traffic does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console"
+	expected = "Track: traffic type traffic does not have any corresponding Feature flags in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split user interface"
 	expectedTrack(client.Track("key", "traffic", "eventType", nil, nil), expected, t)
 
 	// Uppercase traffic type
@@ -458,7 +458,7 @@ func TestTrackValidators(t *testing.T) {
 
 	// Traffic Type No Ocurrences
 	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil, nil)
-	if !mW.Matches("Track: traffic type traffictypenoocurrences does not have any corresponding Splits in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split console") {
+	if !mW.Matches("Track: traffic type traffictypenoocurrences does not have any corresponding Feature flags in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split user interface") {
 		t.Error("Wrong message")
 	}
 	if err != nil {
@@ -608,12 +608,12 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	manager.factory = &factory
 
 	manager.Split("")
-	if !mW.Matches("Split: you passed an empty split name, split name must be a non-empty string") {
+	if !mW.Matches("Split: you passed an empty feature flag name, feature flag name must be a non-empty string") {
 		t.Error("Wrong message")
 	}
 
 	manager.Split("non_existent")
-	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console") {
+	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console.") {
 		t.Error("Wrong message")
 	}
 }

@@ -44,7 +44,7 @@ type TreatmentResult struct {
 	Config    *string `json:"config"`
 }
 
-// getEvaluationResult calls evaluation for one particular split
+// getEvaluationResult calls evaluation for one particular feature flag
 func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *string, featureFlag string, attributes map[string]interface{}, operation string) *evaluator.Result {
 	if c.isReady() {
 		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, featureFlag, attributes)

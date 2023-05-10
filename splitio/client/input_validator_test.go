@@ -613,7 +613,7 @@ func TestManagerWithEmptySplit(t *testing.T) {
 	}
 
 	manager.Split("non_existent")
-	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Splits exist in the web console.") {
+	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what Feature flags exist in the Split user interface.") {
 		t.Error("Wrong message")
 	}
 }

@@ -80,7 +80,7 @@ func (m *SplitManager) Splits() []SplitView {
 }
 
 // Split returns a partial view of a particular split
-func (m *SplitManager) Split(feature string) *SplitView {
+func (m *SplitManager) Split(featureFlag string) *SplitView {
 	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
 		return nil
@@ -91,17 +91,17 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		m.initTelemetry.RecordNonReadyUsage()
 	}
 
-	err := m.validator.ValidateManagerInputs(feature)
+	err := m.validator.ValidateManagerInputs(featureFlag)
 	if err != nil {
 		m.logger.Error(err.Error())
 		return nil
 	}
 
-	split := m.splitStorage.Split(feature)
+	split := m.splitStorage.Split(featureFlag)
 	if split != nil {
 		return newSplitView(split)
 	}
-	m.logger.Error(fmt.Sprintf("Split: you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+	m.logger.Error(fmt.Sprintf("Split: you passed %s that does not exist in this environment, please double check what Feature flags exist in the Split user interface.", featureFlag))
 	return nil
 }
 

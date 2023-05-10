@@ -36,7 +36,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 	if factoryInstances[conf.Localhost] != 2 {
 		t.Error("It should be 2")
 	}
-	expected := "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
+	expected := "Factory Instantiation: You already have 1 factory with this SDK Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
 	if !mockWriter.Matches(expected) {
 		t.Error("Error is distinct from the expected one")
@@ -76,7 +76,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 
 	factory3, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	_ = factory3.Client()
-	expected = "Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one " +
+	expected = "Factory Instantiation: You already have 1 factory with this SDK Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
 	if !mockWriter.Matches(expected) {
 		t.Error("Error is distinct from the expected one")
@@ -88,7 +88,7 @@ func TestFactoryTrackerMultipleInstantiation(t *testing.T) {
 
 	factory5, _ := NewSplitFactory(conf.Localhost, sdkConf)
 	_ = factory5.Client()
-	expected = "Factory Instantiation: You already have 2 factories with this API Key. We recommend keeping only one " +
+	expected = "Factory Instantiation: You already have 2 factories with this SDK Key. We recommend keeping only one " +
 		"instance of the factory at all times (Singleton pattern) and reusing it throughout your application."
 	if !mockWriter.Matches(expected) {
 		t.Error("Error is distinct from the expected one")

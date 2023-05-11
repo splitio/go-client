@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// EndsWithMatcher matches strings which end with one of the suffixes in the split
+// EndsWithMatcher matches strings which end with one of the suffixes in the feature flag
 type EndsWithMatcher struct {
 	Matcher
 	suffixes []string
 }
 
-// Match returns true if the key provided ends with one of the suffixes in the split.
+// Match returns true if the key provided ends with one of the suffixes in the feature flag.
 func (m *EndsWithMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

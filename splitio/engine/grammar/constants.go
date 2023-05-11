@@ -1,9 +1,9 @@
 package grammar
 
 const (
-	// SplitStatusActive represents an active split
+	// SplitStatusActive represents an active feature flag
 	SplitStatusActive = "ACTIVE"
-	// SplitStatusArchived represents an archived split
+	// SplitStatusArchived represents an archived feature flag
 	SplitStatusArchived = "ARCHIVED"
 
 	// SplitAlgoLegacy represents the legacy implementation of hash function for bucketing

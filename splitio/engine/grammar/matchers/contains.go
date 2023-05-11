@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// ContainsStringMatcher matches strings contain one of the substrings in the split
+// ContainsStringMatcher matches strings contain one of the substrings in the feature flag
 type ContainsStringMatcher struct {
 	Matcher
 	substrings []string
 }
 
-// Match returns true if the key contains one of the substrings in the split
+// Match returns true if the key contains one of the substrings in the feature flag
 func (m *ContainsStringMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

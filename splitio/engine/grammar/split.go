@@ -37,7 +37,7 @@ func (s *Split) Seed() int64 {
 	return s.splitData.Seed
 }
 
-// Status returns whether the split is active or arhived
+// Status returns whether the feature flag is active or arhived
 func (s *Split) Status() string {
 	status := s.splitData.Status
 	if status == "" || (status != SplitStatusActive && status != SplitStatusArchived) {
@@ -46,27 +46,27 @@ func (s *Split) Status() string {
 	return status
 }
 
-// Killed returns whether the split has been killed or not
+// Killed returns whether the feature flag has been killed or not
 func (s *Split) Killed() bool {
 	return s.splitData.Killed
 }
 
-// DefaultTreatment returns the default treatment for the current split
+// DefaultTreatment returns the default treatment for the current feature flag
 func (s *Split) DefaultTreatment() string {
 	return s.splitData.DefaultTreatment
 }
 
-// TrafficAllocation returns the traffic allocation configured for the current split
+// TrafficAllocation returns the traffic allocation configured for the current feature flag
 func (s *Split) TrafficAllocation() int {
 	return s.splitData.TrafficAllocation
 }
 
-// TrafficAllocationSeed returns the seed for traffic allocation configured for this split
+// TrafficAllocationSeed returns the seed for traffic allocation configured for this feature flag
 func (s *Split) TrafficAllocationSeed() int64 {
 	return s.splitData.TrafficAllocationSeed
 }
 
-// Algo returns the hashing algorithm configured for this split
+// Algo returns the hashing algorithm configured for this feature flag
 func (s *Split) Algo() int {
 	switch s.splitData.Algo {
 	case SplitAlgoLegacy:
@@ -83,12 +83,12 @@ func (s *Split) Conditions() []*Condition {
 	return s.conditions
 }
 
-// ChangeNumber returns the change number for this split
+// ChangeNumber returns the change number for this feature flag
 func (s *Split) ChangeNumber() int64 {
 	return s.splitData.ChangeNumber
 }
 
-// Configurations returns the configurations for this split
+// Configurations returns the configurations for this feature flag
 func (s *Split) Configurations() map[string]string {
 	return s.splitData.Configurations
 }

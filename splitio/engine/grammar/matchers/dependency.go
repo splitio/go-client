@@ -5,7 +5,7 @@ type dependencyEvaluator interface {
 }
 
 // DependencyMatcher will match if the evaluation of another split results in one of the treatments defined
-// in the split
+// in the feature flag
 type DependencyMatcher struct {
 	Matcher
 	feature    string
@@ -13,7 +13,7 @@ type DependencyMatcher struct {
 }
 
 // Match will return true if the evaluation of another split results in one of the treatments defined in the
-// split
+// feature flag
 func (m *DependencyMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	evaluator, ok := m.Context.Dependency("evaluator").(dependencyEvaluator)
 	if !ok {

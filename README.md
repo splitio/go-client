@@ -6,7 +6,7 @@
 
 ## Overview
 
-This SDK is designed to work with Split, the platform for controlled rollouts, which serves features to your users via a Feature flag to manage your complete customer experience.
+This SDK is designed to work with Split, the platform for controlled rollouts, which serves features to your users via feature flags to manage your complete customer experience.
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/splitsoftware.svg?style=social&label=Follow&maxAge=1529000)](https://twitter.com/intent/follow?screen_name=splitsoftware)
 

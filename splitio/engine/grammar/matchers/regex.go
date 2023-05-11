@@ -6,13 +6,13 @@ import (
 	"regexp"
 )
 
-// RegexMatcher matches if the supplied key matches the split's regex
+// RegexMatcher matches if the supplied key matches the feature flag's regex
 type RegexMatcher struct {
 	Matcher
 	regex string
 }
 
-// Match returns true if the supplied key matches the split's regex
+// Match returns true if the supplied key matches the feature flag's regex
 func (m *RegexMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
-// Engine struct is responsible for cheking if any of the conditions of the feature flag matches,
+// Engine struct is responsible for checking if any of the conditions of the feature flag matches,
 // performing traffic allocation, calculating the bucket and returning the appropriate treatment
 type Engine struct {
 	logger logging.LoggerInterface

@@ -180,20 +180,20 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature flag
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, featureFlag string, attributes map[string]interface{}) string {
-	return c.doTreatmentCall(key, featureFlag, attributes, treatment, telemetry.Treatment).Treatment
+func (c *SplitClient) Treatment(key interface{}, featureFlagName string, attributes map[string]interface{}) string {
+	return c.doTreatmentCall(key, featureFlagName, attributes, treatment, telemetry.Treatment).Treatment
 }
 
-// TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature flag with
-// the corresponding configuration if it is present
-func (c *SplitClient) TreatmentWithConfig(key interface{}, featureFlag string, attributes map[string]interface{}) TreatmentResult {
-	return c.doTreatmentCall(key, featureFlag, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig)
+// TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature flag
+// with the corresponding configuration if it is present
+func (c *SplitClient) TreatmentWithConfig(key interface{}, featureFlagName string, attributes map[string]interface{}) TreatmentResult {
+	return c.doTreatmentCall(key, featureFlagName, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig)
 }
 
 // Generates control treatments
-func (c *SplitClient) generateControlTreatments(featureFlags []string, operation string) map[string]TreatmentResult {
+func (c *SplitClient) generateControlTreatments(featureFlagNames []string, operation string) map[string]TreatmentResult {
 	treatments := make(map[string]TreatmentResult)
-	filtered, err := c.validator.ValidateFeatureNames(featureFlags, operation)
+	filtered, err := c.validator.ValidateFeatureNames(featureFlagNames, operation)
 	if err != nil {
 		return treatments
 	}
@@ -206,8 +206,8 @@ func (c *SplitClient) generateControlTreatments(featureFlags []string, operation
 	return treatments
 }
 
-// doTreatmentsCall retrieves treatments of an specific array of feature flags with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlags []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+// doTreatmentsCall retrieves treatments of an specific array of feature flag names with configurations object if it is present for a certain key and set of attributes
+func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
 
 	// Set up a guard deferred function to recover if the SDK starts panicking
@@ -219,22 +219,22 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlags []string, a
 			c.logger.Error(
 				"SDK is panicking with the following error", r, "\n",
 				string(debug.Stack()), "\n")
-			t = c.generateControlTreatments(featureFlags, operation)
+			t = c.generateControlTreatments(featureFlagNames, operation)
 		}
 	}()
 
 	if c.isDestroyed() {
 		c.logger.Error("Client has already been destroyed - no calls possible")
-		return c.generateControlTreatments(featureFlags, operation)
+		return c.generateControlTreatments(featureFlagNames, operation)
 	}
 
 	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return c.generateControlTreatments(featureFlags, operation)
+		return c.generateControlTreatments(featureFlagNames, operation)
 	}
 
-	filteredFeatures, err := c.validator.ValidateFeatureNames(featureFlags, operation)
+	filteredFeatures, err := c.validator.ValidateFeatureNames(featureFlagNames, operation)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return map[string]TreatmentResult{}
@@ -263,19 +263,19 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlags []string, a
 	return treatments
 }
 
-// Treatments evaluates multiple feature flags for a single user and set of attributes at once
-func (c *SplitClient) Treatments(key interface{}, featureFlags []string, attributes map[string]interface{}) map[string]string {
+// Treatments evaluates multiple feature flag names for a single user and set of attributes at once
+func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, attributes map[string]interface{}) map[string]string {
 	treatmentsResult := map[string]string{}
-	result := c.doTreatmentsCall(key, featureFlags, attributes, treatments, telemetry.Treatments)
+	result := c.doTreatmentsCall(key, featureFlagNames, attributes, treatments, telemetry.Treatments)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
 	return treatmentsResult
 }
 
-// TreatmentsWithConfig evaluates multiple feature flags for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlags []string, attributes map[string]interface{}) map[string]TreatmentResult {
-	return c.doTreatmentsCall(key, featureFlags, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
+// TreatmentsWithConfig evaluates multiple feature flag names for a single user and set of attributes at once and returns configurations
+func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlagNames []string, attributes map[string]interface{}) map[string]TreatmentResult {
+	return c.doTreatmentsCall(key, featureFlagNames, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
 }
 
 // isDestroyed returns true if the client has been destroyed

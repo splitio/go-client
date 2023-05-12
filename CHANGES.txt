@@ -1,3 +1,6 @@
+6.3.2 (May 15, 2023)
+- Updated terminology on the SDKs codebase to be more aligned with current standard without causing a breaking change. The core change is the term split for feature flag on things like logs and intensense comments.
+
 6.3.1 (March 21, 2023)
 - Fixed Unique Keys dto in redis.
 

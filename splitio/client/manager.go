@@ -44,7 +44,7 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 	}
 }
 
-// SplitNames returns a list with the name of all the currently stored splits
+// SplitNames returns a list with the name of all the currently stored feature flags
 func (m *SplitManager) SplitNames() []string {
 	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
@@ -59,7 +59,7 @@ func (m *SplitManager) SplitNames() []string {
 	return m.splitStorage.SplitNames()
 }
 
-// Splits returns a list of a partial view of every currently stored split
+// Splits returns a list of a partial view of every currently stored feature flag
 func (m *SplitManager) Splits() []SplitView {
 	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
@@ -79,8 +79,8 @@ func (m *SplitManager) Splits() []SplitView {
 	return splitViews
 }
 
-// Split returns a partial view of a particular split
-func (m *SplitManager) Split(feature string) *SplitView {
+// Split returns a partial view of a particular feature flag
+func (m *SplitManager) Split(featureFlagName string) *SplitView {
 	if m.isDestroyed() {
 		m.logger.Error("Client has already been destroyed - no calls possible")
 		return nil
@@ -91,17 +91,17 @@ func (m *SplitManager) Split(feature string) *SplitView {
 		m.initTelemetry.RecordNonReadyUsage()
 	}
 
-	err := m.validator.ValidateManagerInputs(feature)
+	err := m.validator.ValidateManagerInputs(featureFlagName)
 	if err != nil {
 		m.logger.Error(err.Error())
 		return nil
 	}
 
-	split := m.splitStorage.Split(feature)
+	split := m.splitStorage.Split(featureFlagName)
 	if split != nil {
 		return newSplitView(split)
 	}
-	m.logger.Error(fmt.Sprintf("Split: you passed %s that does not exist in this environment, please double check what Splits exist in the web console.", feature))
+	m.logger.Error(fmt.Sprintf("Split: you passed %s that does not exist in this environment, please double check what feature flags exist in the Split user interface.", featureFlagName))
 	return nil
 }
 

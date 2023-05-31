@@ -1303,6 +1303,51 @@ func TestLocalhostModeYAML(t *testing.T) {
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
 }
 
+func TestLocalhostModeJSON(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = "../../testdata/splits.json"
+	sdkConf.SegmentDirectory = "../../testdata/segments"
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
+	client := factory.Client()
+	manager := factory.Manager()
+
+	_ = client.BlockUntilReady(5)
+
+	if !client.isReady() {
+		t.Error("Localhost should be ready")
+	}
+
+	if client.factory.cfg.OperationMode != conf.Localhost {
+		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
+	}
+
+	if len(manager.Splits()) != 4 {
+		t.Error("Error grabbing splits for localhost mode")
+	}
+
+	expectedTreatment(client.Treatment("key", "non_existent_feature", nil), "control", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_1", nil), "on", t)
+	expectedTreatment(client.Treatment("example1", "feature_flag_2", nil), "some_treatment", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_2", nil), "on", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_3", nil), "off", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_4", nil), "control", t)
+
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_flag_2", nil), "on", "{\"color\":\"red\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("example1", "feature_flag_2", nil), "some_treatment", "{\"color\":\"white\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_flag_3", nil), "off", "", t)
+
+	resultTreatments := client.Treatments("example1", []string{"non_existent_feature", "feature_flag_1", "feature_flag_2", "feature_flag_3", "feature_flag_4"}, nil)
+	expectedTreatment(resultTreatments["non_existent_feature"], "control", t)
+	expectedTreatment(resultTreatments["feature_flag_1"], "on", t)
+	expectedTreatment(resultTreatments["feature_flag_2"], "some_treatment", t)
+	expectedTreatment(resultTreatments["feature_flag_3"], "off", t)
+	expectedTreatment(resultTreatments["feature_flag_4"], "control", t)
+
+	resultTreatmentsWithConfig := client.TreatmentsWithConfig("example1", []string{"feature_flag_2", "feature_flag_3"}, nil)
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["feature_flag_2"], "some_treatment", "{\"color\":\"white\"}", t)
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["feature_flag_3"], "off", "", t)
+}
+
 func getRedisConfWithIP(IPAddressesEnabled bool) (*predis.PrefixedRedisClient, *SplitClient) {
 	// Create prefixed client for adding Split
 	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{

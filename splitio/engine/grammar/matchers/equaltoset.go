@@ -6,13 +6,13 @@ import (
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 )
 
-// EqualToSetMatcher matches if the set supplied to the getTreatment is equal to the one in the split
+// EqualToSetMatcher matches if the set supplied to the getTreatment is equal to the one in the feature flag
 type EqualToSetMatcher struct {
 	Matcher
 	comparisonSet *set.ThreadUnsafeSet
 }
 
-// Match returns true if the match provided and the one in the split are equal
+// Match returns true if the match provided and the one in the feature flag are equal
 func (m *EqualToSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

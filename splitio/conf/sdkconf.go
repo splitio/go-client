@@ -228,7 +228,7 @@ func validConfigRates(cfg *SplitSdkConfig) error {
 func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != Localhost {
-		return errors.New("factory instantiation: you passed an empty apikey, apikey must be a non-empty string")
+		return errors.New("factory instantiation: you passed an empty SDK key, SDK key must be a non-empty string")
 	}
 
 	// To keep the interface consistent with other sdks we accept "localhost" as an apikey,

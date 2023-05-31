@@ -287,7 +287,7 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 
 func (i *inputValidation) IsSplitFound(label string, featureFlag string, operation string) bool {
 	if label == impressionlabels.SplitNotFound {
-		i.logger.Error(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what feature flags exist in the Split user interface.", featureFlag))
+		i.logger.Warning(fmt.Sprintf(operation+": you passed %s that does not exist in this environment, please double check what feature flags exist in the Split user interface.", featureFlag))
 		return false
 	}
 	return true

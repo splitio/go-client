@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// StartsWithMatcher matches strings which start with one of the prefixes in the split
+// StartsWithMatcher matches strings which start with one of the prefixes in the feature flag
 type StartsWithMatcher struct {
 	Matcher
 	prefixes []string
 }
 
-// Match returns true if the key provided starts with one of the prefixes in the split.
+// Match returns true if the key provided starts with one of the prefixes in the feature flag.
 func (m *StartsWithMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

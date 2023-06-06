@@ -1,3 +1,8 @@
+6.3.2 (May 15, 2023)
+- Updated terminology on the SDKs codebase to be more aligned with current standard without causing a breaking change. The core change is the term split for feature flag on things like logs and godoc comments.
+- Pointed to new version of go-split-commons v4.3.3:
+- Updated default treatment to be control for json localhost.
+
 6.3.1 (March 21, 2023)
 - Fixed Unique Keys dto in redis.
 
@@ -21,7 +26,7 @@
 - Updated the synchronization flow to be more reliable in the event of an edge case generating delay in cache purge propagation, keeping the SDK cache properly synced.
 
 6.1.5 (Jun 6, 2022)
- - Updated segments and splits storage to return -1 as default changeNumber instead of zero
+ - Updated segments and feature flag storage to return -1 as default changeNumber instead of zero
 
 6.1.4 (May 12, 2022)
 - Updated config telemetry redis storage
@@ -68,14 +73,14 @@
  - Added Streaming support.
 
 5.1.3 (Jan 27, 2020)
- - Removed unnecessary Split copy made in memory.
+ - Removed unnecessary Feature flag copy made in memory.
 
 5.1.2 (Nov 28, 2019)
  - Several fixes in tests as a result of a locking & race conditions audit/
  - Fixed locking issue for .Treatments() && .TreatmentsWithConfig() methods.
 
 5.1.1 (Oct 15, 2019)
- - Added logic to fetch multiple splits at once on getTreatments/getTreatmentsWithConfig.
+ - Added logic to fetch multiple feature flags at once on getTreatments/getTreatmentsWithConfig.
  - Added flag `IPAddressesEnabled` into Config to enable/disable sending MachineName and MachineIP when data is posted in headers.
  - Fixed resource leak in `api.ValidateApikey`.
 
@@ -83,7 +88,7 @@
  - Added support for TLS connections to redis.
  - Refactored initialization process.
  - Fixed traffic type count issue.
- - Fixed possible concurrency issue with split storage.
+ - Fixed possible concurrency issue with feature flag storage.
 
 5.0.1 (Jun 19, 2019)
  - Added coverage for traffic type validation existence only on ready and non localhost mode.
@@ -93,7 +98,7 @@
  - Added validation for traffic types in track call.
  - Added new label when the sdk is not ready.
  - Added multiple factory instantiation check.
- - Added validation when split does not exist in treatments and manager calls.
+ - Added validation when feature flag does not exist in treatments and manager calls.
  - Moved Impressions in-memory to single-queue approach and refactored ImpressionDTO.
 
 4.0.1 (May 17, 2019)
@@ -106,7 +111,7 @@
  - Added support for YAML file in Localhost mode.
 
 3.0.1 (March 8, 2019)
- - Updated Splits refreshing rate.
+ - Updated Feature flags refreshing rate.
 
 3.0.0 (Feb 19, 2019)
  - Updated SDK Parity.

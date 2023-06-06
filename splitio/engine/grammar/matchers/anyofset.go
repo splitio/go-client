@@ -6,13 +6,13 @@ import (
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 )
 
-// ContainsAnyOfSetMatcher matches if the set supplied to the getTreatment is a superset of the one in the split
+// ContainsAnyOfSetMatcher matches if the set supplied to the getTreatment is a superset of the one in the feature flag
 type ContainsAnyOfSetMatcher struct {
 	Matcher
 	comparisonSet *set.ThreadUnsafeSet
 }
 
-// Match returns true if the set provided is a superset of the one in the split
+// Match returns true if the set provided is a superset of the one in the feature flag
 func (m *ContainsAnyOfSetMatcher) Match(key string, attributes map[string]interface{}, bucketingKey *string) bool {
 	matchingKey, err := m.matchingKey(key, attributes)
 	if err != nil {

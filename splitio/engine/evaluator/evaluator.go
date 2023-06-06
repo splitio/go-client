@@ -58,10 +58,10 @@ func NewEvaluator(
 	}
 }
 
-func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature string, splitDto *dtos.SplitDTO, attributes map[string]interface{}) *Result {
+func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, featureFlag string, splitDto *dtos.SplitDTO, attributes map[string]interface{}) *Result {
 	var config *string
 	if splitDto == nil {
-		e.logger.Warning(fmt.Sprintf("Feature %s not found, returning control.", feature))
+		e.logger.Warning(fmt.Sprintf("Feature flag %s not found, returning control.", featureFlag))
 		return &Result{Treatment: Control, Label: impressionlabels.SplitNotFound, Config: config}
 	}
 
@@ -73,8 +73,8 @@ func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature s
 
 	if split.Killed() {
 		e.logger.Warning(fmt.Sprintf(
-			"Feature %s has been killed, returning default treatment: %s",
-			feature,
+			"Feature flag %s has been killed, returning default treatment: %s",
+			featureFlag,
 			split.DefaultTreatment(),
 		))
 
@@ -117,14 +117,14 @@ func (e *Evaluator) evaluateTreatment(key string, bucketingKey string, feature s
 }
 
 // EvaluateFeature returns a struct with the resulting treatment and extra information for the impression
-func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *Result {
+func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, featureFlag string, attributes map[string]interface{}) *Result {
 	before := time.Now()
-	splitDto := e.splitStorage.Split(feature)
+	splitDto := e.splitStorage.Split(featureFlag)
 
 	if bucketingKey == nil {
 		bucketingKey = &key
 	}
-	result := e.evaluateTreatment(key, *bucketingKey, feature, splitDto, attributes)
+	result := e.evaluateTreatment(key, *bucketingKey, featureFlag, splitDto, attributes)
 	after := time.Now()
 
 	result.EvaluationTime = after.Sub(before)
@@ -132,19 +132,19 @@ func (e *Evaluator) EvaluateFeature(key string, bucketingKey *string, feature st
 }
 
 // EvaluateFeatures returns a struct with the resulting treatment and extra information for the impression
-func (e *Evaluator) EvaluateFeatures(key string, bucketingKey *string, features []string, attributes map[string]interface{}) Results {
+func (e *Evaluator) EvaluateFeatures(key string, bucketingKey *string, featureFlags []string, attributes map[string]interface{}) Results {
 	var results = Results{
 		Evaluations:    make(map[string]Result),
 		EvaluationTime: 0,
 	}
 	before := time.Now()
-	splits := e.splitStorage.FetchMany(features)
+	splits := e.splitStorage.FetchMany(featureFlags)
 
 	if bucketingKey == nil {
 		bucketingKey = &key
 	}
-	for _, feature := range features {
-		results.Evaluations[feature] = *e.evaluateTreatment(key, *bucketingKey, feature, splits[feature], attributes)
+	for _, featureFlag := range featureFlags {
+		results.Evaluations[featureFlag] = *e.evaluateTreatment(key, *bucketingKey, featureFlag, splits[featureFlag], attributes)
 	}
 
 	after := time.Now()
@@ -154,7 +154,7 @@ func (e *Evaluator) EvaluateFeatures(key string, bucketingKey *string, features 
 
 // EvaluateDependency SHOULD ONLY BE USED by DependencyMatcher.
 // It's used to break the dependency cycle between matchers and evaluators.
-func (e *Evaluator) EvaluateDependency(key string, bucketingKey *string, feature string, attributes map[string]interface{}) string {
-	res := e.EvaluateFeature(key, bucketingKey, feature, attributes)
+func (e *Evaluator) EvaluateDependency(key string, bucketingKey *string, featureFlag string, attributes map[string]interface{}) string {
+	res := e.EvaluateFeature(key, bucketingKey, featureFlag, attributes)
 	return res.Treatment
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/splitio/go-split-commons/v4/storage/inmemory"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v4/storage/mocks"
 	"github.com/splitio/go-split-commons/v4/storage/redis"
 	"github.com/splitio/go-split-commons/v4/synchronizer"
 	"github.com/splitio/go-split-commons/v4/synchronizer/worker/event"
@@ -388,11 +389,11 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	}
 
 	telemetryStorage := redis.NewTelemetryStorage(redisClient, logger, metadata)
-	// runtimeTelemetry := mocks.MockTelemetryStorage{
-	// 	RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
-	// 	RecordImpressionsStatsCall: func(dataType int, count int64) {},
-	// 	RecordSessionLengthCall:    func(session int64) {},
-	// } TODO validate if we need it
+	runtimeTelemetry := mocks.MockTelemetryStorage{
+		RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
+		RecordImpressionsStatsCall: func(dataType int, count int64) {},
+		RecordSessionLengthCall:    func(session int64) {},
+	} //TODO validate if we need it
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 	storages := sdkStorages{
@@ -404,7 +405,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		impressionsCount:    redis.NewImpressionsCountStorage(redisClient, logger),
-		//runtimeTelemetry:    runtimeTelemetry,
+		runtimeTelemetry:    runtimeTelemetry,
 	}
 
 	splitTasks := synchronizer.SplitTasks{}
@@ -611,8 +612,8 @@ func buildImpressionManager(
 			workers.ImpressionRecorder = impression.NewRecorderSingle(storages.impressionsConsumer, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, storages.runtimeTelemetry)
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
 		} else {
-			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
+			// workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
+			// splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)
@@ -632,9 +633,9 @@ func buildImpressionManager(
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
 		} else {
 			workers.ImpressionsCountRecorder = impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
-			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
+			// workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
 			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
+			// splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)

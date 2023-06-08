@@ -27,7 +27,6 @@ import (
 	"github.com/splitio/go-split-commons/v4/storage/inmemory"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
 	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v4/storage/mocks"
 	"github.com/splitio/go-split-commons/v4/storage/redis"
 	"github.com/splitio/go-split-commons/v4/synchronizer"
 	"github.com/splitio/go-split-commons/v4/synchronizer/worker/event"
@@ -389,13 +388,13 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	}
 
 	telemetryStorage := redis.NewTelemetryStorage(redisClient, logger, metadata)
-	runtimeTelemetry := mocks.MockTelemetryStorage{
-		RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
-		RecordImpressionsStatsCall: func(dataType int, count int64) {},
-		RecordSessionLengthCall:    func(session int64) {},
-	}
+	// runtimeTelemetry := mocks.MockTelemetryStorage{
+	// 	RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
+	// 	RecordImpressionsStatsCall: func(dataType int, count int64) {},
+	// 	RecordSessionLengthCall:    func(session int64) {},
+	// } TODO validate if we need it
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
-	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, runtimeTelemetry)
+	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger),
 		segments:            redis.NewSegmentStorage(redisClient, logger),
@@ -405,7 +404,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		impressionsCount:    redis.NewImpressionsCountStorage(redisClient, logger),
-		runtimeTelemetry:    runtimeTelemetry,
+		//runtimeTelemetry:    runtimeTelemetry,
 	}
 
 	splitTasks := synchronizer.SplitTasks{}
@@ -416,7 +415,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		cfg.ImpressionsMode = config.ImpressionsModeDebug
 	}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, redis.NewImpressionStorage(redisClient, metadata, logger))
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, impressionStorage)
 	if err != nil {
 		return nil, err
 	}

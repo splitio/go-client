@@ -393,7 +393,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		RecordSyncLatencyCall:      func(resource int, latency time.Duration) {},
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
 		RecordSessionLengthCall:    func(session int64) {},
-	} //TODO validate if we need it
+	}
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 	storages := sdkStorages{

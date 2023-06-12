@@ -1,5 +1,5 @@
 6.3.3 (Jun 9, 2023)
-- Fixed dropping impressions.
+- Fixed buffering logic in impressions for consumer mode
 - Pointed to new version of go-split-commons v4.3.5 for redis logs message and fixed save impression mode in Redis.
 
 6.3.2 (May 15, 2023)

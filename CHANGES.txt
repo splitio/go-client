@@ -1,6 +1,7 @@
 6.3.3 (Jun 9, 2023)
-- Fixed buffering logic in impressions for consumer mode
-- Pointed to new version of go-split-commons v4.3.5 for redis logs message and fixed save impression mode in Redis.
+- Pointed to new version of go-split-commons v4.3.5:
+   Fixed nil message in error log when trying to connect to Redis
+   Fixed buffering logic in impressions for consumer mode
 
 6.3.2 (May 15, 2023)
 - Updated terminology on the SDKs codebase to be more aligned with current standard without causing a breaking change. The core change is the term split for feature flag on things like logs and godoc comments.

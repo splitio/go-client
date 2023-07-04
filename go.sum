@@ -10,10 +10,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/redis/go-redis/v9 v9.0.4 h1:FC82T+CHJ/Q/PdyLW++GeCO+Ol59Y4T7R4jbgjvktgc=
 github.com/redis/go-redis/v9 v9.0.4/go.mod h1:WqMKv5vnQbRuZstUwxQI195wHy+t4PuXDOjzMvcuQHk=
-github.com/splitio/go-split-commons/v5 v4.3.5 h1:APl589+rtk2Y864C0CkutJWtQkRciLFL+/hVTN86Ss0=
-github.com/splitio/go-split-commons/v5 v4.3.5/go.mod h1:hj+ota77quCRuyK1cK8EOZANGDIlwCMBosF27I158S8=
-github.com/splitio/go-split-commons/v5 v5.0.0-20230704133058-e2dc76da448d h1:WB1C1u3mkpCNP3xWYve+x3SzEh7QHKHLIe2u5gxmyCk=
-github.com/splitio/go-split-commons/v5 v5.0.0-20230704133058-e2dc76da448d/go.mod h1:k2hJRZgM1IOElE6D4/cq7zXnQwPtMUW1cHKQzdgUh7E=
+github.com/splitio/go-split-commons/v5 v5.0.0-20230704174903-de1699828951 h1:DkMZefg+dNs5YpmHW3Yob3kd7hvNT5Pzkzrit1CSihM=
+github.com/splitio/go-split-commons/v5 v5.0.0-20230704174903-de1699828951/go.mod h1:k2hJRZgM1IOElE6D4/cq7zXnQwPtMUW1cHKQzdgUh7E=
 github.com/splitio/go-toolkit/v5 v5.3.1 h1:9J/byd0fRxWj5/Zg0QZOnUxKBDIAMCGr7rySYzJKdJg=
 github.com/splitio/go-toolkit/v5 v5.3.1/go.mod h1:xYhUvV1gga9/1029Wbp5pjnR6Cy8nvBpjw99wAbsMko=
 github.com/twmb/murmur3 v1.1.6 h1:mqrRot1BRxm+Yct+vavLMou2/iJt0tNVTTC0QoIjaZg=

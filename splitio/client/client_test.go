@@ -1947,7 +1947,7 @@ func TestTelemetryMemory(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		splitChanges := dtos.SplitChangesDTO{
 			Splits: []dtos.SplitDTO{
-				{Name: "split1", Killed: true, Status: "ACTIVE"},
+				{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},
 				{Name: "split2", Killed: true, Status: "ACTIVE"},
 				{Name: "split3", Killed: true, Status: "INACTIVE"},
 			},
@@ -2005,6 +2005,9 @@ func TestTelemetryMemory(t *testing.T) {
 				if dataInPost.ActiveFactories != 1 {
 					t.Error("It should be 1")
 				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeOptimized {
+					t.Error("It should be Optimized")
+				}
 			case 2:
 				if dataInPost.RedundantFactories != 1 {
 					t.Error("It should be 1")
@@ -2012,12 +2015,18 @@ func TestTelemetryMemory(t *testing.T) {
 				if dataInPost.ActiveFactories != 1 {
 					t.Error("It should be 1")
 				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeDebug {
+					t.Error("It should be Debug")
+				}
 			case 3:
 				if dataInPost.RedundantFactories != 1 {
 					t.Error("It should be 1")
 				}
 				if dataInPost.ActiveFactories != 2 {
 					t.Error("It should be 2")
+				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeNone {
+					t.Error("It should be None")
 				}
 			}
 
@@ -2046,6 +2055,42 @@ func TestTelemetryMemory(t *testing.T) {
 			if dataInPost.SessionLengthMs == 0 {
 				t.Error("It should record sessionsLength")
 			}
+			if dataInPost.UpdatesFromSSE.Splits != 0 {
+				t.Error("It should send ufs")
+			}
+
+			switch metricsStatsCalled {
+			case 1:
+				if dataInPost.ImpressionsQueued != 1 {
+					t.Error("It should queue one impression")
+				}
+				if dataInPost.ImpressionsDeduped != 1 {
+					t.Error("It should dedupe one impression")
+				}
+				if dataInPost.EventsQueued != 1 {
+					t.Error("It should queue one event")
+				}
+			case 2:
+				if dataInPost.ImpressionsQueued != 2 {
+					t.Error("It should queue 2 impressions")
+				}
+				if dataInPost.ImpressionsDeduped != 0 {
+					t.Error("It should not dedupe impressions")
+				}
+				if dataInPost.EventsQueued != 1 {
+					t.Error("It should queue one event")
+				}
+			case 3:
+				if dataInPost.ImpressionsQueued != 0 {
+					t.Error("It should not queue impressions")
+				}
+				if dataInPost.ImpressionsDeduped != 0 {
+					t.Error("It should not dedupe impressions")
+				}
+				if dataInPost.EventsQueued != 0 {
+					t.Error("It should not track event")
+				}
+			}
 		}
 
 		fmt.Fprintln(w, "ok")
@@ -2069,21 +2114,32 @@ func TestTelemetryMemory(t *testing.T) {
 	if len(manager.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client.Treatment("some", "split1", nil)
+	client.Treatment("some", "split1", nil)
 	client.Track("something", "something", "something", nil, nil)
 
+	sdkConf.ImpressionsMode = "debug"
 	factory2, _ := NewSplitFactory("something", sdkConf)
 	manager2 := factory2.Manager()
-	manager2.BlockUntilReady(1)
+	client2 := factory2.Client()
+	client2.BlockUntilReady(1)
 	if len(manager2.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client2.Treatment("some", "split1", nil)
+	client2.Treatment("some", "split1", nil)
+	client2.Track("something", "something", "something", nil, nil)
 
+	sdkConf.ImpressionsMode = "none"
 	factory3, _ := NewSplitFactory("something2", sdkConf)
 	manager3 := factory3.Manager()
-	manager3.BlockUntilReady(1)
+	client3 := factory3.Client()
+	client3.BlockUntilReady(1)
 	if len(manager3.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client3.Treatment("some", "split1", nil)
+	client3.Treatment("some", "split1", nil)
 
 	factory.Destroy()
 	factory2.Destroy()

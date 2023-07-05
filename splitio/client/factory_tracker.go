@@ -26,10 +26,10 @@ func setFactory(apikey string, logger logging.LoggerInterface) {
 		factoryInstances[apikey] = 1
 	} else {
 		if counter == 1 {
-			logger.Warning("Factory Instantiation: You already have 1 factory with this API Key. We recommend keeping only one instance of the factory " +
+			logger.Warning("Factory Instantiation: You already have 1 factory with this SDK Key. We recommend keeping only one instance of the factory " +
 				"at all times (Singleton pattern) and reusing it throughout your application.")
 		} else {
-			logger.Warning(fmt.Sprintf("Factory Instantiation: You already have %d factories with this API Key.", counter) +
+			logger.Warning(fmt.Sprintf("Factory Instantiation: You already have %d factories with this SDK Key.", counter) +
 				" We recommend keeping only one instance of the factory at all times (Singleton pattern) and reusing it throughout your application.")
 		}
 		factoryInstances[apikey]++

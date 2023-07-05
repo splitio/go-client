@@ -601,14 +601,6 @@ func TestBlockUntilReadyStatusLocalhost(t *testing.T) {
 	client := factory.Client()
 	manager := factory.Manager()
 
-	if len(manager.SplitNames()) != 0 {
-		t.Error("It should not return splits")
-	}
-
-	if client.factory.IsReady() {
-		t.Error("Client should not be ready")
-	}
-
 	err = client.Track("something", "something", "something", nil, nil)
 	if err != nil {
 		t.Error("It should not return error")
@@ -735,6 +727,7 @@ func TestBlockUntilReadyRedis(t *testing.T) {
 func TestBlockUntilReadyInMemoryError(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(404)
 	}))
 	defer ts.Close()
@@ -1308,6 +1301,51 @@ func TestLocalhostModeYAML(t *testing.T) {
 	resultTreatmentsWithConfig := client.TreatmentsWithConfig("only_key", []string{"my_feature", "other_feature"}, nil)
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["my_feature"], "off", "{\"desc\" : \"this applies only to OFF and only for only_key. The rest will receive ON\"}", t)
 	expectedTreatmentAndConfig(resultTreatmentsWithConfig["other_feature"], "control", "", t)
+}
+
+func TestLocalhostModeJSON(t *testing.T) {
+	sdkConf := conf.Default()
+	sdkConf.SplitFile = "../../testdata/splits.json"
+	sdkConf.SegmentDirectory = "../../testdata/segments"
+	factory, _ := NewSplitFactory(conf.Localhost, sdkConf)
+	client := factory.Client()
+	manager := factory.Manager()
+
+	_ = client.BlockUntilReady(5)
+
+	if !client.isReady() {
+		t.Error("Localhost should be ready")
+	}
+
+	if client.factory.cfg.OperationMode != conf.Localhost {
+		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
+	}
+
+	if len(manager.Splits()) != 4 {
+		t.Error("Error grabbing splits for localhost mode")
+	}
+
+	expectedTreatment(client.Treatment("key", "non_existent_feature", nil), "control", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_1", nil), "on", t)
+	expectedTreatment(client.Treatment("example1", "feature_flag_2", nil), "some_treatment", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_2", nil), "on", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_3", nil), "off", t)
+	expectedTreatment(client.Treatment("key", "feature_flag_4", nil), "control", t)
+
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_flag_2", nil), "on", "{\"color\":\"red\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("example1", "feature_flag_2", nil), "some_treatment", "{\"color\":\"white\"}", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_flag_3", nil), "off", "", t)
+
+	resultTreatments := client.Treatments("example1", []string{"non_existent_feature", "feature_flag_1", "feature_flag_2", "feature_flag_3", "feature_flag_4"}, nil)
+	expectedTreatment(resultTreatments["non_existent_feature"], "control", t)
+	expectedTreatment(resultTreatments["feature_flag_1"], "on", t)
+	expectedTreatment(resultTreatments["feature_flag_2"], "some_treatment", t)
+	expectedTreatment(resultTreatments["feature_flag_3"], "off", t)
+	expectedTreatment(resultTreatments["feature_flag_4"], "control", t)
+
+	resultTreatmentsWithConfig := client.TreatmentsWithConfig("example1", []string{"feature_flag_2", "feature_flag_3"}, nil)
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["feature_flag_2"], "some_treatment", "{\"color\":\"white\"}", t)
+	expectedTreatmentAndConfig(resultTreatmentsWithConfig["feature_flag_3"], "off", "", t)
 }
 
 func getRedisConfWithIP(IPAddressesEnabled bool) (*predis.PrefixedRedisClient, *SplitClient) {
@@ -2155,14 +2193,19 @@ func TestClientNoneRedis(t *testing.T) {
 
 	// Validate unique keys
 	uniques, _ := prefixedClient.LRange("SPLITIO.uniquekeys", 0, -1)
-	var uniquesDto []dtos.Key
-	_ = json.Unmarshal([]byte(uniques[0]), &uniquesDto)
 
-	if len(uniquesDto) != 2 {
-		t.Errorf("Lenght should be 2, Actual %d", len(uniquesDto))
+	keysDto := make([]dtos.Key, 0)
+	for _, key := range uniques {
+		var keyDto dtos.Key
+		_ = json.Unmarshal([]byte(key), &keyDto)
+		keysDto = append(keysDto, keyDto)
 	}
 
-	for _, unique := range uniquesDto {
+	if len(keysDto) != 2 {
+		t.Errorf("Lenght should be 2. Actual %d", len(keysDto))
+	}
+
+	for _, unique := range keysDto {
 		if unique.Feature == "valid" && len(unique.Keys) != 3 {
 			t.Error("Keys should be 3")
 		}

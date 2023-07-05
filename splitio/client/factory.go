@@ -130,16 +130,8 @@ func (f *SplitFactory) IsReady() bool {
 	return f.status.Load() == sdkStatusReady
 }
 
-// initializates task for localhost mode
-func (f *SplitFactory) initializationLocalhost(readyChannel chan int) {
-	go f.syncManager.Start()
-
-	<-readyChannel
-	f.broadcastReadiness(sdkStatusReady, make([]string, 0))
-}
-
 // initializates tasks for in-memory mode
-func (f *SplitFactory) initializationInMemory(readyChannel chan int) {
+func (f *SplitFactory) initializationManager(readyChannel chan int) {
 	go f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
@@ -384,7 +376,7 @@ func setupInMemoryFactory(
 	splitFactory.status.Store(sdkStatusInitializing)
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
-	go splitFactory.initializationInMemory(readyChannel)
+	go splitFactory.initializationManager(readyChannel)
 
 	return &splitFactory, nil
 }
@@ -403,7 +395,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		RecordSessionLengthCall:    func(session int64) {},
 	}
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
-	impressionStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, runtimeTelemetry)
+	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger),
 		segments:            redis.NewSegmentStorage(redisClient, logger),
@@ -424,7 +416,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		cfg.ImpressionsMode = config.ImpressionsModeDebug
 	}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, redis.NewImpressionStorage(redisClient, metadata, logger))
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, impressionStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -468,18 +460,32 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	splitStorage := mutexmap.NewMMSplitStorage()
+	segmentStorage := mutexmap.NewMMSegmentStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	if err != nil {
 		return nil, err
 	}
-	splitPeriod := cfg.TaskPeriods.SplitSync
 	readyChannel := make(chan int, 1)
-	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger)}
+	fileFormat := local.DefineFormat(cfg.SplitFile, logger)
+	splitAPI := &api.SplitAPI{SplitFetcher: local.NewFileSplitFetcher(cfg.SplitFile, logger, fileFormat)}
+
+	if cfg.SegmentDirectory != "" {
+		splitAPI.SegmentFetcher = local.NewFileSegmentFetcher(cfg.SegmentDirectory, logger)
+	}
 
 	var dummyHC = &application.Dummy{}
 
+	localConfig := &synchronizer.LocalConfig{
+		SplitPeriod:      cfg.TaskPeriods.SplitSync,
+		SegmentPeriod:    cfg.TaskPeriods.SegmentSync,
+		SegmentWorkers:   cfg.Advanced.SegmentWorkers,
+		QueueSize:        cfg.Advanced.SegmentQueueSize,
+		SegmentDirectory: cfg.SegmentDirectory,
+		RefreshEnabled:   cfg.LocalhostRefreshEnabled,
+	}
+
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(splitPeriod, splitAPI, splitStorage, logger, telemetryStorage, dummyHC),
+		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, logger, telemetryStorage, dummyHC),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,
@@ -505,7 +511,7 @@ func setupLocalhostFactory(
 			splits:              splitStorage,
 			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
 			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger, telemetryStorage),
-			segments:            mutexmap.NewMMSegmentStorage(),
+			segments:            segmentStorage,
 			initTelemetry:       telemetryStorage,
 			evaluationTelemetry: telemetryStorage,
 			runtimeTelemetry:    telemetryStorage,
@@ -525,7 +531,7 @@ func setupLocalhostFactory(
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	// Call fetching tasks as goroutine
-	go splitFactory.initializationLocalhost(readyChannel)
+	go splitFactory.initializationManager(readyChannel)
 
 	return splitFactory, nil
 }
@@ -605,11 +611,7 @@ func buildImpressionManager(
 		if inMemory {
 			workers.ImpressionRecorder = impression.NewRecorderSingle(storages.impressionsConsumer, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, storages.runtimeTelemetry)
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
-		} else {
-			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
-
 		impressionObserver, err := strategy.NewImpressionObserver(500)
 		if err != nil {
 			return nil, err
@@ -627,9 +629,7 @@ func buildImpressionManager(
 			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, advanced.ImpressionsBulkSize)
 		} else {
 			workers.ImpressionsCountRecorder = impressionscount.NewRecorderRedis(impressionsCounter, storages.impressionsCount, logger)
-			workers.ImpressionRecorder = impression.NewRecorderRedis(storages.impressionsConsumer, impressionRedisStorage, logger)
 			splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
-			splitTasks.ImpressionSyncTask = tasks.NewRecordImpressionsTask(workers.ImpressionRecorder, cfg.TaskPeriods.ImpressionSync, logger, impressionsBulkSizeRedis)
 		}
 
 		impressionObserver, err := strategy.NewImpressionObserver(500)

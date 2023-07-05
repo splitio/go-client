@@ -34,6 +34,7 @@ const (
 // - IPAddress (Optional) Address to be used when submitting metrics & impressions to split servers
 // - BlockUntilReady (Optional) How much to wait until the sdk is ready
 // - SplitFile (Optional) File with splits to use when running in localhost mode
+// - SegmentDirectory (Optional) Path where all the segment files are located to use when running in json localhost mode
 // - LabelsEnabled (Optional) Can be used to disable labels if the user does not want to send that info to split servers.
 // - Logger: (Optional) Custom logger complying with logging.LoggerInterface
 // - LoggerConfig: (Optional) Options to setup the sdk's own logger
@@ -41,21 +42,24 @@ const (
 // - Redis: (Required for "redis-consumer". Sets up Redis config
 // - Advanced: (Optional) Sets up various advanced options for the sdk
 // - ImpressionsMode (Optional) Flag for enabling local impressions dedupe - Possible values <'optimized'|'debug'>
+// - LocalhostRefreshEnabled: (Optional) Flag to run synchronization refresh for Splits and Segments in localhost mode.
 type SplitSdkConfig struct {
-	OperationMode      string
-	InstanceName       string
-	IPAddress          string
-	IPAddressesEnabled bool
-	BlockUntilReady    int
-	SplitFile          string
-	LabelsEnabled      bool
-	SplitSyncProxyURL  string
-	Logger             logging.LoggerInterface
-	LoggerConfig       logging.LoggerOptions
-	TaskPeriods        TaskPeriods
-	Advanced           AdvancedConfig
-	Redis              conf.RedisConfig
-	ImpressionsMode    string
+	OperationMode           string
+	InstanceName            string
+	IPAddress               string
+	IPAddressesEnabled      bool
+	BlockUntilReady         int
+	SplitFile               string
+	SegmentDirectory        string
+	LabelsEnabled           bool
+	SplitSyncProxyURL       string
+	Logger                  logging.LoggerInterface
+	LoggerConfig            logging.LoggerOptions
+	TaskPeriods             TaskPeriods
+	Advanced                AdvancedConfig
+	Redis                   conf.RedisConfig
+	ImpressionsMode         string
+	LocalhostRefreshEnabled bool
 }
 
 // TaskPeriods struct is used to configure the period for each synchronization task
@@ -111,15 +115,16 @@ func Default() *SplitSdkConfig {
 	}
 
 	return &SplitSdkConfig{
-		OperationMode:      InMemoryStandAlone,
-		LabelsEnabled:      true,
-		IPAddress:          ipAddress,
-		IPAddressesEnabled: true,
-		InstanceName:       instanceName,
-		Logger:             nil,
-		LoggerConfig:       logging.LoggerOptions{},
-		SplitFile:          splitFile,
-		ImpressionsMode:    conf.ImpressionsModeOptimized,
+		OperationMode:           InMemoryStandAlone,
+		LabelsEnabled:           true,
+		IPAddress:               ipAddress,
+		IPAddressesEnabled:      true,
+		InstanceName:            instanceName,
+		Logger:                  nil,
+		LoggerConfig:            logging.LoggerOptions{},
+		SplitFile:               splitFile,
+		ImpressionsMode:         conf.ImpressionsModeOptimized,
+		LocalhostRefreshEnabled: false,
 		Redis: conf.RedisConfig{
 			Database: 0,
 			Host:     "localhost",
@@ -223,7 +228,7 @@ func validConfigRates(cfg *SplitSdkConfig) error {
 func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	// Fail if no apikey is provided
 	if apikey == "" && cfg.OperationMode != Localhost {
-		return errors.New("factory instantiation: you passed an empty apikey, apikey must be a non-empty string")
+		return errors.New("factory instantiation: you passed an empty SDK key, SDK key must be a non-empty string")
 	}
 
 	// To keep the interface consistent with other sdks we accept "localhost" as an apikey,

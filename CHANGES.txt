@@ -1,3 +1,7 @@
+6.4.0 (Jul 18, 2023)
+- Improved streaming architecture implementation to apply feature flag updates from the notification received which is now enhanced, improving efficiency and reliability of the whole update system.
+- Pointed to new version of go-split-commons v5.0.0.
+
 6.3.3 (Jun 9, 2023)
 - Fixed buffering logic in impressions for consumer mode
 - Pointed to new version of go-split-commons v4.3.5:

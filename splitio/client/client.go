@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/v4/dtos"
-	"github.com/splitio/go-split-commons/v4/provisional"
-	"github.com/splitio/go-split-commons/v4/storage"
-	"github.com/splitio/go-split-commons/v4/telemetry"
+
+	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/engine/evaluator"
+	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v5/provisional"
+	"github.com/splitio/go-split-commons/v5/storage"
+	"github.com/splitio/go-split-commons/v5/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 

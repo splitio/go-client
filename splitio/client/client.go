@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"runtime/debug"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/splitio/go-split-commons/v5/dtos"
 	"github.com/splitio/go-split-commons/v5/engine/evaluator"
 	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v5/flagsets"
 	"github.com/splitio/go-split-commons/v5/provisional"
 	"github.com/splitio/go-split-commons/v5/storage"
 	"github.com/splitio/go-split-commons/v5/telemetry"
@@ -18,10 +20,14 @@ import (
 )
 
 const (
-	treatment            = "Treatment"
-	treatments           = "Treatments"
-	treatmentWithConfig  = "TreatmentWithConfig"
-	treatmentsWithConfig = "TreatmentsWithConfig"
+	treatment                      = "Treatment"
+	treatments                     = "Treatments"
+	treatmentsByFlagSet            = "TreatmentsByFlagSet"
+	treatmentsByFlagSets           = "TreatmentsByFlahSets"
+	treatmentWithConfig            = "TreatmentWithConfig"
+	treatmentsWithConfig           = "TreatmentsWithConfig"
+	treatmentsWithConfigByFlagSet  = "TreatmentWithConfigByFlagSet"
+	treatmentsWithConfigByFlagSets = "TrearmenteWithConfigByFlagSets"
 )
 
 // SplitClient is the entry-point of the split SDK.
@@ -37,6 +43,7 @@ type SplitClient struct {
 	initTelemetry       storage.TelemetryConfigProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 	runtimeTelemetry    storage.TelemetryRuntimeProducer
+	flagSetsFilter      flagsets.FlagSetFilter
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -272,6 +279,44 @@ func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, att
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
 	return treatmentsResult
+}
+
+func (c *SplitClient) TreatmentsByFlagSet(key interface{}, set string, attributes map[string]interface{}) map[string]string {
+	return c.TreatmentsByFlagSets(key, []string{set}, attributes)
+}
+
+func (c *SplitClient) TreatmentsByFlagSets(key interface{}, sets []string, attributes map[string]interface{}) map[string]string {
+	treatmentsResult := map[string]string{}
+	if len(sets) == 0 {
+		c.logger.Warning("sets must be a non-empty array")
+		return treatmentsResult
+	}
+	sets, err := flagsets.SanitizeMany(sets)
+	if err != nil {
+		return treatmentsResult
+	}
+	sets = c.filterSetsAreInConfig(sets)
+	if len(sets) == 0 {
+		return treatmentsResult
+	}
+	if !c.isReady()
+	// result := c.doTreatmentsCall(key, featureFlagNames, attributes, treatments, telemetry.Treatments)
+	// for feature, treatmentResult := range result {
+	// 	treatmentsResult[feature] = treatmentResult.Treatment
+	// }
+	return treatmentsResult
+}
+
+func (c *SplitClient) filterSetsAreInConfig(sets []string) []string {
+	toReturn := []string{}
+	for _, flagSet := range sets {
+		if !c.flagSetsFilter.IsPresent(flagSet) {
+			c.logger.Warning(fmt.Sprintf("you passed %s which is not part of the configured FlagSetsFilter, ignoring Flag Set.", flagSet))
+			continue
+		}
+		toReturn = append(toReturn, flagSet)
+	}
+	return toReturn
 }
 
 // TreatmentsWithConfig evaluates multiple feature flag names for a single user and set of attributes at once and returns configurations

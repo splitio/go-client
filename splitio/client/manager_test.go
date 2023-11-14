@@ -4,13 +4,15 @@ import (
 	"testing"
 
 	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/flagsets"
 	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexmap"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestSplitManager(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	splitStorage.Update([]dtos.SplitDTO{
 		{
 			ChangeNumber:    123,
@@ -89,7 +91,8 @@ func TestSplitManager(t *testing.T) {
 }
 
 func TestSplitManagerWithConfigs(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	splitStorage.Update([]dtos.SplitDTO{*valid, *killed, *noConfig}, nil, 123)
 
 	logger := logging.NewLogger(nil)

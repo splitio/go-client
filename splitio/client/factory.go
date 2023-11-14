@@ -285,7 +285,7 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced, errs := conf.NormalizeSDKConf(cfg.Advanced)
-	printWarnings(logger, &errs)
+	printWarnings(logger, errs)
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
 		advanced.StreamingEnabled = false
 	}
@@ -402,7 +402,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 
 	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
-	printWarnings(logger, &errs)
+	printWarnings(logger, errs)
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 
 	storages := sdkStorages{
@@ -468,7 +468,7 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
-	printWarnings(logger, &errs)
+	printWarnings(logger, errs)
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
@@ -653,13 +653,12 @@ func buildImpressionManager(
 	}
 }
 
-func printWarnings(logger logging.LoggerInterface, errs *[]error) {
-	if len(*errs) != 0 {
-		for _, err := range *errs {
+func printWarnings(logger logging.LoggerInterface, errs []error) {
+	if len(errs) != 0 {
+		for _, err := range errs {
 			if errType, ok := err.(*dtos.FlagSetValidatonError); ok {
 				logger.Warning(errType.Message)
 			}
 		}
 	}
-	errs = nil
 }

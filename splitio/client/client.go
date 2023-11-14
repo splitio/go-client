@@ -26,8 +26,8 @@ const (
 	treatmentsByFlagSets           = "TreatmentsByFlahSets"
 	treatmentWithConfig            = "TreatmentWithConfig"
 	treatmentsWithConfig           = "TreatmentsWithConfig"
-	treatmentsWithConfigByFlagSet  = "TreatmentWithConfigByFlagSet"
-	treatmentsWithConfigByFlagSets = "TrearmenteWithConfigByFlagSets"
+	treatmentsWithConfigByFlagSet  = "TreatmentsWithConfigByFlagSet"
+	treatmentsWithConfigByFlagSets = "TrearmentsWithConfigByFlagSets"
 )
 
 // SplitClient is the entry-point of the split SDK.
@@ -326,9 +326,13 @@ func (c *SplitClient) validateSets(sets []string) []string {
 		c.logger.Warning("sets must be a non-empty array")
 		return nil
 	}
-	sets, err := flagsets.SanitizeMany(sets)
-	if err != nil {
-		return nil
+	sets, errs := flagsets.SanitizeMany(sets)
+	if len(errs) != 0 {
+		for _, err := range errs {
+			if errType, ok := err.(*dtos.FlagSetValidatonError); ok {
+				c.logger.Warning(errType.Message)
+			}
+		}
 	}
 	sets = c.filterSetsAreInConfig(sets)
 	if len(sets) == 0 {

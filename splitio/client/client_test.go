@@ -44,6 +44,11 @@ import (
 
 type mockEvaluator struct{}
 
+// EvaluateFeatureByFlagSets implements evaluator.Interface.
+func (*mockEvaluator) EvaluateFeatureByFlagSets(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+	panic("unimplemented")
+}
+
 func (e *mockEvaluator) EvaluateFeature(
 	key string,
 	bucketingKey *string,
@@ -151,6 +156,32 @@ func getFactory() SplitFactory {
 	}
 }
 
+func getFactoryByFlagSets() SplitFactory {
+	telemetryStorage, _ := inmemory.NewTelemetryStorage()
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.FlagSetFilter = []string{"set1", "set2"}
+	logger := logging.NewLogger(nil)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, false)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+
+	return SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			events:              mocks.MockEventStorage{},
+			initTelemetry:       telemetryStorage,
+			runtimeTelemetry:    telemetryStorage,
+			evaluationTelemetry: telemetryStorage,
+		},
+		impressionManager: impressionManager,
+		logger:            logger,
+	}
+}
+
 func expectedTreatment(treatment string, expectedTreatment string, t *testing.T) {
 	if treatment != expectedTreatment {
 		t.Error("Expected: " + expectedTreatment + " actual: " + treatment)
@@ -195,6 +226,150 @@ func TestClientGetTreatment(t *testing.T) {
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
+}
+
+func TestClientGetTreatmentByFlagSet(t *testing.T) {
+	factory := getFactoryByFlagSets()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsByFlagSet("user1", "set1", nil)
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+}
+
+func TestClientGetTreatmentByFlagSets(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				case "set2":
+					results.Evaluations["feature2"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "bLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentB",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsByFlagSets("user1", []string{"set1", "set2"}, nil)
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["feature2"], "TreatmentB", t)
+}
+
+func TestClientGetTreatmentWithConfigByFlagSet(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsWithConfigByFlagSet("user1", "set1", nil)
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+}
+
+func TestClientGetTreatmentWithConfigByFlagSets(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				case "set2":
+					results.Evaluations["feature2"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "bLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentB",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsWithConfigByFlagSets("user1", []string{"set1", "set2"}, nil)
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+	expectedTreatment(res["feature2"].Treatment, "TreatmentB", t)
 }
 
 func TestTreatments(t *testing.T) {

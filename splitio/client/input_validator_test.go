@@ -12,6 +12,7 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	spConf "github.com/splitio/go-split-commons/v5/conf"
 	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/flagsets"
 	"github.com/splitio/go-split-commons/v5/healthcheck/application"
 	"github.com/splitio/go-split-commons/v5/provisional"
 	"github.com/splitio/go-split-commons/v5/provisional/strategy"
@@ -542,11 +543,12 @@ func TestNotReadyYet(t *testing.T) {
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 	}
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
 	maganerNotReady := SplitManager{
 		initTelemetry: telemetryStorage,
 		factory:       factoryNotReady,
 		logger:        logger,
-		splitStorage:  mutexmap.NewMMSplitStorage(),
+		splitStorage:  mutexmap.NewMMSplitStorage(flagSetFilter),
 	}
 
 	factoryNotReady.status.Store(sdkStatusInitializing)
@@ -597,7 +599,8 @@ func TestNotReadyYet(t *testing.T) {
 }
 
 func TestManagerWithEmptySplit(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,

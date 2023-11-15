@@ -278,7 +278,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []strin
 }
 
 // doTreatmentsCallByFlagSets retrieves treatments of a specific array of feature flag names, that belong to flag sets, with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, sets []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
 
 	// Set up a guard deferred function to recover if the SDK starts panicking
@@ -305,7 +305,7 @@ func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, sets []string,
 	}
 
 	if c.isReady() {
-		evaluationsResult := c.evaluator.EvaluateFeatureByFlagSets(matchingKey, bucketingKey, sets, attributes)
+		evaluationsResult := c.evaluator.EvaluateFeatureByFlagSets(matchingKey, bucketingKey, flagSets, attributes)
 		treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
 	}
 	return treatments
@@ -321,12 +321,12 @@ func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, att
 	return treatmentsResult
 }
 
-func (c *SplitClient) validateSets(sets []string) []string {
-	if len(sets) == 0 {
+func (c *SplitClient) validateSets(flagSets []string) []string {
+	if len(flagSets) == 0 {
 		c.logger.Warning("sets must be a non-empty array")
 		return nil
 	}
-	sets, errs := flagsets.SanitizeMany(sets)
+	flagSets, errs := flagsets.SanitizeMany(flagSets)
 	if len(errs) != 0 {
 		for _, err := range errs {
 			if errType, ok := err.(*dtos.FlagSetValidatonError); ok {
@@ -334,17 +334,17 @@ func (c *SplitClient) validateSets(sets []string) []string {
 			}
 		}
 	}
-	sets = c.filterSetsAreInConfig(sets)
-	if len(sets) == 0 {
+	flagSets = c.filterSetsAreInConfig(flagSets)
+	if len(flagSets) == 0 {
 		return nil
 	}
-	return sets
+	return flagSets
 }
 
 // Treatments evaluate multiple feature flag names belonging to a flag set for a single user and a set of attributes at once
-func (c *SplitClient) TreatmentsByFlagSet(key interface{}, set string, attributes map[string]interface{}) map[string]string {
+func (c *SplitClient) TreatmentsByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]string {
 	treatmentsResult := map[string]string{}
-	sets := c.validateSets([]string{set})
+	sets := c.validateSets([]string{flagSet})
 	if sets == nil {
 		return treatmentsResult
 	}
@@ -356,22 +356,22 @@ func (c *SplitClient) TreatmentsByFlagSet(key interface{}, set string, attribute
 }
 
 // Treatments evaluate multiple feature flag names belonging to flag sets for a single user and a set of attributes at once
-func (c *SplitClient) TreatmentsByFlagSets(key interface{}, sets []string, attributes map[string]interface{}) map[string]string {
+func (c *SplitClient) TreatmentsByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]string {
 	treatmentsResult := map[string]string{}
-	sets = c.validateSets(sets)
-	if sets == nil {
+	flagSets = c.validateSets(flagSets)
+	if flagSets == nil {
 		return treatmentsResult
 	}
-	result := c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsByFlagSets, telemetry.TreatmentsByFlagSets)
+	result := c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsByFlagSets, telemetry.TreatmentsByFlagSets)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
 	return treatmentsResult
 }
 
-func (c *SplitClient) filterSetsAreInConfig(sets []string) []string {
+func (c *SplitClient) filterSetsAreInConfig(flagSets []string) []string {
 	toReturn := []string{}
-	for _, flagSet := range sets {
+	for _, flagSet := range flagSets {
 		if !c.flagSetsFilter.IsPresent(flagSet) {
 			c.logger.Warning(fmt.Sprintf("you passed %s which is not part of the configured FlagSetsFilter, ignoring Flag Set.", flagSet))
 			continue
@@ -387,9 +387,9 @@ func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlagNames []s
 }
 
 // TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag set for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, set string, attributes map[string]interface{}) map[string]TreatmentResult {
+func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]TreatmentResult {
 	treatmentsResult := make(map[string]TreatmentResult)
-	sets := c.validateSets([]string{set})
+	sets := c.validateSets([]string{flagSet})
 	if sets == nil {
 		return treatmentsResult
 	}
@@ -397,13 +397,13 @@ func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, set string,
 }
 
 // TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag sets for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, sets []string, attributes map[string]interface{}) map[string]TreatmentResult {
+func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]TreatmentResult {
 	treatmentsResult := make(map[string]TreatmentResult)
-	sets = c.validateSets(sets)
-	if sets == nil {
+	flagSets = c.validateSets(flagSets)
+	if flagSets == nil {
 		return treatmentsResult
 	}
-	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsByFlagSets)
+	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsByFlagSets)
 }
 
 // isDestroyed returns true if the client has been destroyed

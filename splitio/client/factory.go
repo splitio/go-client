@@ -284,8 +284,8 @@ func setupInMemoryFactory(
 	logger logging.LoggerInterface,
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	advanced, errs := conf.NormalizeSDKConf(cfg.Advanced)
-	printWarnings(logger, errs)
+	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
+	printWarnings(logger, warnings)
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
 		advanced.StreamingEnabled = false
 	}
@@ -656,7 +656,7 @@ func buildImpressionManager(
 func printWarnings(logger logging.LoggerInterface, errs []error) {
 	if len(errs) != 0 {
 		for _, err := range errs {
-			if errType, ok := err.(*dtos.FlagSetValidatonError); ok {
+			if errType, ok := err.(dtos.FlagSetValidatonError); ok {
 				logger.Warning(errType.Message)
 			}
 		}

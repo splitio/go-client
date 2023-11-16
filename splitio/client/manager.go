@@ -25,6 +25,7 @@ type SplitView struct {
 	Treatments   []string          `json:"treatments"`
 	ChangeNumber int64             `json:"changeNumber"`
 	Configs      map[string]string `json:"configs"`
+	Sets         []string          `json:"sets"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
@@ -34,6 +35,10 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 			treatments = append(treatments, partition.Treatment)
 		}
 	}
+	sets := []string{}
+	if splitDto.Sets != nil {
+		sets = splitDto.Sets
+	}
 	return &SplitView{
 		ChangeNumber: splitDto.ChangeNumber,
 		Killed:       splitDto.Killed,
@@ -41,6 +46,7 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 		TrafficType:  splitDto.TrafficTypeName,
 		Treatments:   treatments,
 		Configs:      splitDto.Configurations,
+		Sets:         sets,
 	}
 }
 

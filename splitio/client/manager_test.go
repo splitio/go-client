@@ -19,6 +19,7 @@ func TestSplitManager(t *testing.T) {
 			Name:            "split1",
 			Killed:          false,
 			TrafficTypeName: "tt1",
+			Sets:            []string{"set1", "set2"},
 			Conditions: []dtos.ConditionDTO{
 				{
 					Partitions: []dtos.PartitionDTO{
@@ -71,12 +72,20 @@ func TestSplitManager(t *testing.T) {
 		t.Error("Incorrect treatments for split 1")
 	}
 
+	if len(s1.Sets) != 2 {
+		t.Error("split1 should have 2 sets")
+	}
+
 	s2 := manager.Split("split2")
 	if s2.Name != "split2" || !s2.Killed || s2.TrafficType != "tt2" || s2.ChangeNumber != 123 {
 		t.Error("Split 2 stored incorrectly")
 	}
 	if s2.Treatments[0] != "s1p2" && s2.Treatments[1] != "s2p2" && s2.Treatments[2] != "s2p3" {
 		t.Error("Incorrect treatments for split 2")
+	}
+
+	if s2.Sets == nil && len(s2.Sets) != 0 {
+		t.Error("split2 sets should be empty array")
 	}
 
 	all := manager.Splits()

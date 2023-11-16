@@ -133,25 +133,25 @@ func (f *SplitFactory) IsReady() bool {
 }
 
 // initializates tasks for in-memory mode
-func (f *SplitFactory) initializationManager(readyChannel chan int) {
+func (f *SplitFactory) initializationManager(readyChannel chan int, flagSetsInvalid int64) {
 	go f.syncManager.Start()
 	msg := <-readyChannel
 	switch msg {
 	case synchronizer.Ready:
 		// Broadcast ready status for SDK
-		f.broadcastReadiness(sdkStatusReady, make([]string, 0))
+		f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
 	default:
-		f.broadcastReadiness(sdkInitializationFailed, make([]string, 0))
+		f.broadcastReadiness(sdkInitializationFailed, make([]string, 0), flagSetsInvalid)
 	}
 }
 
-func (f *SplitFactory) initializationRedis() {
+func (f *SplitFactory) initializationRedis(flagSetsInvalid int64) {
 	go f.syncManager.Start()
-	f.broadcastReadiness(sdkStatusReady, make([]string, 0))
+	f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
 }
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
-func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[string]int64) {
+func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[string]int64, flagSetsInvalid int64) {
 	f.logger.Debug("Sending init telemetry")
 	f.telemetrySync.SynchronizeConfig(
 		telemetry.InitConfig{
@@ -173,6 +173,8 @@ func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[s
 			TaskPeriods:     config.TaskPeriods(f.cfg.TaskPeriods),
 			ImpressionsMode: f.cfg.ImpressionsMode,
 			ListenerEnabled: f.cfg.Advanced.ImpressionListener != nil,
+			FlagSetsTotal:   int64(len(f.cfg.Advanced.FlagSetFilter)),
+			FlagSetsInvalid: flagSetsInvalid,
 		},
 		time.Now().UTC().Sub(f.startTime).Milliseconds(),
 		currentFactories,
@@ -181,7 +183,7 @@ func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[s
 }
 
 // broadcastReadiness broadcasts message to all the subscriptors
-func (f *SplitFactory) broadcastReadiness(status int, tags []string) {
+func (f *SplitFactory) broadcastReadiness(status int, tags []string, flagSetsInvalid int64) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	if f.status.Load() == sdkStatusInitializing && status == sdkStatusReady {
@@ -191,7 +193,7 @@ func (f *SplitFactory) broadcastReadiness(status int, tags []string) {
 		subscriptor <- status
 	}
 	// At this point the SDK is ready for sending telemetry
-	go f.recordInitTelemetry(tags, getFactories())
+	go f.recordInitTelemetry(tags, getFactories(), flagSetsInvalid)
 }
 
 // subscribes listener
@@ -286,6 +288,7 @@ func setupInMemoryFactory(
 ) (*SplitFactory, error) {
 	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
 	printWarnings(logger, warnings)
+	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(advanced.FlagSetsFilter))
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
 		advanced.StreamingEnabled = false
 	}
@@ -380,7 +383,7 @@ func setupInMemoryFactory(
 	splitFactory.status.Store(sdkStatusInitializing)
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
-	go splitFactory.initializationManager(readyChannel)
+	go splitFactory.initializationManager(readyChannel, flagSetsInvalid)
 
 	return &splitFactory, nil
 }
@@ -402,6 +405,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 
 	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
+	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(flagSets))
 	printWarnings(logger, errs)
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 
@@ -456,7 +460,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
 
-	factory.initializationRedis()
+	factory.initializationRedis(flagSetsInvalid)
 
 	return factory, nil
 }
@@ -468,6 +472,7 @@ func setupLocalhostFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
+	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(flagSets))
 	printWarnings(logger, errs)
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
@@ -542,7 +547,7 @@ func setupLocalhostFactory(
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	// Call fetching tasks as goroutine
-	go splitFactory.initializationManager(readyChannel)
+	go splitFactory.initializationManager(readyChannel, flagSetsInvalid)
 
 	return splitFactory, nil
 }

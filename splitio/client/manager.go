@@ -19,13 +19,14 @@ type SplitManager struct {
 
 // SplitView is a partial representation of a currently stored split
 type SplitView struct {
-	Name         string            `json:"name"`
-	TrafficType  string            `json:"trafficType"`
-	Killed       bool              `json:"killed"`
-	Treatments   []string          `json:"treatments"`
-	ChangeNumber int64             `json:"changeNumber"`
-	Configs      map[string]string `json:"configs"`
-	Sets         []string          `json:"sets"`
+	Name             string            `json:"name"`
+	TrafficType      string            `json:"trafficType"`
+	Killed           bool              `json:"killed"`
+	Treatments       []string          `json:"treatments"`
+	ChangeNumber     int64             `json:"changeNumber"`
+	Configs          map[string]string `json:"configs"`
+	DefaultTreatment string            `json:"defaultTreatment"`
+	Sets             []string          `json:"sets"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
@@ -40,13 +41,14 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 		sets = splitDto.Sets
 	}
 	return &SplitView{
-		ChangeNumber: splitDto.ChangeNumber,
-		Killed:       splitDto.Killed,
-		Name:         splitDto.Name,
-		TrafficType:  splitDto.TrafficTypeName,
-		Treatments:   treatments,
-		Configs:      splitDto.Configurations,
-		Sets:         sets,
+		ChangeNumber:     splitDto.ChangeNumber,
+		Killed:           splitDto.Killed,
+		Name:             splitDto.Name,
+		TrafficType:      splitDto.TrafficTypeName,
+		Treatments:       treatments,
+		Configs:          splitDto.Configurations,
+		DefaultTreatment: splitDto.DefaultTreatment,
+		Sets:             sets,
 	}
 }
 

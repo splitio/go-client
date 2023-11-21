@@ -15,11 +15,12 @@ func TestSplitManager(t *testing.T) {
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	splitStorage.Update([]dtos.SplitDTO{
 		{
-			ChangeNumber:    123,
-			Name:            "split1",
-			Killed:          false,
-			TrafficTypeName: "tt1",
-			Sets:            []string{"set1", "set2"},
+			ChangeNumber:     123,
+			Name:             "split1",
+			Killed:           false,
+			TrafficTypeName:  "tt1",
+			Sets:             []string{"set1", "set2"},
+			DefaultTreatment: "s1p1",
 			Conditions: []dtos.ConditionDTO{
 				{
 					Partitions: []dtos.PartitionDTO{
@@ -74,6 +75,10 @@ func TestSplitManager(t *testing.T) {
 
 	if len(s1.Sets) != 2 {
 		t.Error("split1 should have 2 sets")
+	}
+
+	if s1.DefaultTreatment != "s1p1" {
+		t.Error("the default treatment for split1 should be s1p1")
 	}
 
 	s2 := manager.Split("split2")
@@ -135,6 +140,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s1.Configs["on"] != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("It should have configs")
 	}
+	if s1.DefaultTreatment != "off" {
+		t.Error("the default treatment for valid should be off")
+	}
 
 	s2 := manager.Split("killed")
 	if s2.Name != "killed" || !s2.Killed || s2.TrafficType != "user" || s2.ChangeNumber != 1494593336752 {
@@ -149,6 +157,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s2.Configs["defTreatment"] != "{\"color\": \"orange\",\"size\": 15}" {
 		t.Error("It should have configs")
 	}
+	if s2.DefaultTreatment != "defTreatment" {
+		t.Error("the default treatment for killed should be defTreatment")
+	}
 
 	s3 := manager.Split("noConfig")
 	if s3.Name != "noConfig" || s3.Killed || s3.TrafficType != "user" || s3.ChangeNumber != 1494593336752 {
@@ -159,6 +170,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	}
 	if s3.Configs != nil {
 		t.Error("It should not have configs")
+	}
+	if s3.DefaultTreatment != "defTreatment" {
+		t.Error("the default treatment for killed should be defTreatment")
 	}
 
 	all := manager.Splits()

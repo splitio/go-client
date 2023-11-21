@@ -555,7 +555,7 @@ func TestNotReadyYet(t *testing.T) {
 
 	expectedMessage := "{operation}: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
-	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature,feature_2. Make sure to wait for SDK readiness before using this method"
+	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
 
 	clientNotReady.Treatment("test", "feature", nil)
 	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {

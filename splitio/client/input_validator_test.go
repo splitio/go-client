@@ -554,27 +554,28 @@ func TestNotReadyYet(t *testing.T) {
 	factoryNotReady.status.Store(sdkStatusInitializing)
 
 	expectedMessage := "{operation}: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
+	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
+	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature,feature_2. Make sure to wait for SDK readiness before using this method"
 
 	clientNotReady.Treatment("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatment", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatments", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.TreatmentWithConfig("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentWithConfig", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentsWithConfig", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
-
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
 

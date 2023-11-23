@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
@@ -57,7 +58,8 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 	if c.isReady() {
 		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, featureFlag, attributes)
 	}
-	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+
+	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flag %s. Make sure to wait for SDK readiness before using this method", operation, featureFlag))
 	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
 		Treatment: evaluator.Control,
@@ -71,7 +73,8 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	if c.isReady() {
 		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, featureFlags, attributes)
 	}
-	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+	featureFlagsToPrint := strings.Join(featureFlags, ", ")
+	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flags %s. Make sure to wait for SDK readiness before using this method", operation, featureFlagsToPrint))
 	c.initTelemetry.RecordNonReadyUsage()
 	result := evaluator.Results{
 		EvaluationTime: 0,

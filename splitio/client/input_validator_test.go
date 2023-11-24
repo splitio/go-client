@@ -1,9 +1,14 @@
 package client
 
 import (
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -509,6 +514,86 @@ func TestLocalhostTrafficType(t *testing.T) {
 
 	if err != nil {
 		t.Error("It should not inform any err")
+	}
+
+	mW.Reset()
+	if mW.Length() > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
+}
+
+func TestInMemoryFactoryFlagSets(t *testing.T) {
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock.json")
+	var splitMock, _ = ioutil.ReadFile("../../testdata/split_mock.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			if r.RequestURI != "/splitChanges?sets=a%2Cc%2Cd&since=-1" {
+				t.Error("wrong RequestURI for flag sets")
+			}
+			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
+			return
+		case "/segmentChanges/___TEST___":
+			w.Header().Add("Content-Encoding", "gzip")
+			gzw := gzip.NewWriter(w)
+			defer gzw.Close()
+			fmt.Fprintln(gzw, "Hello, client")
+			return
+		case "/testImpressions/bulk":
+		case "/events/bulk":
+			for header := range r.Header {
+				if (header == "SplitSDKMachineIP") || (header == "SplitSDKMachineName") {
+					t.Error("Should not insert one of SplitSDKMachineIP, SplitSDKMachineName")
+				}
+			}
+
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost []map[string]interface{}
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if len(dataInPost) < 1 {
+				t.Error("It should send data")
+			}
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/segmentChanges":
+		default:
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.IPAddressesEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
+	cfg.TaskPeriods.ImpressionSync = 60
+	cfg.TaskPeriods.EventsSync = 60
+	cfg.Advanced.StreamingEnabled = false
+	cfg.Advanced.FlagSetFilter = []string{"a", "_b", "a", "a", "c", "d", "_d"}
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	errBlock := client.BlockUntilReady(10)
+
+	if errBlock != nil {
+		t.Error("client should be ready")
+	}
+
+	if !client.isReady() {
+		t.Error("InMemory should be ready")
 	}
 
 	mW.Reset()

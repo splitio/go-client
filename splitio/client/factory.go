@@ -145,9 +145,9 @@ func (f *SplitFactory) initializationManager(readyChannel chan int, flagSetsInva
 	}
 }
 
-func (f *SplitFactory) initializationRedis(flagSetsInvalid int64) {
+func (f *SplitFactory) initializationRedis() {
 	go f.syncManager.Start()
-	f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
+	f.broadcastReadiness(sdkStatusReady, make([]string, 0), 0)
 }
 
 // recordInitTelemetry In charge of recording init stats from redis and memory
@@ -404,10 +404,11 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 
-	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
-	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(flagSets))
-	printWarnings(logger, errs)
-	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
+	if len(cfg.Advanced.FlagSetFilter) != 0 {
+		cfg.Advanced.FlagSetFilter = []string{}
+		logger.Debug("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
+	}
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
 
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger, flagSetFilter),
@@ -460,7 +461,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
 
-	factory.initializationRedis(flagSetsInvalid)
+	factory.initializationRedis()
 
 	return factory, nil
 }

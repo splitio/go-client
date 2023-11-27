@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
+	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
 	spConf "github.com/splitio/go-split-commons/v5/conf"
 	"github.com/splitio/go-split-commons/v5/dtos"
 	"github.com/splitio/go-split-commons/v5/flagsets"
@@ -26,6 +27,7 @@ import (
 	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexmap"
 	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexqueue"
 	"github.com/splitio/go-split-commons/v5/storage/mocks"
+	"github.com/splitio/go-split-commons/v5/storage/redis"
 	"github.com/splitio/go-split-commons/v5/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
@@ -565,6 +567,20 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 			fmt.Fprintln(w, "ok")
 			postChannel <- "finished"
 		case "/segmentChanges":
+		case "/metrics/config":
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost dtos.Config
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if dataInPost.FlagSetsInvalid != 4 {
+				t.Error("invalid flag sets should be 4")
+			}
+			if dataInPost.FlagSetsTotal != 7 {
+				t.Error("total flag sets should be 7")
+			}
 		default:
 			fmt.Fprintln(w, "ok")
 			return
@@ -586,7 +602,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
-	errBlock := client.BlockUntilReady(10)
+	errBlock := client.BlockUntilReady(15)
 
 	if errBlock != nil {
 		t.Error("client should be ready")
@@ -601,6 +617,52 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 		t.Error("Wrong message")
 	}
 	mW.Reset()
+
+	client.Destroy()
+}
+
+func TestConsumerFactoryFlagSets(t *testing.T) {
+	logger := getMockedLogger()
+	sdkConf := conf.Default()
+	sdkConf.OperationMode = conf.RedisConsumer
+	sdkConf.Advanced.FlagSetFilter = []string{"a", "b"}
+	sdkConf.Logger = logger
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+	if !mW.Matches("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded") {
+		t.Error("Wrong message")
+	}
+	if !factory.IsReady() {
+		t.Error("Factory should be ready immediately")
+	}
+	client := factory.Client()
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready immediately")
+	}
+
+	err := client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	manager := factory.Manager()
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready immediately")
+	}
+	err = manager.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "",
+	}, logging.NewLogger(&logging.LoggerOptions{}))
+	deleteDataGenerated(prefixedClient)
+
+	client.Destroy()
 }
 
 func TestNotReadyYet(t *testing.T) {

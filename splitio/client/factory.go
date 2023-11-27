@@ -406,7 +406,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 
 	if len(cfg.Advanced.FlagSetFilter) != 0 {
 		cfg.Advanced.FlagSetFilter = []string{}
-		logger.Debug("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
+		logger.Warning("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
 	}
 	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
 

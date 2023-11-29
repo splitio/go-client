@@ -94,6 +94,7 @@ type AdvancedConfig struct {
 	ImpressionsQueueSize int
 	ImpressionsBulkSize  int64
 	StreamingEnabled     bool
+	FlagSetFilter        []string
 }
 
 // Default returns a config struct with all the default values

@@ -2,7 +2,9 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
@@ -11,6 +13,7 @@ import (
 	"github.com/splitio/go-split-commons/v5/dtos"
 	"github.com/splitio/go-split-commons/v5/engine/evaluator"
 	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v5/flagsets"
 	"github.com/splitio/go-split-commons/v5/provisional"
 	"github.com/splitio/go-split-commons/v5/storage"
 	"github.com/splitio/go-split-commons/v5/telemetry"
@@ -18,10 +21,14 @@ import (
 )
 
 const (
-	treatment            = "Treatment"
-	treatments           = "Treatments"
-	treatmentWithConfig  = "TreatmentWithConfig"
-	treatmentsWithConfig = "TreatmentsWithConfig"
+	treatment                      = "Treatment"
+	treatments                     = "Treatments"
+	treatmentsByFlagSet            = "TreatmentsByFlagSet"
+	treatmentsByFlagSets           = "TreatmentsByFlahSets"
+	treatmentWithConfig            = "TreatmentWithConfig"
+	treatmentsWithConfig           = "TreatmentsWithConfig"
+	treatmentsWithConfigByFlagSet  = "TreatmentsWithConfigByFlagSet"
+	treatmentsWithConfigByFlagSets = "TrearmentsWithConfigByFlagSets"
 )
 
 // SplitClient is the entry-point of the split SDK.
@@ -37,6 +44,7 @@ type SplitClient struct {
 	initTelemetry       storage.TelemetryConfigProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 	runtimeTelemetry    storage.TelemetryRuntimeProducer
+	flagSetsFilter      flagsets.FlagSetFilter
 }
 
 // TreatmentResult struct that includes the Treatment evaluation with the corresponding Config
@@ -50,7 +58,8 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 	if c.isReady() {
 		return c.evaluator.EvaluateFeature(matchingKey, bucketingKey, featureFlag, attributes)
 	}
-	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+
+	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flag %s. Make sure to wait for SDK readiness before using this method", operation, featureFlag))
 	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
 		Treatment: evaluator.Control,
@@ -64,7 +73,8 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	if c.isReady() {
 		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, featureFlags, attributes)
 	}
-	c.logger.Warning(operation + ": the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method")
+	featureFlagsToPrint := strings.Join(featureFlags, ", ")
+	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flags %s. Make sure to wait for SDK readiness before using this method", operation, featureFlagsToPrint))
 	c.initTelemetry.RecordNonReadyUsage()
 	result := evaluator.Results{
 		EvaluationTime: 0,
@@ -207,6 +217,28 @@ func (c *SplitClient) generateControlTreatments(featureFlagNames []string, opera
 	return treatments
 }
 
+func (c *SplitClient) processResult(result evaluator.Results, operation string, bucketingKey *string, matchingKey string, attributes map[string]interface{}, metricsLabel string) (t map[string]TreatmentResult) {
+	var bulkImpressions []dtos.Impression
+	treatments := make(map[string]TreatmentResult)
+	for feature, evaluation := range result.Evaluations {
+		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
+			treatments[feature] = TreatmentResult{
+				Treatment: evaluator.Control,
+				Config:    nil,
+			}
+		} else {
+			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
+
+			treatments[feature] = TreatmentResult{
+				Treatment: evaluation.Treatment,
+				Config:    evaluation.Config,
+			}
+		}
+	}
+	c.storeData(bulkImpressions, attributes, metricsLabel, result.EvaluationTime)
+	return treatments
+}
+
 // doTreatmentsCall retrieves treatments of an specific array of feature flag names with configurations object if it is present for a certain key and set of attributes
 func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
@@ -241,26 +273,44 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []strin
 		return map[string]TreatmentResult{}
 	}
 
-	var bulkImpressions []dtos.Impression
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
-	for feature, evaluation := range evaluationsResult.Evaluations {
-		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
-			treatments[feature] = TreatmentResult{
-				Treatment: evaluator.Control,
-				Config:    nil,
-			}
-		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
 
-			treatments[feature] = TreatmentResult{
-				Treatment: evaluation.Treatment,
-				Config:    evaluation.Config,
-			}
+	treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
+
+	return treatments
+}
+
+// doTreatmentsCallByFlagSets retrieves treatments of a specific array of feature flag names, that belong to flag sets, with configurations object if it is present for a certain key and set of attributes
+func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+	treatments := make(map[string]TreatmentResult)
+
+	// Set up a guard deferred function to recover if the SDK starts panicking
+	defer func() {
+		if r := recover(); r != nil {
+			// At this point we'll only trust that the logger isn't panicking trust
+			// that the logger isn't panicking
+			c.evaluationTelemetry.RecordException(metricsLabel)
+			c.logger.Error(
+				"SDK is panicking with the following error", r, "\n",
+				string(debug.Stack()), "\n")
+			t = treatments
 		}
+	}()
+
+	if c.isDestroyed() {
+		return treatments
 	}
 
-	c.storeData(bulkImpressions, attributes, metricsLabel, evaluationsResult.EvaluationTime)
+	matchingKey, bucketingKey, err := c.validator.ValidateTreatmentKey(key, operation)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return treatments
+	}
 
+	if c.isReady() {
+		evaluationsResult := c.evaluator.EvaluateFeatureByFlagSets(matchingKey, bucketingKey, flagSets, attributes)
+		treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
+	}
 	return treatments
 }
 
@@ -274,9 +324,89 @@ func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, att
 	return treatmentsResult
 }
 
+func (c *SplitClient) validateSets(flagSets []string) []string {
+	if len(flagSets) == 0 {
+		c.logger.Warning("sets must be a non-empty array")
+		return nil
+	}
+	flagSets, errs := flagsets.SanitizeMany(flagSets)
+	if len(errs) != 0 {
+		for _, err := range errs {
+			if errType, ok := err.(*dtos.FlagSetValidatonError); ok {
+				c.logger.Warning(errType.Message)
+			}
+		}
+	}
+	flagSets = c.filterSetsAreInConfig(flagSets)
+	if len(flagSets) == 0 {
+		return nil
+	}
+	return flagSets
+}
+
+// Treatments evaluate multiple feature flag names belonging to a flag set for a single user and a set of attributes at once
+func (c *SplitClient) TreatmentsByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]string {
+	treatmentsResult := map[string]string{}
+	sets := c.validateSets([]string{flagSet})
+	if sets == nil {
+		return treatmentsResult
+	}
+	result := c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsByFlagSet, telemetry.TreatmentsByFlagSet)
+	for feature, treatmentResult := range result {
+		treatmentsResult[feature] = treatmentResult.Treatment
+	}
+	return treatmentsResult
+}
+
+// Treatments evaluate multiple feature flag names belonging to flag sets for a single user and a set of attributes at once
+func (c *SplitClient) TreatmentsByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]string {
+	treatmentsResult := map[string]string{}
+	flagSets = c.validateSets(flagSets)
+	if flagSets == nil {
+		return treatmentsResult
+	}
+	result := c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsByFlagSets, telemetry.TreatmentsByFlagSets)
+	for feature, treatmentResult := range result {
+		treatmentsResult[feature] = treatmentResult.Treatment
+	}
+	return treatmentsResult
+}
+
+func (c *SplitClient) filterSetsAreInConfig(flagSets []string) []string {
+	toReturn := []string{}
+	for _, flagSet := range flagSets {
+		if !c.flagSetsFilter.IsPresent(flagSet) {
+			c.logger.Warning(fmt.Sprintf("you passed %s which is not part of the configured FlagSetsFilter, ignoring Flag Set.", flagSet))
+			continue
+		}
+		toReturn = append(toReturn, flagSet)
+	}
+	return toReturn
+}
+
 // TreatmentsWithConfig evaluates multiple feature flag names for a single user and set of attributes at once and returns configurations
 func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlagNames []string, attributes map[string]interface{}) map[string]TreatmentResult {
 	return c.doTreatmentsCall(key, featureFlagNames, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
+}
+
+// TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag set for a single user and set of attributes at once and returns configurations
+func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]TreatmentResult {
+	treatmentsResult := make(map[string]TreatmentResult)
+	sets := c.validateSets([]string{flagSet})
+	if sets == nil {
+		return treatmentsResult
+	}
+	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSet, telemetry.TreatmentsByFlagSets)
+}
+
+// TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag sets for a single user and set of attributes at once and returns configurations
+func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]TreatmentResult {
+	treatmentsResult := make(map[string]TreatmentResult)
+	flagSets = c.validateSets(flagSets)
+	if flagSets == nil {
+		return treatmentsResult
+	}
+	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsByFlagSets)
 }
 
 // isDestroyed returns true if the client has been destroyed

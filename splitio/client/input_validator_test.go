@@ -598,7 +598,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	cfg.TaskPeriods.ImpressionSync = 60
 	cfg.TaskPeriods.EventsSync = 60
 	cfg.Advanced.StreamingEnabled = false
-	cfg.Advanced.FlagSetFilter = []string{"a", "_b", "a", "a", "c", "d", "_d"}
+	cfg.Advanced.FlagSetsFilter = []string{"a", "_b", "a", "a", "c", "d", "_d"}
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
@@ -625,7 +625,7 @@ func TestConsumerFactoryFlagSets(t *testing.T) {
 	logger := getMockedLogger()
 	sdkConf := conf.Default()
 	sdkConf.OperationMode = conf.RedisConsumer
-	sdkConf.Advanced.FlagSetFilter = []string{"a", "b"}
+	sdkConf.Advanced.FlagSetsFilter = []string{"a", "b"}
 	sdkConf.Logger = logger
 
 	factory, _ := NewSplitFactory("something", sdkConf)

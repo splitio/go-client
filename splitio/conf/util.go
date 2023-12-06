@@ -48,7 +48,7 @@ func NormalizeSDKConf(sdkConfig AdvancedConfig) (conf.AdvancedConfig, []error) {
 	}
 	config.StreamingEnabled = sdkConfig.StreamingEnabled
 
-	flagSets, errs := flagsets.SanitizeMany(sdkConfig.FlagSetFilter)
+	flagSets, errs := flagsets.SanitizeMany(sdkConfig.FlagSetsFilter)
 	config.FlagSetsFilter = flagSets
 	return config, errs
 }

@@ -160,7 +160,7 @@ func getFactoryByFlagSets() SplitFactory {
 	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 	cfg := conf.Default()
 	cfg.LabelsEnabled = true
-	cfg.Advanced.FlagSetFilter = []string{"set1", "set2"}
+	cfg.Advanced.FlagSetsFilter = []string{"set1", "set2"}
 	logger := logging.NewLogger(nil)
 
 	impressionObserver, _ := strategy.NewImpressionObserver(500)

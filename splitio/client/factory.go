@@ -173,7 +173,7 @@ func (f *SplitFactory) recordInitTelemetry(tags []string, currentFactories map[s
 			TaskPeriods:     config.TaskPeriods(f.cfg.TaskPeriods),
 			ImpressionsMode: f.cfg.ImpressionsMode,
 			ListenerEnabled: f.cfg.Advanced.ImpressionListener != nil,
-			FlagSetsTotal:   int64(len(f.cfg.Advanced.FlagSetFilter)),
+			FlagSetsTotal:   int64(len(f.cfg.Advanced.FlagSetsFilter)),
 			FlagSetsInvalid: flagSetsInvalid,
 		},
 		time.Now().UTC().Sub(f.startTime).Milliseconds(),
@@ -288,7 +288,7 @@ func setupInMemoryFactory(
 ) (*SplitFactory, error) {
 	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
 	printWarnings(logger, warnings)
-	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(advanced.FlagSetsFilter))
+	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetsFilter) - len(advanced.FlagSetsFilter))
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
 		advanced.StreamingEnabled = false
 	}
@@ -404,8 +404,8 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 
-	if len(cfg.Advanced.FlagSetFilter) != 0 {
-		cfg.Advanced.FlagSetFilter = []string{}
+	if len(cfg.Advanced.FlagSetsFilter) != 0 {
+		cfg.Advanced.FlagSetsFilter = []string{}
 		logger.Warning("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
 	}
 	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
@@ -472,8 +472,8 @@ func setupLocalhostFactory(
 	logger logging.LoggerInterface,
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
-	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetFilter)
-	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetFilter) - len(flagSets))
+	flagSets, errs := flagsets.SanitizeMany(cfg.Advanced.FlagSetsFilter)
+	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetsFilter) - len(flagSets))
 	printWarnings(logger, errs)
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)

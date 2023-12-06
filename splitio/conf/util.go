@@ -3,11 +3,12 @@ package conf
 import (
 	"strings"
 
-	"github.com/splitio/go-split-commons/v4/conf"
+	"github.com/splitio/go-split-commons/v5/conf"
+	"github.com/splitio/go-split-commons/v5/flagsets"
 )
 
 // NormalizeSDKConf compares against SDK Config to set defaults
-func NormalizeSDKConf(sdkConfig AdvancedConfig) conf.AdvancedConfig {
+func NormalizeSDKConf(sdkConfig AdvancedConfig) (conf.AdvancedConfig, []error) {
 	config := conf.GetDefaultAdvancedConfig()
 	if sdkConfig.HTTPTimeout > 0 {
 		config.HTTPTimeout = sdkConfig.HTTPTimeout
@@ -47,5 +48,7 @@ func NormalizeSDKConf(sdkConfig AdvancedConfig) conf.AdvancedConfig {
 	}
 	config.StreamingEnabled = sdkConfig.StreamingEnabled
 
-	return config
+	flagSets, errs := flagsets.SanitizeMany(sdkConfig.FlagSetFilter)
+	config.FlagSetsFilter = flagSets
+	return config, errs
 }

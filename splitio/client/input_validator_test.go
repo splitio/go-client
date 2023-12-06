@@ -1,26 +1,34 @@
 package client
 
 import (
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	spConf "github.com/splitio/go-split-commons/v4/conf"
-	"github.com/splitio/go-split-commons/v4/dtos"
-	"github.com/splitio/go-split-commons/v4/healthcheck/application"
-	"github.com/splitio/go-split-commons/v4/provisional"
-	"github.com/splitio/go-split-commons/v4/provisional/strategy"
-	"github.com/splitio/go-split-commons/v4/service/api"
-	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
-	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v4/storage/mocks"
-	"github.com/splitio/go-split-commons/v4/synchronizer"
+	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
+	spConf "github.com/splitio/go-split-commons/v5/conf"
+	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/flagsets"
+	"github.com/splitio/go-split-commons/v5/healthcheck/application"
+	"github.com/splitio/go-split-commons/v5/provisional"
+	"github.com/splitio/go-split-commons/v5/provisional/strategy"
+	"github.com/splitio/go-split-commons/v5/service/api"
+	authMocks "github.com/splitio/go-split-commons/v5/service/mocks"
+	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v5/storage/mocks"
+	"github.com/splitio/go-split-commons/v5/storage/redis"
+	"github.com/splitio/go-split-commons/v5/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -517,6 +525,146 @@ func TestLocalhostTrafficType(t *testing.T) {
 	mW.Reset()
 }
 
+func TestInMemoryFactoryFlagSets(t *testing.T) {
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock.json")
+	var splitMock, _ = ioutil.ReadFile("../../testdata/split_mock.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			if r.RequestURI != "/splitChanges?sets=a%2Cc%2Cd&since=-1" {
+				t.Error("wrong RequestURI for flag sets")
+			}
+			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
+			return
+		case "/segmentChanges/___TEST___":
+			w.Header().Add("Content-Encoding", "gzip")
+			gzw := gzip.NewWriter(w)
+			defer gzw.Close()
+			fmt.Fprintln(gzw, "Hello, client")
+			return
+		case "/testImpressions/bulk":
+		case "/events/bulk":
+			for header := range r.Header {
+				if (header == "SplitSDKMachineIP") || (header == "SplitSDKMachineName") {
+					t.Error("Should not insert one of SplitSDKMachineIP, SplitSDKMachineName")
+				}
+			}
+
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost []map[string]interface{}
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if len(dataInPost) < 1 {
+				t.Error("It should send data")
+			}
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/segmentChanges":
+		case "/metrics/config":
+			rBody, _ := ioutil.ReadAll(r.Body)
+			var dataInPost dtos.Config
+			err := json.Unmarshal(rBody, &dataInPost)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if dataInPost.FlagSetsInvalid != 4 {
+				t.Error("invalid flag sets should be 4")
+			}
+			if dataInPost.FlagSetsTotal != 7 {
+				t.Error("total flag sets should be 7")
+			}
+		default:
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.IPAddressesEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.ImpressionListener = &ImpressionListenerTest{}
+	cfg.TaskPeriods.ImpressionSync = 60
+	cfg.TaskPeriods.EventsSync = 60
+	cfg.Advanced.StreamingEnabled = false
+	cfg.Advanced.FlagSetFilter = []string{"a", "_b", "a", "a", "c", "d", "_d"}
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	errBlock := client.BlockUntilReady(15)
+
+	if errBlock != nil {
+		t.Error("client should be ready")
+	}
+
+	if !client.isReady() {
+		t.Error("InMemory should be ready")
+	}
+
+	mW.Reset()
+	if mW.Length() > 0 {
+		t.Error("Wrong message")
+	}
+	mW.Reset()
+
+	client.Destroy()
+}
+
+func TestConsumerFactoryFlagSets(t *testing.T) {
+	logger := getMockedLogger()
+	sdkConf := conf.Default()
+	sdkConf.OperationMode = conf.RedisConsumer
+	sdkConf.Advanced.FlagSetFilter = []string{"a", "b"}
+	sdkConf.Logger = logger
+
+	factory, _ := NewSplitFactory("something", sdkConf)
+	if !mW.Matches("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded") {
+		t.Error("Wrong message")
+	}
+	if !factory.IsReady() {
+		t.Error("Factory should be ready immediately")
+	}
+	client := factory.Client()
+	if !client.factory.IsReady() {
+		t.Error("Client should be ready immediately")
+	}
+
+	err := client.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	manager := factory.Manager()
+	if !manager.factory.IsReady() {
+		t.Error("Manager should be ready immediately")
+	}
+	err = manager.BlockUntilReady(1)
+	if err != nil {
+		t.Error("Error was not expected")
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "",
+	}, logging.NewLogger(&logging.LoggerOptions{}))
+	deleteDataGenerated(prefixedClient)
+
+	client.Destroy()
+}
+
 func TestNotReadyYet(t *testing.T) {
 	nonReadyUsages := 0
 	logger := getMockedLogger()
@@ -542,37 +690,39 @@ func TestNotReadyYet(t *testing.T) {
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 	}
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
 	maganerNotReady := SplitManager{
 		initTelemetry: telemetryStorage,
 		factory:       factoryNotReady,
 		logger:        logger,
-		splitStorage:  mutexmap.NewMMSplitStorage(),
+		splitStorage:  mutexmap.NewMMSplitStorage(flagSetFilter),
 	}
 
 	factoryNotReady.status.Store(sdkStatusInitializing)
 
 	expectedMessage := "{operation}: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
+	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
+	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
 
 	clientNotReady.Treatment("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatment", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Treatments", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.TreatmentWithConfig("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentWithConfig", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
 
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "TreatmentsWithConfig", 1)) {
+	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
-
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
 
@@ -597,7 +747,8 @@ func TestNotReadyYet(t *testing.T) {
 }
 
 func TestManagerWithEmptySplit(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	factory := SplitFactory{}
 	manager := SplitManager{
 		splitStorage: splitStorage,

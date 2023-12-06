@@ -16,31 +16,38 @@ import (
 
 	"github.com/splitio/go-client/v6/splitio"
 	"github.com/splitio/go-client/v6/splitio/conf"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator"
-	"github.com/splitio/go-client/v6/splitio/engine/evaluator/impressionlabels"
-	evaluatorMock "github.com/splitio/go-client/v6/splitio/engine/evaluator/mocks"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	commonsCfg "github.com/splitio/go-split-commons/v4/conf"
-	"github.com/splitio/go-split-commons/v4/dtos"
-	"github.com/splitio/go-split-commons/v4/healthcheck/application"
-	"github.com/splitio/go-split-commons/v4/provisional"
-	"github.com/splitio/go-split-commons/v4/provisional/strategy"
-	authMocks "github.com/splitio/go-split-commons/v4/service/mocks"
-	"github.com/splitio/go-split-commons/v4/storage"
-	"github.com/splitio/go-split-commons/v4/storage/inmemory"
-	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v4/storage/mocks"
-	"github.com/splitio/go-split-commons/v4/storage/redis"
-	"github.com/splitio/go-split-commons/v4/synchronizer"
-	syncMock "github.com/splitio/go-split-commons/v4/synchronizer/mocks"
-	"github.com/splitio/go-split-commons/v4/telemetry"
-	"github.com/splitio/go-split-commons/v4/util"
+
+	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
+	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/engine/evaluator"
+	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
+	evaluatorMock "github.com/splitio/go-split-commons/v5/engine/evaluator/mocks"
+	"github.com/splitio/go-split-commons/v5/healthcheck/application"
+	"github.com/splitio/go-split-commons/v5/provisional"
+	"github.com/splitio/go-split-commons/v5/provisional/strategy"
+	authMocks "github.com/splitio/go-split-commons/v5/service/mocks"
+	"github.com/splitio/go-split-commons/v5/storage"
+	"github.com/splitio/go-split-commons/v5/storage/inmemory"
+	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v5/storage/mocks"
+	"github.com/splitio/go-split-commons/v5/storage/redis"
+	"github.com/splitio/go-split-commons/v5/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/v5/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v5/telemetry"
+	"github.com/splitio/go-split-commons/v5/util"
+
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 	predis "github.com/splitio/go-toolkit/v5/redis"
 )
 
 type mockEvaluator struct{}
+
+// EvaluateFeatureByFlagSets implements evaluator.Interface.
+func (*mockEvaluator) EvaluateFeatureByFlagSets(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+	panic("unimplemented")
+}
 
 func (e *mockEvaluator) EvaluateFeature(
 	key string,
@@ -149,6 +156,32 @@ func getFactory() SplitFactory {
 	}
 }
 
+func getFactoryByFlagSets() SplitFactory {
+	telemetryStorage, _ := inmemory.NewTelemetryStorage()
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.FlagSetFilter = []string{"set1", "set2"}
+	logger := logging.NewLogger(nil)
+
+	impressionObserver, _ := strategy.NewImpressionObserver(500)
+	impressionsCounter := strategy.NewImpressionsCounter()
+	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, false)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+
+	return SplitFactory{
+		cfg: cfg,
+		storages: sdkStorages{
+			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			events:              mocks.MockEventStorage{},
+			initTelemetry:       telemetryStorage,
+			runtimeTelemetry:    telemetryStorage,
+			evaluationTelemetry: telemetryStorage,
+		},
+		impressionManager: impressionManager,
+		logger:            logger,
+	}
+}
+
 func expectedTreatment(treatment string, expectedTreatment string, t *testing.T) {
 	if treatment != expectedTreatment {
 		t.Error("Expected: " + expectedTreatment + " actual: " + treatment)
@@ -193,6 +226,150 @@ func TestClientGetTreatment(t *testing.T) {
 	if impression.Label != "" {
 		t.Error("Impression should have label when labelsEnabled is true")
 	}
+}
+
+func TestClientGetTreatmentByFlagSet(t *testing.T) {
+	factory := getFactoryByFlagSets()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsByFlagSet("user1", "set1", nil)
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+}
+
+func TestClientGetTreatmentByFlagSets(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				case "set2":
+					results.Evaluations["feature2"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "bLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentB",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsByFlagSets("user1", []string{"set1", "set2"}, nil)
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["feature2"], "TreatmentB", t)
+}
+
+func TestClientGetTreatmentWithConfigByFlagSet(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsWithConfigByFlagSet("user1", "set1", nil)
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+}
+
+func TestClientGetTreatmentWithConfigByFlagSets(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = evaluatorMock.MockEvaluator{
+		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
+			results := evaluator.Results{
+				Evaluations:    make(map[string]evaluator.Result),
+				EvaluationTime: 0,
+			}
+			for _, flagSet := range flagSets {
+				switch flagSet {
+				case "set1":
+					results.Evaluations["feature"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "aLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentA",
+					}
+				case "set2":
+					results.Evaluations["feature2"] = evaluator.Result{
+						EvaluationTime:    0,
+						Label:             "bLabel",
+						SplitChangeNumber: 123,
+						Treatment:         "TreatmentB",
+					}
+				default:
+					t.Error("Should be set1 or set2")
+				}
+			}
+			return results
+		},
+	}
+	factory.status.Store(sdkStatusReady)
+
+	res := client.TreatmentsWithConfigByFlagSets("user1", []string{"set1", "set2"}, nil)
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+	expectedTreatment(res["feature2"].Treatment, "TreatmentB", t)
 }
 
 func TestTreatments(t *testing.T) {
@@ -1945,7 +2122,7 @@ func TestTelemetryMemory(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		splitChanges := dtos.SplitChangesDTO{
 			Splits: []dtos.SplitDTO{
-				{Name: "split1", Killed: true, Status: "ACTIVE"},
+				{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},
 				{Name: "split2", Killed: true, Status: "ACTIVE"},
 				{Name: "split3", Killed: true, Status: "INACTIVE"},
 			},
@@ -2003,6 +2180,9 @@ func TestTelemetryMemory(t *testing.T) {
 				if dataInPost.ActiveFactories != 1 {
 					t.Error("It should be 1")
 				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeOptimized {
+					t.Error("It should be Optimized")
+				}
 			case 2:
 				if dataInPost.RedundantFactories != 1 {
 					t.Error("It should be 1")
@@ -2010,12 +2190,18 @@ func TestTelemetryMemory(t *testing.T) {
 				if dataInPost.ActiveFactories != 1 {
 					t.Error("It should be 1")
 				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeDebug {
+					t.Error("It should be Debug")
+				}
 			case 3:
 				if dataInPost.RedundantFactories != 1 {
 					t.Error("It should be 1")
 				}
 				if dataInPost.ActiveFactories != 2 {
 					t.Error("It should be 2")
+				}
+				if dataInPost.ImpressionsMode != telemetry.ImpressionsModeNone {
+					t.Error("It should be None")
 				}
 			}
 
@@ -2044,6 +2230,42 @@ func TestTelemetryMemory(t *testing.T) {
 			if dataInPost.SessionLengthMs == 0 {
 				t.Error("It should record sessionsLength")
 			}
+			if dataInPost.UpdatesFromSSE.Splits != 0 {
+				t.Error("It should send ufs")
+			}
+
+			switch metricsStatsCalled {
+			case 1:
+				if dataInPost.ImpressionsQueued != 1 {
+					t.Error("It should queue one impression")
+				}
+				if dataInPost.ImpressionsDeduped != 1 {
+					t.Error("It should dedupe one impression")
+				}
+				if dataInPost.EventsQueued != 1 {
+					t.Error("It should queue one event")
+				}
+			case 2:
+				if dataInPost.ImpressionsQueued != 2 {
+					t.Error("It should queue 2 impressions")
+				}
+				if dataInPost.ImpressionsDeduped != 0 {
+					t.Error("It should not dedupe impressions")
+				}
+				if dataInPost.EventsQueued != 1 {
+					t.Error("It should queue one event")
+				}
+			case 3:
+				if dataInPost.ImpressionsQueued != 0 {
+					t.Error("It should not queue impressions")
+				}
+				if dataInPost.ImpressionsDeduped != 0 {
+					t.Error("It should not dedupe impressions")
+				}
+				if dataInPost.EventsQueued != 0 {
+					t.Error("It should not track event")
+				}
+			}
 		}
 
 		fmt.Fprintln(w, "ok")
@@ -2067,21 +2289,32 @@ func TestTelemetryMemory(t *testing.T) {
 	if len(manager.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client.Treatment("some", "split1", nil)
+	client.Treatment("some", "split1", nil)
 	client.Track("something", "something", "something", nil, nil)
 
+	sdkConf.ImpressionsMode = "debug"
 	factory2, _ := NewSplitFactory("something", sdkConf)
 	manager2 := factory2.Manager()
-	manager2.BlockUntilReady(1)
+	client2 := factory2.Client()
+	client2.BlockUntilReady(1)
 	if len(manager2.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client2.Treatment("some", "split1", nil)
+	client2.Treatment("some", "split1", nil)
+	client2.Track("something", "something", "something", nil, nil)
 
+	sdkConf.ImpressionsMode = "none"
 	factory3, _ := NewSplitFactory("something2", sdkConf)
 	manager3 := factory3.Manager()
-	manager3.BlockUntilReady(1)
+	client3 := factory3.Client()
+	client3.BlockUntilReady(1)
 	if len(manager3.SplitNames()) != 2 {
 		t.Error("It should return splits")
 	}
+	client3.Treatment("some", "split1", nil)
+	client3.Treatment("some", "split1", nil)
 
 	factory.Destroy()
 	factory2.Destroy()

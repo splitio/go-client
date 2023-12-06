@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/v4/conf"
+	"github.com/splitio/go-split-commons/v5/conf"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 	"github.com/splitio/go-toolkit/v5/nethelpers"
@@ -94,6 +94,7 @@ type AdvancedConfig struct {
 	ImpressionsQueueSize int
 	ImpressionsBulkSize  int64
 	StreamingEnabled     bool
+	FlagSetFilter        []string
 }
 
 // Default returns a config struct with all the default values

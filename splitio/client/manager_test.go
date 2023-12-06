@@ -3,20 +3,24 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v4/dtos"
-	"github.com/splitio/go-split-commons/v4/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v5/dtos"
+	"github.com/splitio/go-split-commons/v5/flagsets"
+	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexmap"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
 func TestSplitManager(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	splitStorage.Update([]dtos.SplitDTO{
 		{
-			ChangeNumber:    123,
-			Name:            "split1",
-			Killed:          false,
-			TrafficTypeName: "tt1",
+			ChangeNumber:     123,
+			Name:             "split1",
+			Killed:           false,
+			TrafficTypeName:  "tt1",
+			Sets:             []string{"set1", "set2"},
+			DefaultTreatment: "s1p1",
 			Conditions: []dtos.ConditionDTO{
 				{
 					Partitions: []dtos.PartitionDTO{
@@ -69,12 +73,24 @@ func TestSplitManager(t *testing.T) {
 		t.Error("Incorrect treatments for split 1")
 	}
 
+	if len(s1.Sets) != 2 {
+		t.Error("split1 should have 2 sets")
+	}
+
+	if s1.DefaultTreatment != "s1p1" {
+		t.Error("the default treatment for split1 should be s1p1")
+	}
+
 	s2 := manager.Split("split2")
 	if s2.Name != "split2" || !s2.Killed || s2.TrafficType != "tt2" || s2.ChangeNumber != 123 {
 		t.Error("Split 2 stored incorrectly")
 	}
 	if s2.Treatments[0] != "s1p2" && s2.Treatments[1] != "s2p2" && s2.Treatments[2] != "s2p3" {
 		t.Error("Incorrect treatments for split 2")
+	}
+
+	if s2.Sets == nil && len(s2.Sets) != 0 {
+		t.Error("split2 sets should be empty array")
 	}
 
 	all := manager.Splits()
@@ -89,7 +105,8 @@ func TestSplitManager(t *testing.T) {
 }
 
 func TestSplitManagerWithConfigs(t *testing.T) {
-	splitStorage := mutexmap.NewMMSplitStorage()
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	splitStorage.Update([]dtos.SplitDTO{*valid, *killed, *noConfig}, nil, 123)
 
 	logger := logging.NewLogger(nil)
@@ -123,6 +140,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s1.Configs["on"] != "{\"color\": \"blue\",\"size\": 13}" {
 		t.Error("It should have configs")
 	}
+	if s1.DefaultTreatment != "off" {
+		t.Error("the default treatment for valid should be off")
+	}
 
 	s2 := manager.Split("killed")
 	if s2.Name != "killed" || !s2.Killed || s2.TrafficType != "user" || s2.ChangeNumber != 1494593336752 {
@@ -137,6 +157,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s2.Configs["defTreatment"] != "{\"color\": \"orange\",\"size\": 15}" {
 		t.Error("It should have configs")
 	}
+	if s2.DefaultTreatment != "defTreatment" {
+		t.Error("the default treatment for killed should be defTreatment")
+	}
 
 	s3 := manager.Split("noConfig")
 	if s3.Name != "noConfig" || s3.Killed || s3.TrafficType != "user" || s3.ChangeNumber != 1494593336752 {
@@ -147,6 +170,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	}
 	if s3.Configs != nil {
 		t.Error("It should not have configs")
+	}
+	if s3.DefaultTreatment != "defTreatment" {
+		t.Error("the default treatment for killed should be defTreatment")
 	}
 
 	all := manager.Splits()

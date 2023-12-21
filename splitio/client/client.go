@@ -24,7 +24,7 @@ const (
 	treatment                      = "Treatment"
 	treatments                     = "Treatments"
 	treatmentsByFlagSet            = "TreatmentsByFlagSet"
-	treatmentsByFlagSets           = "TreatmentsByFlahSets"
+	treatmentsByFlagSets           = "TreatmentsByFlagSets"
 	treatmentWithConfig            = "TreatmentWithConfig"
 	treatmentsWithConfig           = "TreatmentsWithConfig"
 	treatmentsWithConfigByFlagSet  = "TreatmentsWithConfigByFlagSet"

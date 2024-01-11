@@ -24,11 +24,11 @@ const (
 	treatment                      = "Treatment"
 	treatments                     = "Treatments"
 	treatmentsByFlagSet            = "TreatmentsByFlagSet"
-	treatmentsByFlagSets           = "TreatmentsByFlahSets"
+	treatmentsByFlagSets           = "TreatmentsByFlagSets"
 	treatmentWithConfig            = "TreatmentWithConfig"
 	treatmentsWithConfig           = "TreatmentsWithConfig"
 	treatmentsWithConfigByFlagSet  = "TreatmentsWithConfigByFlagSet"
-	treatmentsWithConfigByFlagSets = "TrearmentsWithConfigByFlagSets"
+	treatmentsWithConfigByFlagSets = "TreatmentsWithConfigByFlagSets"
 )
 
 // SplitClient is the entry-point of the split SDK.
@@ -396,7 +396,7 @@ func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, flagSet str
 	if sets == nil {
 		return treatmentsResult
 	}
-	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSet, telemetry.TreatmentsByFlagSets)
+	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSet, telemetry.TreatmentsWithConfigByFlagSet)
 }
 
 // TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag sets for a single user and set of attributes at once and returns configurations
@@ -406,7 +406,7 @@ func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, flagSets [
 	if flagSets == nil {
 		return treatmentsResult
 	}
-	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsByFlagSets)
+	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsWithConfigByFlagSets)
 }
 
 // isDestroyed returns true if the client has been destroyed

@@ -16,7 +16,6 @@ import (
 
 	"github.com/splitio/go-client/v6/splitio/conf"
 	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
-	spConf "github.com/splitio/go-split-commons/v5/conf"
 	"github.com/splitio/go-split-commons/v5/dtos"
 	"github.com/splitio/go-split-commons/v5/flagsets"
 	"github.com/splitio/go-split-commons/v5/healthcheck/application"
@@ -359,7 +358,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	sync, _ := synchronizer.NewSynchronizerManager(
 		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
-		spConf.AdvancedConfig{},
+		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
@@ -534,7 +533,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/splitChanges":
-			if r.RequestURI != "/splitChanges?sets=a%2Cc%2Cd&since=-1" {
+			if r.RequestURI != "/splitChanges?s=1.1&since=-1&sets=a%2Cc%2Cd" {
 				t.Error("wrong RequestURI for flag sets")
 			}
 			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))

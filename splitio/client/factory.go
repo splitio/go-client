@@ -23,6 +23,7 @@ import (
 	"github.com/splitio/go-split-commons/v5/provisional"
 	"github.com/splitio/go-split-commons/v5/provisional/strategy"
 	"github.com/splitio/go-split-commons/v5/service/api"
+	"github.com/splitio/go-split-commons/v5/service/api/specs"
 	"github.com/splitio/go-split-commons/v5/service/local"
 	"github.com/splitio/go-split-commons/v5/storage"
 	"github.com/splitio/go-split-commons/v5/storage/filter"
@@ -204,7 +205,7 @@ func (f *SplitFactory) subscribe(name int, subscriptor chan int) {
 }
 
 // removes a particular subscriptor from the list
-func (f *SplitFactory) unsubscribe(name int, subscriptor chan int) {
+func (f *SplitFactory) unsubscribe(name int) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	_, ok := f.readinessSubscriptors[name]
@@ -233,7 +234,7 @@ func (f *SplitFactory) BlockUntilReady(timer int) error {
 	defer func() {
 		// Unsubscription will happen only if a block channel has been created
 		if block != nil {
-			f.unsubscribe(subscriptorName, block)
+			f.unsubscribe(subscriptorName)
 			close(block)
 		}
 	}()
@@ -287,6 +288,8 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
+	advanced.AuthSpecVersion = specs.FLAG_V1_1
+	advanced.FlagsSpecVersion = specs.FLAG_V1_1
 	printWarnings(logger, warnings)
 	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetsFilter) - len(advanced.FlagSetsFilter))
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
@@ -336,7 +339,7 @@ func setupInMemoryFactory(
 		cfg.ImpressionsMode = config.ImpressionsModeOptimized
 	}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI, nil)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, true, &splitTasks, &workers, storages, metadata, splitAPI)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +433,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		cfg.ImpressionsMode = config.ImpressionsModeDebug
 	}
 
-	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil, impressionStorage)
+	impressionManager, err := buildImpressionManager(cfg, advanced, logger, false, &splitTasks, &workers, storages, metadata, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -600,7 +603,6 @@ func buildImpressionManager(
 	storages sdkStorages,
 	metadata dtos.Metadata,
 	splitAPI *api.SplitAPI,
-	impressionRedisStorage storage.ImpressionStorageProducer,
 ) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 	switch cfg.ImpressionsMode {

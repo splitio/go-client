@@ -622,6 +622,9 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 	if ilTest["Version"] != v {
 		return false
 	}
+	if ilTest["InstanceName"] != i {
+		return false
+	}
 	attr1, _ := ilTest["Attributes"].(map[string]interface{})
 	return attr1["One"] == a
 }
@@ -679,7 +682,6 @@ func getClientForListener() SplitClient {
 }
 func TestImpressionListener(t *testing.T) {
 	client := getClientForListener()
-	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -687,7 +689,7 @@ func TestImpressionListener(t *testing.T) {
 	expectedTreatment(client.Treatment("user1", "feature", attributes), "TreatmentA", t)
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -697,7 +699,6 @@ func TestImpressionListener(t *testing.T) {
 
 func TestImpressionListenerForTreatments(t *testing.T) {
 	client := getClientForListener()
-	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -713,11 +714,11 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 
-	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})

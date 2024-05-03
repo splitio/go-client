@@ -241,8 +241,6 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 
 // doTreatmentsCall retrieves treatments of an specific array of feature flag names with configurations object if it is present for a certain key and set of attributes
 func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
-	treatments := make(map[string]TreatmentResult)
-
 	// Set up a guard deferred function to recover if the SDK starts panicking
 	defer func() {
 		if r := recover(); r != nil {
@@ -275,9 +273,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []strin
 
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 
-	treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
-
-	return treatments
+	return c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
 }
 
 // doTreatmentsCallByFlagSets retrieves treatments of a specific array of feature flag names, that belong to flag sets, with configurations object if it is present for a certain key and set of attributes

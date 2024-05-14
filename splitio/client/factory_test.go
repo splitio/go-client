@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v5/flagsets"
+	"github.com/splitio/go-split-commons/v6/flagsets"
 )
 
 func TestPrintWarnings(t *testing.T) {

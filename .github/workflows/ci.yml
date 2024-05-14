@@ -39,7 +39,7 @@ jobs:
 
       - name: SonarQube Scan (Push)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/development')
-        uses: SonarSource/sonarcloud-github-action@v1.9
+        uses: SonarSource/sonarcloud-github-action@v2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
 
       - name: SonarQube Scan (Pull Request)
         if: github.event_name == 'pull_request'
-        uses: SonarSource/sonarcloud-github-action@v1.9
+        uses: SonarSource/sonarcloud-github-action@v2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

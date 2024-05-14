@@ -1,3 +1,8 @@
+6.6.0 (May 14, 2024)
+- Updated go-split-commons to v6
+  - Added support for targeting rules based on semantic versions (https://semver.org/).
+  - Added the logic to handle correctly when the SDK receives an unsupported Matcher type.
+
 6.5.2 (Dec 21, 2023)
 - Updated telemetry name methods for flagSets.
 

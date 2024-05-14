@@ -15,20 +15,19 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
-	spConf "github.com/splitio/go-split-commons/v5/conf"
-	"github.com/splitio/go-split-commons/v5/dtos"
-	"github.com/splitio/go-split-commons/v5/flagsets"
-	"github.com/splitio/go-split-commons/v5/healthcheck/application"
-	"github.com/splitio/go-split-commons/v5/provisional"
-	"github.com/splitio/go-split-commons/v5/provisional/strategy"
-	"github.com/splitio/go-split-commons/v5/service/api"
-	authMocks "github.com/splitio/go-split-commons/v5/service/mocks"
-	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v5/storage/mocks"
-	"github.com/splitio/go-split-commons/v5/storage/redis"
-	"github.com/splitio/go-split-commons/v5/synchronizer"
+	commonsCfg "github.com/splitio/go-split-commons/v6/conf"
+	"github.com/splitio/go-split-commons/v6/dtos"
+	"github.com/splitio/go-split-commons/v6/flagsets"
+	"github.com/splitio/go-split-commons/v6/healthcheck/application"
+	"github.com/splitio/go-split-commons/v6/provisional"
+	"github.com/splitio/go-split-commons/v6/provisional/strategy"
+	"github.com/splitio/go-split-commons/v6/service/api"
+	authMocks "github.com/splitio/go-split-commons/v6/service/mocks"
+	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v6/storage/mocks"
+	"github.com/splitio/go-split-commons/v6/storage/redis"
+	"github.com/splitio/go-split-commons/v6/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -359,7 +358,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	sync, _ := synchronizer.NewSynchronizerManager(
 		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
-		spConf.AdvancedConfig{},
+		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
 		mocks.MockSplitStorage{},
 		make(chan int, 1),
@@ -534,7 +533,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/splitChanges":
-			if r.RequestURI != "/splitChanges?sets=a%2Cc%2Cd&since=-1" {
+			if r.RequestURI != "/splitChanges?s=1.1&since=-1&sets=a%2Cc%2Cd" {
 				t.Error("wrong RequestURI for flag sets")
 			}
 			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))

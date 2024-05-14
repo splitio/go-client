@@ -18,24 +18,24 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 
-	commonsCfg "github.com/splitio/go-split-commons/v5/conf"
-	"github.com/splitio/go-split-commons/v5/dtos"
-	"github.com/splitio/go-split-commons/v5/engine/evaluator"
-	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
-	evaluatorMock "github.com/splitio/go-split-commons/v5/engine/evaluator/mocks"
-	"github.com/splitio/go-split-commons/v5/healthcheck/application"
-	"github.com/splitio/go-split-commons/v5/provisional"
-	"github.com/splitio/go-split-commons/v5/provisional/strategy"
-	authMocks "github.com/splitio/go-split-commons/v5/service/mocks"
-	"github.com/splitio/go-split-commons/v5/storage"
-	"github.com/splitio/go-split-commons/v5/storage/inmemory"
-	"github.com/splitio/go-split-commons/v5/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v5/storage/mocks"
-	"github.com/splitio/go-split-commons/v5/storage/redis"
-	"github.com/splitio/go-split-commons/v5/synchronizer"
-	syncMock "github.com/splitio/go-split-commons/v5/synchronizer/mocks"
-	"github.com/splitio/go-split-commons/v5/telemetry"
-	"github.com/splitio/go-split-commons/v5/util"
+	commonsCfg "github.com/splitio/go-split-commons/v6/conf"
+	"github.com/splitio/go-split-commons/v6/dtos"
+	"github.com/splitio/go-split-commons/v6/engine/evaluator"
+	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
+	evaluatorMock "github.com/splitio/go-split-commons/v6/engine/evaluator/mocks"
+	"github.com/splitio/go-split-commons/v6/healthcheck/application"
+	"github.com/splitio/go-split-commons/v6/provisional"
+	"github.com/splitio/go-split-commons/v6/provisional/strategy"
+	authMocks "github.com/splitio/go-split-commons/v6/service/mocks"
+	"github.com/splitio/go-split-commons/v6/storage"
+	"github.com/splitio/go-split-commons/v6/storage/inmemory"
+	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v6/storage/mocks"
+	"github.com/splitio/go-split-commons/v6/storage/redis"
+	"github.com/splitio/go-split-commons/v6/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/v6/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v6/telemetry"
+	"github.com/splitio/go-split-commons/v6/util"
 
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
@@ -622,6 +622,9 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 	if ilTest["Version"] != v {
 		return false
 	}
+	if ilTest["InstanceName"] != i {
+		return false
+	}
 	attr1, _ := ilTest["Attributes"].(map[string]interface{})
 	return attr1["One"] == a
 }
@@ -679,7 +682,6 @@ func getClientForListener() SplitClient {
 }
 func TestImpressionListener(t *testing.T) {
 	client := getClientForListener()
-	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -687,7 +689,7 @@ func TestImpressionListener(t *testing.T) {
 	expectedTreatment(client.Treatment("user1", "feature", attributes), "TreatmentA", t)
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -697,7 +699,6 @@ func TestImpressionListener(t *testing.T) {
 
 func TestImpressionListenerForTreatments(t *testing.T) {
 	client := getClientForListener()
-	cfg := conf.Default()
 
 	attributes := make(map[string]interface{})
 	attributes["One"] = "test"
@@ -713,11 +714,11 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 
-	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", cfg.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -2113,6 +2114,122 @@ func TestClientDebug(t *testing.T) {
 	}
 }
 
+func TestUnsupportedMatcherAndSemver(t *testing.T) {
+	var isDestroyCalled = false
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_3.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/auth":
+			if r.URL.Query().Get("s") != "1.1" {
+				t.Error("should be parameter s, for flags spec")
+			}
+			fmt.Fprintln(w, "{\"pushEnabled\": false, \"token\": \"token\"}")
+			return
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeOptimized {
+				t.Error("Wrong header")
+			}
+
+			if isDestroyCalled {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 6 {
+					t.Error("It should send two impressions in optimized mode")
+				}
+				for _, ki := range dataInPost {
+					if asISlice, ok := ki["i"].([]interface{}); !ok || len(asISlice) != 1 {
+						t.Error("It should send only one impression per featureName", dataInPost)
+					}
+					if ki["f"] == "unsupported" {
+						message := ki["i"].([]interface{})[0].(map[string]interface{})["r"]
+						if message != "targeting rule type unsupported by sdk" {
+							t.Error("message sould be: targeting rule type unsupported by sdk")
+						}
+					}
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/testImpressions/count":
+			fallthrough
+		case "/keys/ss":
+			fallthrough
+		case "/events/bulk":
+			fallthrough
+		case "/segmentChanges":
+			fallthrough
+		default:
+			fmt.Fprintln(w, "ok")
+		}
+	}))
+	defer ts.Close()
+
+	cfg := conf.Default()
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	attributes := make(map[string]interface{})
+	attributes["version"] = "1.22.9"
+	evaluation := client.Treatment("user1", "semver", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	attributes["version"] = "2.0.0"
+	evaluation = client.Treatment("user1", "semver1", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	evaluation = client.Treatment("user1", "semver2", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	attributes["version"] = "1.0.0"
+	evaluation = client.Treatment("user1", "semver3", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	attributes["version"] = "2.1.0"
+	evaluation = client.Treatment("user1", "semver4", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	evaluation = client.Treatment("user1", "unsupported", nil)
+	if evaluation != "control" {
+		t.Error("evaluation for unsupported should be control")
+	}
+
+	isDestroyCalled = true
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
 func TestTelemetryMemory(t *testing.T) {
 	factoryInstances = make(map[string]int64)
 	var metricsInitCalled int64
@@ -2624,6 +2741,160 @@ func TestClientDebugRedis(t *testing.T) {
 	exist, _ = prefixedClient.Exists("SPLITIO.impressions.count")
 	if exist != 0 {
 		t.Error("SPLITIO.impressions.count should not exist")
+	}
+
+	// Clean redis
+	keys, _ := prefixedClient.Keys("SPLITIO*")
+	for _, k := range keys {
+		prefixedClient.Del(k)
+	}
+}
+
+var semver string = "3.4.5"
+var attribute string = "version"
+
+var splitSemver = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "off",
+	Killed:                false,
+	Name:                  "semver",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"on": "{\"color\": \"blue\",\"size\": 13}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   &attribute,
+						},
+						MatcherType: "EQUAL_TO_SEMVER",
+						String:      &semver,
+						Whitelist:   nil,
+						Negate:      false,
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "on",
+				},
+				{
+					Size:      0,
+					Treatment: "off",
+				},
+			},
+		},
+	},
+}
+
+var splitUnsupported = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "off",
+	Killed:                false,
+	Name:                  "unsupported",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"on": "{\"color\": \"blue\",\"size\": 13}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   nil,
+						},
+						MatcherType: "UNSUPPORTED",
+						Whitelist:   nil,
+						Negate:      false,
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "on",
+				},
+			},
+		},
+	},
+}
+
+func TestUnsupportedandSemverMatcherRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-semver",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	raw, _ := json.Marshal(*splitSemver)
+	prefixedClient.Set("SPLITIO.split.semver", raw, 0)
+	raw, _ = json.Marshal(*splitUnsupported)
+	prefixedClient.Set("SPLITIO.split.unsupported", raw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeOptimized
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	attributes := make(map[string]interface{})
+	attributes["version"] = "3.4.5"
+	evaluation := client.Treatment("user1", "semver", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	evaluation = client.Treatment("user2", "unsupported", nil)
+	if evaluation != "control" {
+		t.Error("evaluation for unsupported should be control")
+	}
+	client.Destroy()
+
+	// Validate impressions
+	impressions, _ := prefixedClient.LRange("SPLITIO.impressions", 0, -1)
+
+	if len(impressions) != 2 {
+		t.Error("Impression length shold be 2")
+	}
+
+	for _, imp := range impressions {
+		var imprObject dtos.ImpressionQueueObject
+		_ = json.Unmarshal([]byte(imp), &imprObject)
+
+		if imprObject.Impression.KeyName == "user1" && imprObject.Impression.FeatureName == "semver" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
+		if imprObject.Impression.KeyName == "user2" && imprObject.Impression.FeatureName == "unsupported" && imprObject.Impression.Pt != 0 {
+			t.Error("Pt should be 0.")
+		}
 	}
 
 	// Clean redis

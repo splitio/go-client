@@ -10,13 +10,13 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 
-	"github.com/splitio/go-split-commons/v5/dtos"
-	"github.com/splitio/go-split-commons/v5/engine/evaluator"
-	"github.com/splitio/go-split-commons/v5/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v5/flagsets"
-	"github.com/splitio/go-split-commons/v5/provisional"
-	"github.com/splitio/go-split-commons/v5/storage"
-	"github.com/splitio/go-split-commons/v5/telemetry"
+	"github.com/splitio/go-split-commons/v6/dtos"
+	"github.com/splitio/go-split-commons/v6/engine/evaluator"
+	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v6/flagsets"
+	"github.com/splitio/go-split-commons/v6/provisional"
+	"github.com/splitio/go-split-commons/v6/storage"
+	"github.com/splitio/go-split-commons/v6/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -241,8 +241,6 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 
 // doTreatmentsCall retrieves treatments of an specific array of feature flag names with configurations object if it is present for a certain key and set of attributes
 func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
-	treatments := make(map[string]TreatmentResult)
-
 	// Set up a guard deferred function to recover if the SDK starts panicking
 	defer func() {
 		if r := recover(); r != nil {
@@ -275,9 +273,7 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []strin
 
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 
-	treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
-
-	return treatments
+	return c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
 }
 
 // doTreatmentsCallByFlagSets retrieves treatments of a specific array of feature flag names, that belong to flag sets, with configurations object if it is present for a certain key and set of attributes

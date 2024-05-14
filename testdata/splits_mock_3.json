@@ -1,0 +1,319 @@
+{
+    "splits": [
+      {
+        "trafficTypeName": "user",
+        "name": "semver",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": "version"
+                  },
+                  "matcherType":"EQUAL_TO_SEMVER",
+                  "negate":false,
+                  "userDefinedSegmentMatcherData":null,
+                  "whitelistMatcherData":null,
+                  "unaryNumericMatcherData":null,
+                  "betweenMatcherData":null,
+                  "dependencyMatcherData":null,
+                  "booleanMatcherData":null,
+                  "stringMatcherData":"1.22.9"
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              },
+              {
+                "treatment": "of",
+                "size": 0
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      },
+      {
+        "trafficTypeName": "user",
+        "name": "semver1",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": "version"
+                  },
+                  "matcherType":"BETWEEN_SEMVER",
+                    "negate":false,
+                    "userDefinedSegmentMatcherData":null,
+                    "whitelistMatcherData":null,
+                    "unaryNumericMatcherData":null,
+                    "betweenMatcherData":null,
+                    "dependencyMatcherData":null,
+                    "booleanMatcherData":null,
+                    "stringMatcherData":null,
+                    "betweenStringMatcherData":{
+                        "start":"1.22.9",
+                        "end":"2.1.0"
+                    }
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              },
+              {
+                "treatment": "of",
+                "size": 0
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      },
+      {
+        "trafficTypeName": "user",
+        "name": "semver2",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": "version"
+                  },
+                  "matcherType":"GREATER_THAN_OR_EQUAL_TO_SEMVER",
+                    "negate":false,
+                    "userDefinedSegmentMatcherData":null,
+                    "whitelistMatcherData":null,
+                    "unaryNumericMatcherData":null,
+                    "betweenMatcherData":null,
+                    "dependencyMatcherData":null,
+                    "booleanMatcherData":null,
+                    "stringMatcherData":"1.22.9"
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              },
+              {
+                "treatment": "of",
+                "size": 0
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      },
+      {
+        "trafficTypeName": "user",
+        "name": "semver3",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": "version"
+                  },
+                  "matcherType":"LESS_THAN_OR_EQUAL_TO_SEMVER",
+                    "negate":false,
+                    "userDefinedSegmentMatcherData":null,
+                    "whitelistMatcherData":null,
+                    "unaryNumericMatcherData":null,
+                    "betweenMatcherData":null,
+                    "dependencyMatcherData":null,
+                    "booleanMatcherData":null,
+                    "stringMatcherData":"1.22.9"
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              },
+              {
+                "treatment": "of",
+                "size": 0
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      },
+      {
+        "trafficTypeName": "user",
+        "name": "semver4",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": "version"
+                  },
+                  "matcherType":"IN_LIST_SEMVER",
+                    "negate":false,
+                    "userDefinedSegmentMatcherData":null,
+                    "whitelistMatcherData":{
+                        "whitelist":[
+                            "1.22.9",
+                            "2.1.0"
+                        ]
+                    },
+                    "unaryNumericMatcherData":null,
+                    "betweenMatcherData":null,
+                    "dependencyMatcherData":null,
+                    "booleanMatcherData":null,
+                    "stringMatcherData":null,
+                    "betweenStringMatcherData":null
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              },
+              {
+                "treatment": "of",
+                "size": 0
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      },
+      {
+        "trafficTypeName": "user",
+        "name": "unsupported",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1314112417,
+        "seed": -2059033614,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "of",
+        "changeNumber": 1491244291288,
+        "algo": 2,
+        "configurations": {
+          "on": "{\"color\": \"blue\",\"size\": 13}"
+        },
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": null
+                  },
+                  "matcherType": "UNSUPPORTED",
+                  "negate": false,
+                  "userDefinedSegmentMatcherData": null,
+                  "whitelistMatcherData": null,
+                  "unaryNumericMatcherData": null,
+                  "betweenMatcherData": null
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 0
+              },
+              {
+                "treatment": "of",
+                "size": 100
+              }
+            ],
+            "label": "in segment all"
+          }
+        ]
+      }
+    ],
+    "since": 1491244291288,
+    "till": 1491244291288
+  }

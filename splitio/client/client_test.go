@@ -2357,7 +2357,7 @@ func TestTelemetryMemory(t *testing.T) {
 					t.Error("It should queue one impression")
 				}
 				if dataInPost.ImpressionsDeduped != 1 {
-					t.Error("It should dedupe one impression")
+					t.Error("It should dedupe one impression. ", dataInPost.ImpressionsDeduped)
 				}
 				if dataInPost.EventsQueued != 1 {
 					t.Error("It should queue one event")

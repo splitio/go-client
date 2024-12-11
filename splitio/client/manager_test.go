@@ -81,6 +81,10 @@ func TestSplitManager(t *testing.T) {
 		t.Error("the default treatment for split1 should be s1p1")
 	}
 
+	if !s1.TrackImpressions {
+		t.Error("track impressions for split1 should be true")
+	}
+
 	s2 := manager.Split("split2")
 	if s2.Name != "split2" || !s2.Killed || s2.TrafficType != "tt2" || s2.ChangeNumber != 123 {
 		t.Error("Split 2 stored incorrectly")
@@ -91,6 +95,10 @@ func TestSplitManager(t *testing.T) {
 
 	if s2.Sets == nil && len(s2.Sets) != 0 {
 		t.Error("split2 sets should be empty array")
+	}
+
+	if !s2.TrackImpressions {
+		t.Error("track impressions for split2 should be true")
 	}
 
 	all := manager.Splits()
@@ -143,6 +151,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s1.DefaultTreatment != "off" {
 		t.Error("the default treatment for valid should be off")
 	}
+	if !s1.TrackImpressions {
+		t.Error("track impressions for valid should be true")
+	}
 
 	s2 := manager.Split("killed")
 	if s2.Name != "killed" || !s2.Killed || s2.TrafficType != "user" || s2.ChangeNumber != 1494593336752 {
@@ -160,6 +171,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s2.DefaultTreatment != "defTreatment" {
 		t.Error("the default treatment for killed should be defTreatment")
 	}
+	if !s2.TrackImpressions {
+		t.Error("track impressions for killed should be true")
+	}
 
 	s3 := manager.Split("noConfig")
 	if s3.Name != "noConfig" || s3.Killed || s3.TrafficType != "user" || s3.ChangeNumber != 1494593336752 {
@@ -174,6 +188,9 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	if s3.DefaultTreatment != "defTreatment" {
 		t.Error("the default treatment for killed should be defTreatment")
 	}
+	if !s3.TrackImpressions {
+		t.Error("track impressions for noConfig should be true")
+	}
 
 	all := manager.Splits()
 	if len(all) != 3 {
@@ -183,5 +200,41 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	sx := manager.Split("split3492042")
 	if sx != nil {
 		t.Error("Nonexistent split should return nil")
+	}
+}
+
+func TestSplitManagerTrackImpressions(t *testing.T) {
+	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
+	vFalse := false
+	valid.TrackImpressions = &vFalse
+	noConfig.TrackImpressions = &vFalse
+	splitStorage.Update([]dtos.SplitDTO{*valid, *killed, *noConfig}, nil, 123)
+
+	logger := logging.NewLogger(nil)
+	factory := SplitFactory{}
+	manager := SplitManager{
+		splitStorage: splitStorage,
+		logger:       logger,
+		validator:    inputValidation{logger: logger},
+		factory:      &factory,
+	}
+
+	factory.status.Store(sdkStatusReady)
+	manager.factory = &factory
+
+	s1 := manager.Split("valid")
+	if s1.TrackImpressions {
+		t.Error("track impressions for valid should be false")
+	}
+
+	s2 := manager.Split("killed")
+	if !s2.TrackImpressions {
+		t.Error("track impressions for killed should be true")
+	}
+
+	s3 := manager.Split("noConfig")
+	if s3.TrackImpressions {
+		t.Error("track impressions for noConfig should be true")
 	}
 }

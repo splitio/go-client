@@ -40,7 +40,7 @@ type SplitClient struct {
 	validator           inputValidation
 	factory             *SplitFactory
 	impressionListener  *impressionlistener.WrapperImpressionListener
-	impressionManager   provisional.ImpressionManager
+	impressionManager   *provisional.ImpressionManagerImpl
 	initTelemetry       storage.TelemetryConfigProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 	runtimeTelemetry    storage.TelemetryRuntimeProducer
@@ -62,9 +62,10 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flag %s. Make sure to wait for SDK readiness before using this method", operation, featureFlag))
 	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
-		Treatment: evaluator.Control,
-		Label:     impressionlabels.ClientNotReady,
-		Config:    nil,
+		Treatment:       evaluator.Control,
+		Label:           impressionlabels.ClientNotReady,
+		Config:          nil,
+		TrackImpression: true,
 	}
 }
 
@@ -82,9 +83,10 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	}
 	for _, featureFlag := range featureFlags {
 		result.Evaluations[featureFlag] = evaluator.Result{
-			Treatment: evaluator.Control,
-			Label:     impressionlabels.ClientNotReady,
-			Config:    nil,
+			Treatment:       evaluator.Control,
+			Label:           impressionlabels.ClientNotReady,
+			Config:          nil,
+			TrackImpression: true,
 		}
 	}
 	return result
@@ -114,14 +116,16 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 }
 
 // storeData stores impression, runs listener and stores metrics
-func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
+func (c *SplitClient) storeData(impressions []dtos.ImpressionDecorated, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
 	// Store impression
 	if c.impressions != nil {
-		forLog, forListener := c.impressionManager.ProcessImpressions(impressions)
+		listenerEnabled := c.impressionListener != nil
+
+		forLog, forListener := c.impressionManager.Process(impressions, listenerEnabled)
 		c.impressions.LogImpressions(forLog)
 
 		// Custom Impression Listener
-		if c.impressionListener != nil {
+		if listenerEnabled {
 			c.impressionListener.SendDataToClient(forListener, attributes)
 		}
 	} else {
@@ -177,7 +181,12 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 
 	c.storeData(
-		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
+		[]dtos.ImpressionDecorated{
+			{
+				Impression: c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber),
+				Track:      evaluationResult.TrackImpression,
+			},
+		},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -218,7 +227,7 @@ func (c *SplitClient) generateControlTreatments(featureFlagNames []string, opera
 }
 
 func (c *SplitClient) processResult(result evaluator.Results, operation string, bucketingKey *string, matchingKey string, attributes map[string]interface{}, metricsLabel string) (t map[string]TreatmentResult) {
-	var bulkImpressions []dtos.Impression
+	var bulkImpressions []dtos.ImpressionDecorated
 	treatments := make(map[string]TreatmentResult)
 	for feature, evaluation := range result.Evaluations {
 		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
@@ -227,7 +236,10 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
+			bulkImpressions = append(bulkImpressions, dtos.ImpressionDecorated{
+				Impression: c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber),
+				Track:      evaluation.TrackImpression,
+			})
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,

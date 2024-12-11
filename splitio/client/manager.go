@@ -27,6 +27,7 @@ type SplitView struct {
 	Configs          map[string]string `json:"configs"`
 	DefaultTreatment string            `json:"defaultTreatment"`
 	Sets             []string          `json:"sets"`
+	TrackImpressions bool              `json:"trackImpressions"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
@@ -49,6 +50,7 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 		Configs:          splitDto.Configurations,
 		DefaultTreatment: splitDto.DefaultTreatment,
 		Sets:             sets,
+		TrackImpressions: splitDto.TrackImpressions == nil || *splitDto.TrackImpressions,
 	}
 }
 

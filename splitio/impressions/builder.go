@@ -53,7 +53,8 @@ func BuildInMemoryManager(
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
 
 	if cfg.ImpressionsMode == config.ImpressionsModeNone {
-		return provisional.NewImpressionManager(noneStrategy), nil
+		impManager := provisional.NewImpressionManager(noneStrategy)
+		return impManager.(*provisional.ImpressionManagerImpl), nil
 	}
 
 	workers.ImpressionRecorder = impression.NewRecorderSingle(impressionStorage, splitAPI.ImpressionRecorder, logger, metadata, cfg.ImpressionsMode, telemetryStorage)
@@ -72,7 +73,7 @@ func BuildInMemoryManager(
 		impressionsStrategy = strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, listenerEnabled)
 	}
 
-	manager := provisional.NewImpressionManager(impressionsStrategy)
+	manager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 	manager.SetNoneStrategy(noneStrategy)
 
 	return manager, nil
@@ -102,7 +103,8 @@ func BuildRedisManager(
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
 
 	if cfg.ImpressionsMode == config.ImpressionsModeNone {
-		return provisional.NewImpressionManager(noneStrategy), nil
+		impManager := provisional.NewImpressionManager(noneStrategy)
+		return impManager.(*provisional.ImpressionManagerImpl), nil
 	}
 
 	impressionObserver, err := strategy.NewImpressionObserver(500)
@@ -118,7 +120,7 @@ func BuildRedisManager(
 		impressionsStrategy = strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryRuntimeStorage, listenerEnabled)
 	}
 
-	manager := provisional.NewImpressionManager(impressionsStrategy)
+	manager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 	manager.SetNoneStrategy(noneStrategy)
 
 	return manager, nil

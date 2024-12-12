@@ -534,7 +534,7 @@ func setupLocalhostFactory(
 		return nil, err
 	}
 	impressionsStrategy := strategy.NewDebugImpl(impressionObserver, cfg.Advanced.ImpressionListener != nil)
-	splitFactory.impressionManager = provisional.NewImpressionManager(impressionsStrategy)
+	splitFactory.impressionManager = provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 	setFactory(splitFactory.apikey, splitFactory.logger)
 
 	// Call fetching tasks as goroutine

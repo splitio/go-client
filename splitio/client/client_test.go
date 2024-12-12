@@ -140,7 +140,7 @@ func getFactory() SplitFactory {
 	impressionObserver, _ := strategy.NewImpressionObserver(500)
 	impressionsCounter := strategy.NewImpressionsCounter()
 	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, false)
-	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 
 	return SplitFactory{
 		cfg: cfg,
@@ -166,7 +166,7 @@ func getFactoryByFlagSets() SplitFactory {
 	impressionObserver, _ := strategy.NewImpressionObserver(500)
 	impressionsCounter := strategy.NewImpressionsCounter()
 	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryStorage, false)
-	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 
 	return SplitFactory{
 		cfg: cfg,
@@ -473,7 +473,7 @@ func TestClientPanicking(t *testing.T) {
 	impressionObserver, _ := strategy.NewImpressionObserver(500)
 	impressionsCounter := strategy.NewImpressionsCounter()
 	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryMockedStorage, false)
-	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 
 	factory := SplitFactory{
 		cfg: cfg,
@@ -650,7 +650,7 @@ func getClientForListener() SplitClient {
 	impressionObserver, _ := strategy.NewImpressionObserver(500)
 	impressionsCounter := strategy.NewImpressionsCounter()
 	impressionsStrategy := strategy.NewOptimizedImpl(impressionObserver, impressionsCounter, telemetryMockedStorage, true)
-	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 
 	factory := &SplitFactory{
 		cfg: cfg,
@@ -1372,7 +1372,7 @@ func TestClient(t *testing.T) {
 
 	impressionObserver, _ := strategy.NewImpressionObserver(500)
 	impressionsStrategy := strategy.NewDebugImpl(impressionObserver, true)
-	impressionManager := provisional.NewImpressionManager(impressionsStrategy)
+	impressionManager := provisional.NewImpressionManager(impressionsStrategy).(*provisional.ImpressionManagerImpl)
 
 	factory := &SplitFactory{cfg: cfg, impressionManager: impressionManager}
 	client := SplitClient{

@@ -2114,6 +2114,105 @@ func TestClientDebug(t *testing.T) {
 	}
 }
 
+func TestClientDebugWithImpressionsDisabledTrue(t *testing.T) {
+	var isDestroyCalled = false
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_2.json")
+
+	postChannel := make(chan string, 1)
+	var count int64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeDebug {
+				t.Error("Wrong header")
+			}
+
+			if isDestroyCalled {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 1 {
+					t.Error("It should send two impressions in optimized mode. Actual: ", len(dataInPost))
+				}
+				if len(dataInPost[0]["i"].([]interface{})) != 3 {
+					t.Error("It should send only one impression per featureName")
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/testImpressions/count":
+			atomic.AddInt64(&count, 1)
+		case "/events/bulk":
+			fmt.Fprintln(w, "ok")
+		case "/segmentChanges":
+			fallthrough
+		default:
+			fmt.Fprintln(w, "ok")
+		}
+	}))
+	defer ts.Close()
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = "Debug"
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL1, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL1["Pt"].(int64) != 0 {
+		t.Error("Pt should be 0")
+	}
+	client.Treatment("user1", "DEMO_MURMUR2", nil)
+	impL2, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL2["Pt"] != impL1["Time"] {
+		t.Error("Pt should be equal to previos imp1")
+	}
+	client.Treatments("user1", []string{"DEMO_MURMUR2"}, nil)
+	impL3, _ := ilResult["DEMO_MURMUR2"].(map[string]interface{})
+	if impL3["Pt"] != impL2["Time"] {
+		t.Error("Pt should be equal to previos imp2")
+	}
+
+	client.Treatment("user1", "IMPRESSION_TOGGLE_FLAG", nil)
+	impL4, _ := ilResult["IMPRESSION_TOGGLE_FLAG"].(map[string]interface{})
+	if impL4["Pt"].(int64) != 0 {
+		t.Error("Pt should be 0")
+	}
+
+	isDestroyCalled = true
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		if atomic.LoadInt64(&count) != 1 {
+			t.Error("Impression Count should be 1. Actual: ", atomic.LoadInt64(&count))
+		}
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
 func TestUnsupportedMatcherAndSemver(t *testing.T) {
 	var isDestroyCalled = false
 	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_3.json")

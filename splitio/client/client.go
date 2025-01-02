@@ -62,10 +62,10 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flag %s. Make sure to wait for SDK readiness before using this method", operation, featureFlag))
 	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
-		Treatment:       evaluator.Control,
-		Label:           impressionlabels.ClientNotReady,
-		Config:          nil,
-		TrackImpression: true,
+		Treatment:           evaluator.Control,
+		Label:               impressionlabels.ClientNotReady,
+		Config:              nil,
+		ImpressionsDisabled: false,
 	}
 }
 
@@ -83,10 +83,10 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	}
 	for _, featureFlag := range featureFlags {
 		result.Evaluations[featureFlag] = evaluator.Result{
-			Treatment:       evaluator.Control,
-			Label:           impressionlabels.ClientNotReady,
-			Config:          nil,
-			TrackImpression: true,
+			Treatment:           evaluator.Control,
+			Label:               impressionlabels.ClientNotReady,
+			Config:              nil,
+			ImpressionsDisabled: false,
 		}
 	}
 	return result
@@ -184,7 +184,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 		[]dtos.ImpressionDecorated{
 			{
 				Impression: c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber),
-				Track:      evaluationResult.TrackImpression,
+				Disabled:   evaluationResult.ImpressionsDisabled,
 			},
 		},
 		attributes,
@@ -238,7 +238,7 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 		} else {
 			bulkImpressions = append(bulkImpressions, dtos.ImpressionDecorated{
 				Impression: c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber),
-				Track:      evaluation.TrackImpression,
+				Disabled:   evaluation.ImpressionsDisabled,
 			})
 
 			treatments[feature] = TreatmentResult{

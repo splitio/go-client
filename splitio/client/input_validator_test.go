@@ -720,7 +720,7 @@ func TestNotReadyYet(t *testing.T) {
 
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
 	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
-		t.Error("Wrong message")
+		t.Error("Wrong message", mW.messages)
 	}
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)

@@ -115,6 +115,13 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 	}
 }
 
+func (c *SplitClient) createImpressionDecorated(featureFlag string, bucketingKey *string, matchingKey string, evaluationResult evaluator.Result) dtos.ImpressionDecorated {
+	return dtos.ImpressionDecorated{
+		Impression: c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber),
+		Disabled:   evaluationResult.ImpressionsDisabled,
+	}
+}
+
 // storeData stores impression, runs listener and stores metrics
 func (c *SplitClient) storeData(impressions []dtos.ImpressionDecorated, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
 	// Store impression
@@ -181,12 +188,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 
 	c.storeData(
-		[]dtos.ImpressionDecorated{
-			{
-				Impression: c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber),
-				Disabled:   evaluationResult.ImpressionsDisabled,
-			},
-		},
+		[]dtos.ImpressionDecorated{c.createImpressionDecorated(featureFlag, bucketingKey, matchingKey, *evaluationResult)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -236,10 +238,7 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, dtos.ImpressionDecorated{
-				Impression: c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber),
-				Disabled:   evaluation.ImpressionsDisabled,
-			})
+			bulkImpressions = append(bulkImpressions, c.createImpressionDecorated(feature, bucketingKey, matchingKey, evaluation))
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,

@@ -38,7 +38,7 @@ func BuildInMemoryManager(
 	splitAPI *api.SplitAPI,
 	telemetryStorage storage.TelemetryRuntimeProducer,
 	impressionStorage storage.ImpressionStorageConsumer,
-) (*provisional.ImpressionManagerImpl, error) {
+) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 	impressionsCounter := strategy.NewImpressionsCounter()
 	filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
@@ -85,7 +85,7 @@ func BuildRedisManager(
 	telemetryConfigStorage storage.TelemetryConfigProducer,
 	impressionsCountStorage storage.ImpressionsCountProducer,
 	telemetryRuntimeStorage storage.TelemetryRuntimeProducer,
-) (*provisional.ImpressionManagerImpl, error) {
+) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 
 	impressionsCounter := strategy.NewImpressionsCounter()

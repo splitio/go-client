@@ -76,7 +76,7 @@ type SplitFactory struct {
 	logger                logging.LoggerInterface
 	syncManager           synchronizer.Manager
 	telemetrySync         telemetry.TelemetrySynchronizer // To execute SynchronizeInit
-	impressionManager     *provisional.ImpressionManagerImpl
+	impressionManager     provisional.ImpressionManager
 }
 
 // Client returns the split client instantiated by the factory

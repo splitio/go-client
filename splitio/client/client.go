@@ -40,7 +40,7 @@ type SplitClient struct {
 	validator           inputValidation
 	factory             *SplitFactory
 	impressionListener  *impressionlistener.WrapperImpressionListener
-	impressionManager   *provisional.ImpressionManagerImpl
+	impressionManager   provisional.ImpressionManager
 	initTelemetry       storage.TelemetryConfigProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 	runtimeTelemetry    storage.TelemetryRuntimeProducer

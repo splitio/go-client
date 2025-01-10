@@ -93,7 +93,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 }
 
 // createImpression creates impression to be stored and used by listener
-func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64) dtos.Impression {
+func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64, disabled bool) dtos.Impression {
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
@@ -112,18 +112,12 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 		Label:        label,
 		Treatment:    treatment,
 		Time:         time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
-	}
-}
-
-func (c *SplitClient) createImpressionDecorated(featureFlag string, bucketingKey *string, matchingKey string, evaluationResult evaluator.Result) dtos.ImpressionDecorated {
-	return dtos.ImpressionDecorated{
-		Impression: c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber),
-		Disabled:   evaluationResult.ImpressionsDisabled,
+		Disabled:     disabled,
 	}
 }
 
 // storeData stores impression, runs listener and stores metrics
-func (c *SplitClient) storeData(impressions []dtos.ImpressionDecorated, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
+func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
 	// Store impression
 	if c.impressions != nil {
 		listenerEnabled := c.impressionListener != nil
@@ -188,7 +182,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 
 	c.storeData(
-		[]dtos.ImpressionDecorated{c.createImpressionDecorated(featureFlag, bucketingKey, matchingKey, *evaluationResult)},
+		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber, evaluationResult.ImpressionsDisabled)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -229,7 +223,7 @@ func (c *SplitClient) generateControlTreatments(featureFlagNames []string, opera
 }
 
 func (c *SplitClient) processResult(result evaluator.Results, operation string, bucketingKey *string, matchingKey string, attributes map[string]interface{}, metricsLabel string) (t map[string]TreatmentResult) {
-	var bulkImpressions []dtos.ImpressionDecorated
+	var bulkImpressions []dtos.Impression
 	treatments := make(map[string]TreatmentResult)
 	for feature, evaluation := range result.Evaluations {
 		if !c.validator.IsSplitFound(evaluation.Label, feature, operation) {
@@ -238,7 +232,7 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpressionDecorated(feature, bucketingKey, matchingKey, evaluation))
+			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled))
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,

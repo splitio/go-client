@@ -53,7 +53,7 @@ func BuildInMemoryManager(
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
 
 	if cfg.ImpressionsMode == config.ImpressionsModeNone {
-		impManager := provisional.NewImpressionManagerImp(noneStrategy, nil)
+		impManager := provisional.NewImpressionManagerImp(noneStrategy, noneStrategy)
 		return impManager, nil
 	}
 
@@ -102,7 +102,7 @@ func BuildRedisManager(
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
 
 	if cfg.ImpressionsMode == config.ImpressionsModeNone {
-		impManager := provisional.NewImpressionManagerImp(noneStrategy, nil)
+		impManager := provisional.NewImpressionManagerImp(noneStrategy, noneStrategy)
 		return impManager, nil
 	}
 

@@ -62,9 +62,10 @@ func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *stri
 	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flag %s. Make sure to wait for SDK readiness before using this method", operation, featureFlag))
 	c.initTelemetry.RecordNonReadyUsage()
 	return &evaluator.Result{
-		Treatment: evaluator.Control,
-		Label:     impressionlabels.ClientNotReady,
-		Config:    nil,
+		Treatment:           evaluator.Control,
+		Label:               impressionlabels.ClientNotReady,
+		Config:              nil,
+		ImpressionsDisabled: false,
 	}
 }
 
@@ -82,16 +83,17 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	}
 	for _, featureFlag := range featureFlags {
 		result.Evaluations[featureFlag] = evaluator.Result{
-			Treatment: evaluator.Control,
-			Label:     impressionlabels.ClientNotReady,
-			Config:    nil,
+			Treatment:           evaluator.Control,
+			Label:               impressionlabels.ClientNotReady,
+			Config:              nil,
+			ImpressionsDisabled: false,
 		}
 	}
 	return result
 }
 
 // createImpression creates impression to be stored and used by listener
-func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64) dtos.Impression {
+func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64, disabled bool) dtos.Impression {
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
@@ -110,6 +112,7 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 		Label:        label,
 		Treatment:    treatment,
 		Time:         time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
+		Disabled:     disabled,
 	}
 }
 
@@ -117,11 +120,13 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[string]interface{}, metricsLabel string, evaluationTime time.Duration) {
 	// Store impression
 	if c.impressions != nil {
-		forLog, forListener := c.impressionManager.ProcessImpressions(impressions)
+		listenerEnabled := c.impressionListener != nil
+
+		forLog, forListener := c.impressionManager.Process(impressions, listenerEnabled)
 		c.impressions.LogImpressions(forLog)
 
 		// Custom Impression Listener
-		if c.impressionListener != nil {
+		if listenerEnabled {
 			c.impressionListener.SendDataToClient(forListener, attributes)
 		}
 	} else {
@@ -177,7 +182,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 
 	c.storeData(
-		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber)},
+		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber, evaluationResult.ImpressionsDisabled)},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -227,7 +232,7 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber))
+			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled))
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,

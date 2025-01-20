@@ -20,11 +20,11 @@ import (
 const (
 	bfExpectedElemenets                = 10000000
 	bfFalsePositiveProbability         = 0.01
-	bfCleaningPeriod                   = 86400 // 24 hours
-	uniqueKeysPeriodTaskInMemory       = 900   // 15 min
-	uniqueKeysPeriodTaskRedis          = 300   // 5 min
-	impressionsCountPeriodTaskInMemory = 1800  // 30 min
-	impressionsCountPeriodTaskRedis    = 300   // 5 min
+	bfCleaningPeriod                   = 900  // 24 hours
+	uniqueKeysPeriodTaskInMemory       = 900  // 15 min
+	uniqueKeysPeriodTaskRedis          = 300  // 5 min
+	impressionsCountPeriodTaskInMemory = 1800 // 30 min
+	impressionsCountPeriodTaskRedis    = 300  // 5 min
 	impressionsBulkSizeRedis           = 100
 )
 

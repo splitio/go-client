@@ -59,6 +59,7 @@ type sdkStorages struct {
 	runtimeTelemetry    storage.TelemetryRuntimeProducer
 	evaluationTelemetry storage.TelemetryEvaluationProducer
 	impressionsCount    storage.ImpressionsCountProducer
+	uniqueKeysStorage   storage.UniqueKeysStorage
 }
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
@@ -283,7 +284,7 @@ func setupInMemoryFactory(
 		advanced.StreamingEnabled = false
 	}
 
-	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
+	inMememoryFullQueue := make(chan string, 3) // Size 3: So that it's able to accept one event from each resource simultaneously.
 
 	flagSetFilter := flagsets.NewFlagSetFilter(advanced.FlagSetsFilter)
 	splitsStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
@@ -291,6 +292,7 @@ func setupInMemoryFactory(
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
+	uniqueKeysStorage := mutexqueue.NewMQUniqueKeysStorage(advanced.UniqueKeysQueueSize, inMememoryFullQueue, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +304,7 @@ func setupInMemoryFactory(
 		SplitUpdater:      split.NewSplitUpdater(splitsStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter),
 		SegmentUpdater:    segment.NewSegmentUpdater(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger, telemetryStorage, dummyHC),
 		EventRecorder:     event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata, telemetryStorage),
-		TelemetryRecorder: telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage),
+		TelemetryRecorder: telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage, uniqueKeysStorage),
 	}
 	splitTasks := synchronizer.SplitTasks{
 		SplitSyncTask:     tasks.NewFetchSplitsTask(workers.SplitUpdater, cfg.TaskPeriods.SplitSync, logger),
@@ -320,13 +322,14 @@ func setupInMemoryFactory(
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		runtimeTelemetry:    telemetryStorage,
+		uniqueKeysStorage:   uniqueKeysStorage,
 	}
 
 	if cfg.ImpressionsMode == "" {
 		cfg.ImpressionsMode = config.ImpressionsModeOptimized
 	}
 
-	impressionManager, err := impressions.BuildInMemoryManager(cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, storages.runtimeTelemetry, storages.impressionsConsumer)
+	impressionManager, err := impressions.BuildInMemoryManager(cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, storages.runtimeTelemetry, storages.impressionsConsumer, uniqueKeysStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -394,11 +397,8 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	inMememoryFullQueue := make(chan string, 2) // Size 2: So that it's able to accept one event from each resource simultaneously.
 	impressionStorage := redis.NewImpressionStorage(redisClient, metadata, logger)
 
-	if len(cfg.Advanced.FlagSetsFilter) != 0 {
-		cfg.Advanced.FlagSetsFilter = []string{}
-		logger.Warning("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
-	}
-	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
+	advanced := conf.NormalizeRedisSDKConf(cfg.Advanced, logger)
+	flagSetFilter := flagsets.NewFlagSetFilter(advanced.FlagSetsFilter)
 
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger, flagSetFilter),
@@ -410,17 +410,19 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		evaluationTelemetry: telemetryStorage,
 		impressionsCount:    redis.NewImpressionsCountStorage(redisClient, logger),
 		runtimeTelemetry:    runtimeTelemetry,
+		uniqueKeysStorage:   mutexqueue.NewMQUniqueKeysStorage(advanced.UniqueKeysQueueSize, inMememoryFullQueue, logger),
 	}
 
 	splitTasks := synchronizer.SplitTasks{}
-	workers := synchronizer.Workers{}
-	advanced := config.AdvancedConfig{}
+	workers := synchronizer.Workers{
+		TelemetryRecorder: telemetry.NewSynchronizerRedis(telemetryStorage, logger, storages.uniqueKeysStorage),
+	}
 
 	if cfg.ImpressionsMode == "" {
 		cfg.ImpressionsMode = config.ImpressionsModeDebug
 	}
 
-	impressionManager, err := impressions.BuildRedisManager(cfg, logger, &splitTasks, storages.initTelemetry, storages.impressionsCount, storages.runtimeTelemetry)
+	impressionManager, err := impressions.BuildRedisManager(cfg, logger, &splitTasks, storages.initTelemetry, storages.impressionsCount, storages.runtimeTelemetry, storages.uniqueKeysStorage)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +446,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		operationMode:         conf.RedisConsumer,
 		storages:              storages,
 		readinessSubscriptors: make(map[int]chan int),
-		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
+		telemetrySync:         workers.TelemetryRecorder,
 		impressionManager:     impressionManager,
 		syncManager:           syncManager,
 	}

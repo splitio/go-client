@@ -38,16 +38,17 @@ func BuildInMemoryManager(
 	splitAPI *api.SplitAPI,
 	telemetryStorage storage.TelemetryRuntimeProducer,
 	impressionStorage storage.ImpressionStorageConsumer,
+	uniqueKeysStorage storage.UniqueKeysStorage,
 ) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 	impressionsCounter := strategy.NewImpressionsCounter()
 	filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
-	uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
+	uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter, uniqueKeysStorage)
 
 	workers.ImpressionsCountRecorder = impressionscount.NewRecorderSingle(impressionsCounter, splitAPI.ImpressionRecorder, metadata, logger, telemetryStorage)
 
 	splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(workers.ImpressionsCountRecorder, logger, impressionsCountPeriodTaskInMemory)
-	splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskInMemory, logger)
+	splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(workers.TelemetryRecorder, uniqueKeysPeriodTaskInMemory, logger, advanced.UniqueKeysBulkSize)
 	splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger, bfCleaningPeriod)
 
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)
@@ -85,18 +86,19 @@ func BuildRedisManager(
 	telemetryConfigStorage storage.TelemetryConfigProducer,
 	impressionsCountStorage storage.ImpressionsCountProducer,
 	telemetryRuntimeStorage storage.TelemetryRuntimeProducer,
+	uniqueKeysStorage storage.UniqueKeysStorage,
 ) (provisional.ImpressionManager, error) {
 	listenerEnabled := cfg.Advanced.ImpressionListener != nil
 
 	impressionsCounter := strategy.NewImpressionsCounter()
 	filter := filter.NewBloomFilter(bfExpectedElemenets, bfFalsePositiveProbability)
-	uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
+	uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter, uniqueKeysStorage)
 
-	telemetryRecorder := telemetry.NewSynchronizerRedis(telemetryConfigStorage, logger)
+	telemetryRecorder := telemetry.NewSynchronizerRedis(telemetryConfigStorage, logger, uniqueKeysStorage)
 	impressionsCountRecorder := impressionscount.NewRecorderRedis(impressionsCounter, impressionsCountStorage, logger)
 
 	splitTasks.ImpressionsCountSyncTask = tasks.NewRecordImpressionsCountTask(impressionsCountRecorder, logger, impressionsCountPeriodTaskRedis)
-	splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysTracker, uniqueKeysPeriodTaskRedis, logger)
+	splitTasks.UniqueKeysTask = tasks.NewRecordUniqueKeysTask(telemetryRecorder, uniqueKeysPeriodTaskRedis, logger, cfg.Advanced.UniqueKeysBulkSize)
 	splitTasks.CleanFilterTask = tasks.NewCleanFilterTask(filter, logger, bfCleaningPeriod)
 
 	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, listenerEnabled)

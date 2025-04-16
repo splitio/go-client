@@ -95,6 +95,8 @@ type AdvancedConfig struct {
 	ImpressionsBulkSize  int64
 	StreamingEnabled     bool
 	FlagSetsFilter       []string
+	UniqueKeysQueueSize  int64
+	UniqueKeysBulkSize   int64
 }
 
 // Default returns a config struct with all the default values
@@ -158,6 +160,8 @@ func Default() *SplitSdkConfig {
 			ImpressionsQueueSize: 10000,
 			ImpressionsBulkSize:  5000,
 			StreamingEnabled:     true,
+			UniqueKeysQueueSize:  10000,
+			UniqueKeysBulkSize:   5000,
 		},
 	}
 }

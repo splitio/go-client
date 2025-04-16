@@ -5,13 +5,42 @@ import (
 
 	"github.com/splitio/go-split-commons/v6/conf"
 	"github.com/splitio/go-split-commons/v6/flagsets"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
+
+const (
+	defaultUniqueKeysQueueSize = 2000
+	defaultUniqueKeysBulkSize  = 1000
+)
+
+func NormalizeRedisSDKConf(sdkConfig AdvancedConfig, logger logging.LoggerInterface) conf.AdvancedConfig {
+	config, _ := NormalizeSDKConf(sdkConfig)
+
+	if sdkConfig.UniqueKeysQueueSize == 0 {
+		config.UniqueKeysQueueSize = defaultUniqueKeysQueueSize
+	}
+	if sdkConfig.UniqueKeysBulkSize == 0 {
+		config.UniqueKeysBulkSize = defaultUniqueKeysBulkSize
+	}
+	if len(sdkConfig.FlagSetsFilter) != 0 {
+		config.FlagSetsFilter = []string{}
+		logger.Warning("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded")
+	}
+
+	return config
+}
 
 // NormalizeSDKConf compares against SDK Config to set defaults
 func NormalizeSDKConf(sdkConfig AdvancedConfig) (conf.AdvancedConfig, []error) {
 	config := conf.GetDefaultAdvancedConfig()
 	if sdkConfig.HTTPTimeout > 0 {
 		config.HTTPTimeout = sdkConfig.HTTPTimeout
+	}
+	if sdkConfig.UniqueKeysQueueSize > 0 {
+		config.UniqueKeysQueueSize = sdkConfig.UniqueKeysQueueSize
+	}
+	if sdkConfig.UniqueKeysBulkSize > 0 {
+		config.UniqueKeysBulkSize = sdkConfig.UniqueKeysBulkSize
 	}
 	if sdkConfig.EventsBulkSize > 0 {
 		config.EventsBulkSize = sdkConfig.EventsBulkSize

@@ -26,8 +26,9 @@ func TestBuildInMemoryWithNone(t *testing.T) {
 	splitAPI := api.NewSplitAPI("apikey", advanced, logger, metadata)
 	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 2), logger, telemetryStorage)
+	uniqueKeysStorage := mutexqueue.NewMQUniqueKeysStorage(cfg.Advanced.UniqueKeysQueueSize, make(chan string), logger)
 
-	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage)
+	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage, uniqueKeysStorage)
 	if err != nil {
 		t.Error("err should be nil. ", err.Error())
 	}
@@ -67,8 +68,9 @@ func TestBuildInMemoryWithDebug(t *testing.T) {
 	splitAPI := api.NewSplitAPI("apikey", advanced, logger, metadata)
 	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 2), logger, telemetryStorage)
+	uniqueKeysStorage := mutexqueue.NewMQUniqueKeysStorage(cfg.Advanced.UniqueKeysQueueSize, make(chan string), logger)
 
-	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage)
+	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage, uniqueKeysStorage)
 	if err != nil {
 		t.Error("err should be nil. ", err.Error())
 	}
@@ -107,8 +109,9 @@ func TestBuildInMemoryWithOptimized(t *testing.T) {
 	splitAPI := api.NewSplitAPI("apikey", advanced, logger, metadata)
 	telemetryStorage, _ := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 2), logger, telemetryStorage)
+	uniqueKeysStorage := mutexqueue.NewMQUniqueKeysStorage(cfg.Advanced.UniqueKeysQueueSize, make(chan string), logger)
 
-	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage)
+	impManager, err := BuildInMemoryManager(&cfg, advanced, logger, &splitTasks, &workers, metadata, splitAPI, telemetryStorage, impressionsStorage, uniqueKeysStorage)
 	if err != nil {
 		t.Error("err should be nil. ", err.Error())
 	}
@@ -143,8 +146,9 @@ func TestBuildRedisWithNone(t *testing.T) {
 	splitTasks := synchronizer.SplitTasks{}
 	runtimeTelemetry := mocks.MockTelemetryStorage{}
 	impressionCountStorage := mocks.MockImpressionsCountStorage{}
+	uniqueKeysStorage := mocks.MockUniqueKeysStorage{}
 
-	impManager, err := BuildRedisManager(&cfg, logger, &splitTasks, runtimeTelemetry, impressionCountStorage, runtimeTelemetry)
+	impManager, err := BuildRedisManager(&cfg, logger, &splitTasks, runtimeTelemetry, impressionCountStorage, runtimeTelemetry, uniqueKeysStorage)
 	if err != nil {
 		t.Error("err should be nil. ", err.Error())
 	}

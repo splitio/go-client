@@ -95,6 +95,52 @@
           "label": "in segment all"
         }
       ]
+    },
+    {
+      "trafficTypeName": "user",
+      "name": "IMPRESSION_TOGGLE_FLAG",
+      "trafficAllocation": 100,
+      "trafficAllocationSeed": 1314112417,
+      "seed": -2059033614,
+      "status": "ACTIVE",
+      "killed": false,
+      "defaultTreatment": "of",
+      "changeNumber": 1491244291288,
+      "algo": 2,
+      "impressionsDisabled": true,
+      "conditions": [
+        {
+          "conditionType": "ROLLOUT",
+          "matcherGroup": {
+            "combiner": "AND",
+            "matchers": [
+              {
+                "keySelector": {
+                  "trafficType": "user",
+                  "attribute": null
+                },
+                "matcherType": "ALL_KEYS",
+                "negate": false,
+                "userDefinedSegmentMatcherData": null,
+                "whitelistMatcherData": null,
+                "unaryNumericMatcherData": null,
+                "betweenMatcherData": null
+              }
+            ]
+          },
+          "partitions": [
+            {
+              "treatment": "on",
+              "size": 0
+            },
+            {
+              "treatment": "of",
+              "size": 100
+            }
+          ],
+          "label": "in segment all"
+        }
+      ]
     }
   ],
   "since": 1491244291288,

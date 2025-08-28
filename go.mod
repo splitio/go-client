@@ -3,7 +3,7 @@ module github.com/splitio/go-client/v6
 go 1.18
 
 require (
-	github.com/splitio/go-split-commons/v6 v6.1.1-0.20250828154055-c4035408fe61
+	github.com/splitio/go-split-commons/v6 v6.1.1-0.20250828184344-bcff10c58dfc
 	github.com/splitio/go-toolkit/v5 v5.4.0
 
 )

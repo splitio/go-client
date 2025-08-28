@@ -356,7 +356,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	logger := getMockedLogger()
 	localConfig := &synchronizer.LocalConfig{RefreshEnabled: false}
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
+		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, &mocks.MockRuleBasedSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
 		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
@@ -533,7 +533,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/splitChanges":
-			if r.RequestURI != "/splitChanges?s=1.1&since=-1&sets=a%2Cc%2Cd" {
+			if r.RequestURI != "/splitChanges?s=1.3&since=-1&rbSince=-1&sets=a%2Cc%2Cd" {
 				t.Error("wrong RequestURI for flag sets")
 			}
 			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))

@@ -3,8 +3,9 @@ module github.com/splitio/go-client/v6
 go 1.18
 
 require (
-	github.com/splitio/go-split-commons/v6 v6.1.0
+	github.com/splitio/go-split-commons/v6 v6.1.1-0.20250828184344-bcff10c58dfc
 	github.com/splitio/go-toolkit/v5 v5.4.0
+
 )
 
 require (
@@ -13,6 +14,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/redis/go-redis/v9 v9.0.4 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

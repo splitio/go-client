@@ -52,6 +52,7 @@ const (
 type sdkStorages struct {
 	splits              storage.SplitStorageConsumer
 	segments            storage.SegmentStorageConsumer
+	ruleBasedSegments   storage.RuleBasedSegmentStorageConsumer
 	impressionsConsumer storage.ImpressionStorageConsumer
 	impressions         storage.ImpressionStorageProducer
 	events              storage.EventStorageProducer
@@ -83,7 +84,7 @@ type SplitFactory struct {
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, engine.NewEngine(f.logger), f.logger),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, engine.NewEngine(f.logger), f.logger),
 		impressions: f.storages.impressions,
 		events:      f.storages.events,
 		validator: inputValidation{
@@ -275,8 +276,8 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
-	advanced.AuthSpecVersion = specs.FLAG_V1_1
-	advanced.FlagsSpecVersion = specs.FLAG_V1_1
+	advanced.AuthSpecVersion = specs.FLAG_V1_3
+	advanced.FlagsSpecVersion = specs.FLAG_V1_3
 	printWarnings(logger, warnings)
 	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetsFilter) - len(advanced.FlagSetsFilter))
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
@@ -288,6 +289,7 @@ func setupInMemoryFactory(
 	flagSetFilter := flagsets.NewFlagSetFilter(advanced.FlagSetsFilter)
 	splitsStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	segmentsStorage := mutexmap.NewMMSegmentStorage()
+	ruleBasedSegmentStorage := mutexmap.NewRuleBasedSegmentsStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
@@ -299,7 +301,7 @@ func setupInMemoryFactory(
 
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
 	workers := synchronizer.Workers{
-		SplitUpdater:      split.NewSplitUpdater(splitsStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter),
+		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter),
 		SegmentUpdater:    segment.NewSegmentUpdater(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger, telemetryStorage, dummyHC),
 		EventRecorder:     event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata, telemetryStorage),
 		TelemetryRecorder: telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage),
@@ -317,6 +319,7 @@ func setupInMemoryFactory(
 		impressionsConsumer: impressionsStorage,
 		impressions:         impressionsStorage,
 		segments:            segmentsStorage,
+		ruleBasedSegments:   ruleBasedSegmentStorage,
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		runtimeTelemetry:    telemetryStorage,
@@ -468,6 +471,7 @@ func setupLocalhostFactory(
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
+	ruleBasedSegmentStorage := mutexmap.NewRuleBasedSegmentsStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	if err != nil {
 		return nil, err
@@ -492,7 +496,7 @@ func setupLocalhostFactory(
 	}
 
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, logger, telemetryStorage, dummyHC),
+		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, ruleBasedSegmentStorage, logger, telemetryStorage, dummyHC),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,
@@ -518,6 +522,7 @@ func setupLocalhostFactory(
 			splits:              splitStorage,
 			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
 			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			ruleBasedSegments:   ruleBasedSegmentStorage,
 			segments:            segmentStorage,
 			initTelemetry:       telemetryStorage,
 			evaluationTelemetry: telemetryStorage,

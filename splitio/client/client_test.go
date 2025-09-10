@@ -1011,9 +1011,11 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 		}
 
 		splitChanges := dtos.SplitChangesDTO{
-			Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
-			Since:  3,
-			Till:   3,
+			FeatureFlags: dtos.FeatureFlagsDTO{
+				Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+				Since:  3,
+				Till:   3,
+			},
 		}
 
 		raw, err := json.Marshal(splitChanges)
@@ -1361,6 +1363,7 @@ func TestClient(t *testing.T) {
 				return false, nil
 			},
 		},
+		nil,
 		nil,
 		logger,
 	)
@@ -2222,7 +2225,7 @@ func TestUnsupportedMatcherAndSemver(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v2/auth":
-			if r.URL.Query().Get("s") != "1.1" {
+			if r.URL.Query().Get("s") != "1.3" {
 				t.Error("should be parameter s, for flags spec")
 			}
 			fmt.Fprintln(w, "{\"pushEnabled\": false, \"token\": \"token\"}")
@@ -2329,6 +2332,103 @@ func TestUnsupportedMatcherAndSemver(t *testing.T) {
 	}
 }
 
+func TestRuleBasedSegmentMatcher(t *testing.T) {
+	var isDestroyCalled = false
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_4.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/auth":
+			if r.URL.Query().Get("s") != "1.3" {
+				t.Error("should be parameter s, for flags spec")
+			}
+			fmt.Fprintln(w, "{\"pushEnabled\": false, \"token\": \"token\"}")
+			return
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeOptimized {
+				t.Error("Wrong header")
+			}
+
+			if isDestroyCalled {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 1 {
+					t.Error("It should send one impressions in optimized mode")
+				}
+				for _, ki := range dataInPost {
+					if asISlice, ok := ki["i"].([]interface{}); !ok || len(asISlice) != 1 {
+						t.Error("It should send only one impression per featureName", dataInPost)
+					}
+					if ki["f"] == "unsupported" {
+						message := ki["i"].([]interface{})[0].(map[string]interface{})["r"]
+						if message != "targeting rule type unsupported by sdk" {
+							t.Error("message sould be: targeting rule type unsupported by sdk")
+						}
+					}
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/testImpressions/count":
+			fallthrough
+		case "/keys/ss":
+			fallthrough
+		case "/events/bulk":
+			fallthrough
+		case "/segmentChanges":
+		default:
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+
+	cfg := conf.Default()
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(100)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	attributes := make(map[string]interface{})
+	attributes["email"] = "test@split.io"
+	evaluation := client.Treatment("user1", "rbs_split", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for semver should be on")
+	}
+	evaluation = client.Treatment("user1", "unsupported", nil)
+	if evaluation != "control" {
+		t.Error("evaluation for unsupported should be control")
+	}
+
+	isDestroyCalled = true
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}
+
 func TestTelemetryMemory(t *testing.T) {
 	factoryInstances = make(map[string]int64)
 	var metricsInitCalled int64
@@ -2337,14 +2437,15 @@ func TestTelemetryMemory(t *testing.T) {
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		splitChanges := dtos.SplitChangesDTO{
-			Splits: []dtos.SplitDTO{
-				{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},
-				{Name: "split2", Killed: true, Status: "ACTIVE"},
-				{Name: "split3", Killed: true, Status: "INACTIVE"},
-			},
-			Since: 3,
-			Till:  3,
-		}
+			FeatureFlags: dtos.FeatureFlagsDTO{
+				Splits: []dtos.SplitDTO{
+					{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},
+					{Name: "split2", Killed: true, Status: "ACTIVE"},
+					{Name: "split3", Killed: true, Status: "INACTIVE"},
+				},
+				Since: 3,
+				Till:  3,
+			}}
 
 		raw, err := json.Marshal(splitChanges)
 		if err != nil {

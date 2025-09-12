@@ -402,7 +402,7 @@ func TestLocalhostMode(t *testing.T) {
 		t.Error(err)
 	}
 	client := factory.Client()
-	client.BlockUntilReady(1)
+	client.BlockUntilReady(100)
 
 	if factory.cfg.OperationMode != conf.Localhost {
 		t.Error("Localhost operation mode should be set when received apikey is 'localhost'")
@@ -1365,7 +1365,10 @@ func TestClient(t *testing.T) {
 		},
 		nil,
 		nil,
+		nil,
 		logger,
+		cfg.Advanced.FeatureFlagRules,
+		cfg.Advanced.RuleBasedSegmentRules,
 	)
 
 	mockedTelemetryStorage := mocks.MockTelemetryStorage{

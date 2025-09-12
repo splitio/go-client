@@ -19,6 +19,7 @@ import (
 	"github.com/splitio/go-split-commons/v6/dtos"
 	"github.com/splitio/go-split-commons/v6/engine"
 	"github.com/splitio/go-split-commons/v6/engine/evaluator"
+	"github.com/splitio/go-split-commons/v6/engine/grammar"
 	"github.com/splitio/go-split-commons/v6/flagsets"
 	"github.com/splitio/go-split-commons/v6/healthcheck/application"
 	"github.com/splitio/go-split-commons/v6/provisional"
@@ -84,7 +85,7 @@ type SplitFactory struct {
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, engine.NewEngine(f.logger), f.logger),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules),
 		impressions: f.storages.impressions,
 		events:      f.storages.events,
 		validator: inputValidation{
@@ -300,8 +301,11 @@ func setupInMemoryFactory(
 	var dummyHC = &application.Dummy{}
 
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
+
+	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules)
+	ruleBuilder := grammar.NewRuleBuilder(segmentsStorage, ruleBasedSegmentStorage, nil, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, logger, evaluator)
 	workers := synchronizer.Workers{
-		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter),
+		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter, ruleBuilder),
 		SegmentUpdater:    segment.NewSegmentUpdater(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger, telemetryStorage, dummyHC),
 		EventRecorder:     event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata, telemetryStorage),
 		TelemetryRecorder: telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage),
@@ -493,10 +497,12 @@ func setupLocalhostFactory(
 		QueueSize:        cfg.Advanced.SegmentQueueSize,
 		SegmentDirectory: cfg.SegmentDirectory,
 		RefreshEnabled:   cfg.LocalhostRefreshEnabled,
+		FfRulesAccepted:  cfg.Advanced.FeatureFlagRules,
+		RbRulesAccepted:  cfg.Advanced.RuleBasedSegmentRules,
 	}
 
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, ruleBasedSegmentStorage, logger, telemetryStorage, dummyHC),
+		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, nil, ruleBasedSegmentStorage, logger, telemetryStorage, dummyHC),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,

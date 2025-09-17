@@ -19,15 +19,16 @@ type SplitManager struct {
 
 // SplitView is a partial representation of a currently stored split
 type SplitView struct {
-	Name                string            `json:"name"`
-	TrafficType         string            `json:"trafficType"`
-	Killed              bool              `json:"killed"`
-	Treatments          []string          `json:"treatments"`
-	ChangeNumber        int64             `json:"changeNumber"`
-	Configs             map[string]string `json:"configs"`
-	DefaultTreatment    string            `json:"defaultTreatment"`
-	Sets                []string          `json:"sets"`
-	ImpressionsDisabled bool              `json:"impressionsDisabled"`
+	Name                string              `json:"name"`
+	TrafficType         string              `json:"trafficType"`
+	Killed              bool                `json:"killed"`
+	Treatments          []string            `json:"treatments"`
+	ChangeNumber        int64               `json:"changeNumber"`
+	Configs             map[string]string   `json:"configs"`
+	DefaultTreatment    string              `json:"defaultTreatment"`
+	Sets                []string            `json:"sets"`
+	ImpressionsDisabled bool                `json:"impressionsDisabled"`
+	Prerequisites       []dtos.Prerequisite `json:"prerequisites"`
 }
 
 func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
@@ -51,6 +52,7 @@ func newSplitView(splitDto *dtos.SplitDTO) *SplitView {
 		DefaultTreatment:    splitDto.DefaultTreatment,
 		Sets:                sets,
 		ImpressionsDisabled: splitDto.ImpressionsDisabled,
+		Prerequisites:       splitDto.Prerequisites,
 	}
 }
 

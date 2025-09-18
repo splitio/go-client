@@ -2338,6 +2338,7 @@ func TestUnsupportedMatcherAndSemver(t *testing.T) {
 func TestRuleBasedSegmentMatcher(t *testing.T) {
 	var isDestroyCalled = false
 	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_4.json")
+	var segmentMock, _ = ioutil.ReadFile("../../testdata/segments/segment_2.json")
 
 	postChannel := make(chan string, 1)
 
@@ -2383,6 +2384,9 @@ func TestRuleBasedSegmentMatcher(t *testing.T) {
 
 			fmt.Fprintln(w, "ok")
 			postChannel <- "finished"
+		case "/segmentChanges/regular_segment":
+			fmt.Fprintln(w, string(segmentMock))
+			return
 		case "/testImpressions/count":
 			fallthrough
 		case "/keys/ss":
@@ -2405,7 +2409,7 @@ func TestRuleBasedSegmentMatcher(t *testing.T) {
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
-	client.BlockUntilReady(100)
+	client.BlockUntilReady(10)
 
 	// Calls treatments to generate one valid impression
 	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished

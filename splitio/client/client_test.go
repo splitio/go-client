@@ -3106,3 +3106,105 @@ func TestUnsupportedandSemverMatcherRedis(t *testing.T) {
 		prefixedClient.Del(k)
 	}
 }
+
+func TestPrerequisites(t *testing.T) {
+	var isDestroyCalled = false
+	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_5.json")
+
+	postChannel := make(chan string, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/auth":
+			if r.URL.Query().Get("s") != "1.3" {
+				t.Error("should be parameter s, for flags spec")
+			}
+			fmt.Fprintln(w, "{\"pushEnabled\": false, \"token\": \"token\"}")
+			return
+		case "/splitChanges":
+			fmt.Fprintln(w, string(splitsMock))
+			return
+		case "/testImpressions/bulk":
+			if r.Header.Get("SplitSDKImpressionsMode") != commonsCfg.ImpressionsModeOptimized {
+				t.Error("Wrong header")
+			}
+
+			if isDestroyCalled {
+				rBody, _ := ioutil.ReadAll(r.Body)
+				var dataInPost []map[string]interface{}
+				err := json.Unmarshal(rBody, &dataInPost)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if len(dataInPost) != 1 {
+					t.Error("It should send one impressions in optimized mode")
+				}
+				for _, ki := range dataInPost {
+					if asISlice, ok := ki["i"].([]interface{}); !ok || len(asISlice) != 3 {
+						t.Error("It should send three impressions per featureName", dataInPost)
+					}
+					if ki["f"] == "unsupported" {
+						message := ki["i"].([]interface{})[0].(map[string]interface{})["r"]
+						if message != "targeting rule type unsupported by sdk" {
+							t.Error("message sould be: targeting rule type unsupported by sdk")
+						}
+					}
+				}
+			}
+
+			fmt.Fprintln(w, "ok")
+			postChannel <- "finished"
+		case "/testImpressions/count":
+			fallthrough
+		case "/keys/ss":
+			fallthrough
+		case "/events/bulk":
+			fallthrough
+		case "/segmentChanges":
+		default:
+			fmt.Fprintln(w, "ok")
+			return
+		}
+	}))
+	defer ts.Close()
+
+	cfg := conf.Default()
+	cfg.Advanced.AuthServiceURL = ts.URL
+	cfg.Advanced.EventsURL = ts.URL
+	cfg.Advanced.SdkURL = ts.URL
+	cfg.Advanced.TelemetryServiceURL = ts.URL
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+
+	evaluation := client.Treatment("mauro@split.io", "always_on_if_prerequisite", nil)
+	if evaluation != "off" {
+		t.Error("evaluation for mauro@split.io should be off")
+	}
+
+	evaluation = client.Treatment("bilal@split.io", "always_on_if_prerequisite", nil)
+	if evaluation != "on" {
+		t.Error("evaluation for bilal@split.io should be on")
+	}
+
+	evaluation = client.Treatment("other_key", "always_on_if_prerequisite", nil)
+	if evaluation != "off" {
+		t.Error("evaluation for other_key should be off")
+	}
+
+	isDestroyCalled = true
+	client.Destroy()
+
+	select {
+	case <-postChannel:
+		return
+	case <-time.After(4 * time.Second):
+		t.Error("The test couldn't send impressions to check headers")
+		return
+	}
+}

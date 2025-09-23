@@ -124,15 +124,9 @@ func (f *SplitFactory) IsReady() bool {
 
 // initializates tasks for in-memory mode
 func (f *SplitFactory) initializationManager(readyChannel chan int, flagSetsInvalid int64) {
-	go f.syncManager.Start()
-	msg := <-readyChannel
-	switch msg {
-	case synchronizer.Ready:
-		// Broadcast ready status for SDK
+	f.syncManager.StartBGSyng(readyChannel, true, func() {
 		f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
-	default:
-		f.broadcastReadiness(sdkInitializationFailed, make([]string, 0), flagSetsInvalid)
-	}
+	})
 }
 
 func (f *SplitFactory) initializationRedis() {

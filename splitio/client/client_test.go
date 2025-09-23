@@ -971,7 +971,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		t.Error("It should return error")
 	}
 
-	if err != nil && err.Error() != "SDK Initialization failed" {
+	if err != nil && err.Error() != "SDK Initialization: time of 5 exceeded" {
 		t.Error("Wrong error. Got: ", err.Error())
 	}
 }

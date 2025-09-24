@@ -124,7 +124,7 @@ func (f *SplitFactory) IsReady() bool {
 
 // initializates tasks for in-memory mode
 func (f *SplitFactory) initializationManager(readyChannel chan int, flagSetsInvalid int64) {
-	f.syncManager.StartBGSyng(readyChannel, true, func() {
+	go f.syncManager.StartBGSyng(readyChannel, true, func() {
 		f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
 	})
 }

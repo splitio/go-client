@@ -666,7 +666,16 @@ func TestConsumerFactoryFlagSets(t *testing.T) {
 
 func TestNotReadyYet(t *testing.T) {
 	nonReadyUsages := 0
-	logger := getMockedLogger()
+	mLocal := MockWriter{}
+	logger := logging.NewLogger(&logging.LoggerOptions{
+		LogLevel:      logging.LevelInfo,
+		ErrorWriter:   &mLocal,
+		WarningWriter: &mLocal,
+		InfoWriter:    &mLocal,
+		DebugWriter:   nil,
+		VerboseWriter: nil,
+	})
+	//logger := getMockedLogger()
 	telemetryStorage := mocks.MockTelemetryStorage{
 		RecordNonReadyUsageCall: func() {
 			nonReadyUsages++
@@ -703,49 +712,54 @@ func TestNotReadyYet(t *testing.T) {
 	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
 	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
 
-	mW.Reset()
+	mLocal.Reset()
 	clientNotReady.Treatment("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
 		t.Error("Wrong message")
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
 		t.Error("Wrong message")
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	clientNotReady.TreatmentWithConfig("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
-		t.Error("Wrong message", mW.messages)
+	if !mLocal.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
+		t.Error("Wrong message", mLocal.messages)
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
-	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
 
-	mW.Reset()
+	clientNotReady.Track("key", "traffic", "eventType", nil, nil)
+	if !mLocal.Matches(expected) {
+		t.Error("Wrong message")
+	}
+	//expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
+
+	mLocal.Reset()
 	maganerNotReady.Split("feature")
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
 		t.Error("Wrong message")
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	maganerNotReady.Splits()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
 		t.Error("Wrong message")
 	}
 
-	mW.Reset()
+	mLocal.Reset()
 	maganerNotReady.SplitNames()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
 		t.Error("Wrong message")
 	}
 

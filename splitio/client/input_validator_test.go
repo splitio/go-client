@@ -703,38 +703,47 @@ func TestNotReadyYet(t *testing.T) {
 	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
 	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
 
+	mW.Reset()
 	clientNotReady.Treatment("test", "feature", nil)
 	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mW.Reset()
 	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
 	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mW.Reset()
 	clientNotReady.TreatmentWithConfig("test", "feature", nil)
 	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mW.Reset()
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
 	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
 		t.Error("Wrong message", mW.messages)
 	}
+
+	mW.Reset()
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
 	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
 
+	mW.Reset()
 	maganerNotReady.Split("feature")
 	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mW.Reset()
 	maganerNotReady.Splits()
 	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mW.Reset()
 	maganerNotReady.SplitNames()
 	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
 		t.Error("Wrong message")

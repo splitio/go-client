@@ -107,6 +107,7 @@ type AdvancedConfig struct {
 	FlagSetsFilter        []string
 	FeatureFlagRules      []string
 	RuleBasedSegmentRules []string
+	RetryEnabled          bool
 }
 
 // Default returns a config struct with all the default values
@@ -172,6 +173,7 @@ func Default() *SplitSdkConfig {
 			StreamingEnabled:      true,
 			FeatureFlagRules:      featureFlagsRules,
 			RuleBasedSegmentRules: ruleBasedSegmentRules,
+			RetryEnabled:          true,
 		},
 	}
 }

@@ -15,19 +15,19 @@ import (
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	commonsCfg "github.com/splitio/go-split-commons/v6/conf"
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/healthcheck/application"
-	"github.com/splitio/go-split-commons/v6/provisional"
-	"github.com/splitio/go-split-commons/v6/provisional/strategy"
-	"github.com/splitio/go-split-commons/v6/service/api"
-	authMocks "github.com/splitio/go-split-commons/v6/service/mocks"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v6/storage/mocks"
-	"github.com/splitio/go-split-commons/v6/storage/redis"
-	"github.com/splitio/go-split-commons/v6/synchronizer"
+	commonsCfg "github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/healthcheck/application"
+	"github.com/splitio/go-split-commons/v7/provisional"
+	"github.com/splitio/go-split-commons/v7/provisional/strategy"
+	"github.com/splitio/go-split-commons/v7/service/api"
+	authMocks "github.com/splitio/go-split-commons/v7/service/mocks"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v7/storage/mocks"
+	"github.com/splitio/go-split-commons/v7/storage/redis"
+	"github.com/splitio/go-split-commons/v7/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -356,7 +356,7 @@ func TestValidatorOnDestroy(t *testing.T) {
 	logger := getMockedLogger()
 	localConfig := &synchronizer.LocalConfig{RefreshEnabled: false}
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
+		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, nil, &mocks.MockRuleBasedSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
 		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
@@ -533,7 +533,7 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/splitChanges":
-			if r.RequestURI != "/splitChanges?s=1.1&since=-1&sets=a%2Cc%2Cd" {
+			if r.RequestURI != "/splitChanges?s=1.3&since=-1&rbSince=-1&sets=a%2Cc%2Cd" {
 				t.Error("wrong RequestURI for flag sets")
 			}
 			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
@@ -666,7 +666,16 @@ func TestConsumerFactoryFlagSets(t *testing.T) {
 
 func TestNotReadyYet(t *testing.T) {
 	nonReadyUsages := 0
-	logger := getMockedLogger()
+	mLocal := MockWriter{}
+	logger := logging.NewLogger(&logging.LoggerOptions{
+		LogLevel:      logging.LevelInfo,
+		ErrorWriter:   &mLocal,
+		WarningWriter: &mLocal,
+		InfoWriter:    &mLocal,
+		DebugWriter:   nil,
+		VerboseWriter: nil,
+	})
+	//logger := getMockedLogger()
 	telemetryStorage := mocks.MockTelemetryStorage{
 		RecordNonReadyUsageCall: func() {
 			nonReadyUsages++
@@ -703,40 +712,54 @@ func TestNotReadyYet(t *testing.T) {
 	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
 	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
 
+	mLocal.Reset()
 	clientNotReady.Treatment("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mLocal.Reset()
 	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mLocal.Reset()
 	clientNotReady.TreatmentWithConfig("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mLocal.Reset()
 	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
-		t.Error("Wrong message", mW.messages)
+	if !mLocal.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
+		t.Error("Wrong message", mLocal.messages)
 	}
+
+	mLocal.Reset()
 	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
-	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
 
+	clientNotReady.Track("key", "traffic", "eventType", nil, nil)
+	if !mLocal.Matches(expected) {
+		t.Error("Wrong message")
+	}
+	//expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
+
+	mLocal.Reset()
 	maganerNotReady.Split("feature")
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mLocal.Reset()
 	maganerNotReady.Splits()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
 		t.Error("Wrong message")
 	}
 
+	mLocal.Reset()
 	maganerNotReady.SplitNames()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
+	if !mLocal.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
 		t.Error("Wrong message")
 	}
 

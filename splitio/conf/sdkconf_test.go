@@ -3,7 +3,7 @@ package conf
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v6/conf"
+	"github.com/splitio/go-split-commons/v7/conf"
 )
 
 func TestSdkConfNormalization(t *testing.T) {

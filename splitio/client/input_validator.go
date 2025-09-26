@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v6/storage"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v7/storage"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 )

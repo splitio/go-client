@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	config "github.com/splitio/go-split-commons/v6/conf"
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/service/api"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v6/storage/mocks"
-	"github.com/splitio/go-split-commons/v6/synchronizer"
+	config "github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/service/api"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v7/storage/mocks"
+	"github.com/splitio/go-split-commons/v7/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 

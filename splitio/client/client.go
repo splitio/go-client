@@ -10,13 +10,13 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/engine/evaluator"
-	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/provisional"
-	"github.com/splitio/go-split-commons/v6/storage"
-	"github.com/splitio/go-split-commons/v6/telemetry"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/provisional"
+	"github.com/splitio/go-split-commons/v7/storage"
+	"github.com/splitio/go-split-commons/v7/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 

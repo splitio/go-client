@@ -3,9 +3,9 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
@@ -36,6 +36,15 @@ func TestSplitManager(t *testing.T) {
 			Name:            "split2",
 			Killed:          true,
 			TrafficTypeName: "tt2",
+			Prerequisites: []dtos.Prerequisite{
+				{
+					FeatureFlagName: "ff1",
+					Treatments: []string{
+						"off",
+						"v1",
+					},
+				},
+			},
 			Conditions: []dtos.ConditionDTO{
 				{
 					Partitions: []dtos.PartitionDTO{
@@ -85,6 +94,10 @@ func TestSplitManager(t *testing.T) {
 		t.Error("track impressions for split1 should be false")
 	}
 
+	if s1.Prerequisites != nil {
+		t.Error("prerequisistes should be nil for s1")
+	}
+
 	s2 := manager.Split("split2")
 	if s2.Name != "split2" || !s2.Killed || s2.TrafficType != "tt2" || s2.ChangeNumber != 123 {
 		t.Error("Split 2 stored incorrectly")
@@ -99,6 +112,10 @@ func TestSplitManager(t *testing.T) {
 
 	if s2.ImpressionsDisabled {
 		t.Error("track impressions for split2 should be false")
+	}
+
+	if len(s2.Prerequisites) != 1 {
+		t.Error("prerequisites size should be 1")
 	}
 
 	all := manager.Splits()

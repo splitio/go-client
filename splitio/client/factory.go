@@ -15,29 +15,30 @@ import (
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	"github.com/splitio/go-client/v6/splitio/impressions"
 
-	config "github.com/splitio/go-split-commons/v6/conf"
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/engine"
-	"github.com/splitio/go-split-commons/v6/engine/evaluator"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/healthcheck/application"
-	"github.com/splitio/go-split-commons/v6/provisional"
-	"github.com/splitio/go-split-commons/v6/provisional/strategy"
-	"github.com/splitio/go-split-commons/v6/service/api"
-	"github.com/splitio/go-split-commons/v6/service/api/specs"
-	"github.com/splitio/go-split-commons/v6/service/local"
-	"github.com/splitio/go-split-commons/v6/storage"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v6/storage/mocks"
-	"github.com/splitio/go-split-commons/v6/storage/redis"
-	"github.com/splitio/go-split-commons/v6/synchronizer"
-	"github.com/splitio/go-split-commons/v6/synchronizer/worker/event"
-	"github.com/splitio/go-split-commons/v6/synchronizer/worker/segment"
-	"github.com/splitio/go-split-commons/v6/synchronizer/worker/split"
-	"github.com/splitio/go-split-commons/v6/tasks"
-	"github.com/splitio/go-split-commons/v6/telemetry"
+	config "github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/engine"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator"
+	"github.com/splitio/go-split-commons/v7/engine/grammar"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/healthcheck/application"
+	"github.com/splitio/go-split-commons/v7/provisional"
+	"github.com/splitio/go-split-commons/v7/provisional/strategy"
+	"github.com/splitio/go-split-commons/v7/service/api"
+	"github.com/splitio/go-split-commons/v7/service/api/specs"
+	"github.com/splitio/go-split-commons/v7/service/local"
+	"github.com/splitio/go-split-commons/v7/storage"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v7/storage/mocks"
+	"github.com/splitio/go-split-commons/v7/storage/redis"
+	"github.com/splitio/go-split-commons/v7/synchronizer"
+	"github.com/splitio/go-split-commons/v7/synchronizer/worker/event"
+	"github.com/splitio/go-split-commons/v7/synchronizer/worker/segment"
+	"github.com/splitio/go-split-commons/v7/synchronizer/worker/split"
+	"github.com/splitio/go-split-commons/v7/tasks"
+	"github.com/splitio/go-split-commons/v7/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -52,6 +53,7 @@ const (
 type sdkStorages struct {
 	splits              storage.SplitStorageConsumer
 	segments            storage.SegmentStorageConsumer
+	ruleBasedSegments   storage.RuleBasedSegmentStorageConsumer
 	impressionsConsumer storage.ImpressionStorageConsumer
 	impressions         storage.ImpressionStorageProducer
 	events              storage.EventStorageProducer
@@ -83,7 +85,7 @@ type SplitFactory struct {
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, engine.NewEngine(f.logger), f.logger),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules),
 		impressions: f.storages.impressions,
 		events:      f.storages.events,
 		validator: inputValidation{
@@ -122,15 +124,9 @@ func (f *SplitFactory) IsReady() bool {
 
 // initializates tasks for in-memory mode
 func (f *SplitFactory) initializationManager(readyChannel chan int, flagSetsInvalid int64) {
-	go f.syncManager.Start()
-	msg := <-readyChannel
-	switch msg {
-	case synchronizer.Ready:
-		// Broadcast ready status for SDK
+	go f.syncManager.StartBGSyng(readyChannel, f.cfg.Advanced.RetryEnabled, func() {
 		f.broadcastReadiness(sdkStatusReady, make([]string, 0), flagSetsInvalid)
-	default:
-		f.broadcastReadiness(sdkInitializationFailed, make([]string, 0), flagSetsInvalid)
-	}
+	})
 }
 
 func (f *SplitFactory) initializationRedis() {
@@ -275,8 +271,8 @@ func setupInMemoryFactory(
 	metadata dtos.Metadata,
 ) (*SplitFactory, error) {
 	advanced, warnings := conf.NormalizeSDKConf(cfg.Advanced)
-	advanced.AuthSpecVersion = specs.FLAG_V1_1
-	advanced.FlagsSpecVersion = specs.FLAG_V1_1
+	advanced.AuthSpecVersion = specs.FLAG_V1_3
+	advanced.FlagsSpecVersion = specs.FLAG_V1_3
 	printWarnings(logger, warnings)
 	flagSetsInvalid := int64(len(cfg.Advanced.FlagSetsFilter) - len(advanced.FlagSetsFilter))
 	if strings.TrimSpace(cfg.SplitSyncProxyURL) != "" {
@@ -288,6 +284,7 @@ func setupInMemoryFactory(
 	flagSetFilter := flagsets.NewFlagSetFilter(advanced.FlagSetsFilter)
 	splitsStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	segmentsStorage := mutexmap.NewMMSegmentStorage()
+	ruleBasedSegmentStorage := mutexmap.NewRuleBasedSegmentsStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	impressionsStorage := mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
 	eventsStorage := mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, inMememoryFullQueue, logger, telemetryStorage)
@@ -298,9 +295,12 @@ func setupInMemoryFactory(
 	var dummyHC = &application.Dummy{}
 
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
+
+	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules)
+	ruleBuilder := grammar.NewRuleBuilder(segmentsStorage, ruleBasedSegmentStorage, nil, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, logger, evaluator)
 	workers := synchronizer.Workers{
-		SplitUpdater:      split.NewSplitUpdater(splitsStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter),
-		SegmentUpdater:    segment.NewSegmentUpdater(splitsStorage, segmentsStorage, splitAPI.SegmentFetcher, logger, telemetryStorage, dummyHC),
+		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter, ruleBuilder),
+		SegmentUpdater:    segment.NewSegmentUpdater(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, splitAPI.SegmentFetcher, logger, telemetryStorage, dummyHC),
 		EventRecorder:     event.NewEventRecorderSingle(eventsStorage, splitAPI.EventRecorder, logger, metadata, telemetryStorage),
 		TelemetryRecorder: telemetry.NewTelemetrySynchronizer(telemetryStorage, splitAPI.TelemetryRecorder, splitsStorage, segmentsStorage, logger, metadata, telemetryStorage),
 	}
@@ -317,6 +317,7 @@ func setupInMemoryFactory(
 		impressionsConsumer: impressionsStorage,
 		impressions:         impressionsStorage,
 		segments:            segmentsStorage,
+		ruleBasedSegments:   ruleBasedSegmentStorage,
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
 		runtimeTelemetry:    telemetryStorage,
@@ -468,6 +469,7 @@ func setupLocalhostFactory(
 	flagSetFilter := flagsets.NewFlagSetFilter(flagSets)
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	segmentStorage := mutexmap.NewMMSegmentStorage()
+	ruleBasedSegmentStorage := mutexmap.NewRuleBasedSegmentsStorage()
 	telemetryStorage, err := inmemory.NewTelemetryStorage()
 	if err != nil {
 		return nil, err
@@ -489,10 +491,12 @@ func setupLocalhostFactory(
 		QueueSize:        cfg.Advanced.SegmentQueueSize,
 		SegmentDirectory: cfg.SegmentDirectory,
 		RefreshEnabled:   cfg.LocalhostRefreshEnabled,
+		FfRulesAccepted:  cfg.Advanced.FeatureFlagRules,
+		RbRulesAccepted:  cfg.Advanced.RuleBasedSegmentRules,
 	}
 
 	syncManager, err := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, logger, telemetryStorage, dummyHC),
+		synchronizer.NewLocal(localConfig, splitAPI, splitStorage, segmentStorage, nil, ruleBasedSegmentStorage, logger, telemetryStorage, dummyHC),
 		logger,
 		config.AdvancedConfig{StreamingEnabled: false},
 		nil,
@@ -518,6 +522,7 @@ func setupLocalhostFactory(
 			splits:              splitStorage,
 			impressions:         mutexqueue.NewMQImpressionsStorage(cfg.Advanced.ImpressionsQueueSize, make(chan string, 1), logger, telemetryStorage),
 			events:              mutexqueue.NewMQEventsStorage(cfg.Advanced.EventsQueueSize, make(chan string, 1), logger, telemetryStorage),
+			ruleBasedSegments:   ruleBasedSegmentStorage,
 			segments:            segmentStorage,
 			initTelemetry:       telemetryStorage,
 			evaluationTelemetry: telemetryStorage,

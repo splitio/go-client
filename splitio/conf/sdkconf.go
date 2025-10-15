@@ -10,7 +10,8 @@ import (
 	"strings"
 
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/v6/conf"
+	"github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/engine/grammar"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 	"github.com/splitio/go-toolkit/v5/nethelpers"
@@ -24,6 +25,15 @@ const (
 	// InMemoryStandAlone mode
 	InMemoryStandAlone = "inmemory-standalone"
 )
+
+var featureFlagsRules = []string{grammar.MatcherTypeAllKeys, grammar.MatcherTypeInSegment, grammar.MatcherTypeWhitelist, grammar.MatcherTypeEqualTo, grammar.MatcherTypeGreaterThanOrEqualTo, grammar.MatcherTypeLessThanOrEqualTo, grammar.MatcherTypeBetween,
+	grammar.MatcherTypeEqualToSet, grammar.MatcherTypePartOfSet, grammar.MatcherTypeContainsAllOfSet, grammar.MatcherTypeContainsAnyOfSet, grammar.MatcherTypeStartsWith, grammar.MatcherTypeEndsWith, grammar.MatcherTypeContainsString, grammar.MatcherTypeInSplitTreatment,
+	grammar.MatcherTypeEqualToBoolean, grammar.MatcherTypeMatchesString, grammar.MatcherEqualToSemver, grammar.MatcherTypeGreaterThanOrEqualToSemver, grammar.MatcherTypeLessThanOrEqualToSemver, grammar.MatcherTypeBetweenSemver, grammar.MatcherTypeInListSemver,
+	grammar.MatcherTypeInRuleBasedSegment}
+var ruleBasedSegmentRules = []string{grammar.MatcherTypeAllKeys, grammar.MatcherTypeInSegment, grammar.MatcherTypeWhitelist, grammar.MatcherTypeEqualTo, grammar.MatcherTypeGreaterThanOrEqualTo, grammar.MatcherTypeLessThanOrEqualTo, grammar.MatcherTypeBetween,
+	grammar.MatcherTypeEqualToSet, grammar.MatcherTypePartOfSet, grammar.MatcherTypeContainsAllOfSet, grammar.MatcherTypeContainsAnyOfSet, grammar.MatcherTypeStartsWith, grammar.MatcherTypeEndsWith, grammar.MatcherTypeContainsString,
+	grammar.MatcherTypeEqualToBoolean, grammar.MatcherTypeMatchesString, grammar.MatcherEqualToSemver, grammar.MatcherTypeGreaterThanOrEqualToSemver, grammar.MatcherTypeLessThanOrEqualToSemver, grammar.MatcherTypeBetweenSemver, grammar.MatcherTypeInListSemver,
+	grammar.MatcherTypeInRuleBasedSegment}
 
 // SplitSdkConfig struct ...
 // struct used to setup a Split.io SDK client.
@@ -80,21 +90,24 @@ type TaskPeriods struct {
 // - SegmentQueueSize - How many segments can be queued for updating (should be >= # segments the user has)
 // - SegmentWorkers - How many workers will be used when performing segments sync.
 type AdvancedConfig struct {
-	ImpressionListener   impressionlistener.ImpressionListener
-	HTTPTimeout          int
-	SegmentQueueSize     int
-	SegmentWorkers       int
-	AuthServiceURL       string
-	SdkURL               string
-	EventsURL            string
-	StreamingServiceURL  string
-	TelemetryServiceURL  string
-	EventsBulkSize       int64
-	EventsQueueSize      int
-	ImpressionsQueueSize int
-	ImpressionsBulkSize  int64
-	StreamingEnabled     bool
-	FlagSetsFilter       []string
+	ImpressionListener    impressionlistener.ImpressionListener
+	HTTPTimeout           int
+	SegmentQueueSize      int
+	SegmentWorkers        int
+	AuthServiceURL        string
+	SdkURL                string
+	EventsURL             string
+	StreamingServiceURL   string
+	TelemetryServiceURL   string
+	EventsBulkSize        int64
+	EventsQueueSize       int
+	ImpressionsQueueSize  int
+	ImpressionsBulkSize   int64
+	StreamingEnabled      bool
+	FlagSetsFilter        []string
+	FeatureFlagRules      []string
+	RuleBasedSegmentRules []string
+	RetryEnabled          bool
 }
 
 // Default returns a config struct with all the default values
@@ -144,20 +157,23 @@ func Default() *SplitSdkConfig {
 			EventsSync:     defaultTaskPeriod,
 		},
 		Advanced: AdvancedConfig{
-			AuthServiceURL:       "",
-			EventsURL:            "",
-			SdkURL:               "",
-			StreamingServiceURL:  "",
-			TelemetryServiceURL:  "",
-			HTTPTimeout:          defaultHTTPTimeout,
-			ImpressionListener:   nil,
-			SegmentQueueSize:     500,
-			SegmentWorkers:       10,
-			EventsBulkSize:       5000,
-			EventsQueueSize:      10000,
-			ImpressionsQueueSize: 10000,
-			ImpressionsBulkSize:  5000,
-			StreamingEnabled:     true,
+			AuthServiceURL:        "",
+			EventsURL:             "",
+			SdkURL:                "",
+			StreamingServiceURL:   "",
+			TelemetryServiceURL:   "",
+			HTTPTimeout:           defaultHTTPTimeout,
+			ImpressionListener:    nil,
+			SegmentQueueSize:      500,
+			SegmentWorkers:        10,
+			EventsBulkSize:        5000,
+			EventsQueueSize:       10000,
+			ImpressionsQueueSize:  10000,
+			ImpressionsBulkSize:   5000,
+			StreamingEnabled:      true,
+			FeatureFlagRules:      featureFlagsRules,
+			RuleBasedSegmentRules: ruleBasedSegmentRules,
+			RetryEnabled:          true,
 		},
 	}
 }

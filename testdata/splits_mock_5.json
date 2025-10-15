@@ -1,0 +1,165 @@
+{
+  "ff": {
+    "s": 1602796638344,
+    "t": 1602796638344,
+    "d": [
+      {
+        "name": "always_on_if_prerequisite",
+        "trafficTypeName": "user",
+        "changeNumber": 5,
+        "seed": -790401604,
+        "trafficAllocation": 0,
+        "trafficAllocationSeed": 1828377380,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "off",
+        "prerequisites": [
+          {
+            "n": "rbs_test_flag",
+            "ts": [
+              "v1"
+            ]
+          }
+        ],
+        "conditions": [
+          {
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user",
+                    "attribute": null
+                  },
+                  "matcherType": "ALL_KEYS",
+                  "negate": false,
+                  "userDefinedSegmentMatcherData": null,
+                  "whitelistMatcherData": null,
+                  "unaryNumericMatcherData": null,
+                  "betweenMatcherData": null
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "on",
+                "size": 100
+              }
+            ],
+            "label": "default rule"
+          }
+        ]
+      },
+      {
+        "name": "rbs_test_flag",
+        "trafficTypeName": "user",
+        "trafficAllocation": 100,
+        "trafficAllocationSeed": 1828377380,
+        "seed": -286617921,
+        "status": "ACTIVE",
+        "killed": false,
+        "defaultTreatment": "off",
+        "algo": 2,
+        "conditions": [
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user"
+                  },
+                  "matcherType": "IN_RULE_BASED_SEGMENT",
+                  "negate": false,
+                  "userDefinedSegmentMatcherData": {
+                    "segmentName": "test_rule_based_segment"
+                  }
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "v1",
+                "size": 100
+              },
+              {
+                "treatment": "v2",
+                "size": 0
+              }
+            ],
+            "label": "in rule based segment test_rule_based_segment"
+          },
+          {
+            "conditionType": "ROLLOUT",
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user"
+                  },
+                  "matcherType": "ALL_KEYS",
+                  "negate": false
+                }
+              ]
+            },
+            "partitions": [
+              {
+                "treatment": "v1",
+                "size": 0
+              },
+              {
+                "treatment": "v2",
+                "size": 100
+              }
+            ],
+            "label": "default rule"
+          }
+        ],
+        "configurations": {},
+        "sets": [],
+        "impressionsDisabled": false
+      }
+    ]
+  },
+  "rbs": {
+    "s": 100,
+    "t": 100,
+    "d": [
+      {
+        "name": "test_rule_based_segment",
+        "status": "ACTIVE",
+        "trafficTypeName": "user",
+        "excluded": {
+          "keys": [
+            "mauro@split.io",
+            "gaston@split.io"
+          ],
+          "segments": []
+        },
+        "conditions": [
+          {
+            "matcherGroup": {
+              "combiner": "AND",
+              "matchers": [
+                {
+                  "keySelector": {
+                    "trafficType": "user"
+                  },
+                  "matcherType": "ENDS_WITH",
+                  "negate": false,
+                  "whitelistMatcherData": {
+                    "whitelist": [
+                      "@split.io"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

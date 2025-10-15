@@ -9,80 +9,34 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"sync"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
-	commonsCfg "github.com/splitio/go-split-commons/v6/conf"
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/healthcheck/application"
-	"github.com/splitio/go-split-commons/v6/provisional"
-	"github.com/splitio/go-split-commons/v6/provisional/strategy"
-	"github.com/splitio/go-split-commons/v6/service/api"
-	authMocks "github.com/splitio/go-split-commons/v6/service/mocks"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v6/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v6/storage/mocks"
-	"github.com/splitio/go-split-commons/v6/storage/redis"
-	"github.com/splitio/go-split-commons/v6/synchronizer"
+
+	commonsCfg "github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/healthcheck/application"
+	"github.com/splitio/go-split-commons/v7/provisional"
+	"github.com/splitio/go-split-commons/v7/provisional/strategy"
+	"github.com/splitio/go-split-commons/v7/service/api"
+	authMocks "github.com/splitio/go-split-commons/v7/service/mocks"
+	"github.com/splitio/go-split-commons/v7/storage/filter"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v7/storage/mocks"
+	"github.com/splitio/go-split-commons/v7/storage/redis"
+	"github.com/splitio/go-split-commons/v7/synchronizer"
 	"github.com/splitio/go-toolkit/v5/logging"
+	lMock "github.com/splitio/go-toolkit/v5/logging/mocks"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-type MockWriter struct {
-	mutex    sync.RWMutex
-	messages []string
-}
-
-func (m *MockWriter) Write(p []byte) (n int, err error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.messages = append(m.messages, string(p[:]))
-	return len(p), nil
-}
-
-func (m *MockWriter) Reset() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.messages = nil
-}
-
-func (m *MockWriter) Length() int {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	return len(m.messages)
-}
-
-func (m *MockWriter) Matches(expected string) bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	for _, msg := range m.messages {
-		if strings.Contains(msg, expected) {
-			m.messages = nil
-			return true
-		}
-	}
-	m.messages = nil
-	return false
-}
-
-var mW MockWriter
-
-func getMockedLogger() logging.LoggerInterface {
-	return logging.NewLogger(&logging.LoggerOptions{
-		LogLevel:      logging.LevelInfo,
-		ErrorWriter:   &mW,
-		WarningWriter: &mW,
-		InfoWriter:    &mW,
-		DebugWriter:   nil,
-		VerboseWriter: nil,
-	})
-}
-
-func getClient() SplitClient {
-	logger := getMockedLogger()
+func getClient(logger logging.LoggerInterface) SplitClient {
 	cfg := conf.Default()
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
 		RecordImpressionsStatsCall: func(dataType int, count int64) {},
@@ -133,17 +87,14 @@ func getClient() SplitClient {
 
 func TestFactoryWithNilApiKey(t *testing.T) {
 	cfg := conf.Default()
-	cfg.Logger = getMockedLogger()
+	loggerMock := &lMock.LoggerMock{}
+	loggerMock.On("Error", []interface{}{"factory instantiation: you passed an empty SDK key, SDK key must be a non-empty string"}).Return()
+	cfg.Logger = loggerMock
+
 	_, err := NewSplitFactory("", cfg)
+	assert.NotNil(t, err)
 
-	if err == nil {
-		t.Error("Should be error")
-	}
-
-	expected := "factory instantiation: you passed an empty SDK key, SDK key must be a non-empty string"
-	if !mW.Matches(expected) {
-		t.Error("Error is distinct from the expected one")
-	}
+	loggerMock.AssertExpectations(t)
 }
 
 func getLongKey() string {
@@ -155,76 +106,57 @@ func getLongKey() string {
 }
 
 func TestValidationEmpty(t *testing.T) {
-	client := getClient()
-	mW.Reset()
+	loggerMock := &lMock.LoggerMock{}
+	client := getClient(loggerMock)
 	expectedTreatment(client.Treatment("key", "feature", nil), "TreatmentA", t)
-	if mW.Length() > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
+	loggerMock.AssertExpectations(t)
 }
 
 func TestTreatmentValidatorOnKeys(t *testing.T) {
-	client := getClient()
+	loggerMock := &lMock.LoggerMock{}
+	client := getClient(loggerMock)
+
 	// Nil
-	expectedTreatment(client.Treatment(nil, "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed a nil key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed a nil key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(nil, "feature", nil))
 
 	// Boolean
-	expectedTreatment(client.Treatment(true, "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an invalid key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(true, "feature", nil))
 
 	// Trimmed
-	expectedTreatment(client.Treatment("     ", "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an empty key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an empty key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, client.Treatment("     ", "feature", nil), "control")
 
 	// Long
-	expectedTreatment(client.Treatment(getLongKey(), "feature", nil), "control", t)
-	if !mW.Matches("Treatment: key too long - must be 250 characters or less") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: key too long - must be 250 characters or less"}).Return().Once()
+	assert.Equal(t, client.Treatment(getLongKey(), "feature", nil), "control")
 
 	// Int
-	expectedTreatment(client.Treatment(123, "feature", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: key %!s(int=123) is not of type string, converting") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: key 123 is not of type string, converting"}).Return().Once()
+	assert.Equal(t, "TreatmentA", client.Treatment(123, "feature", nil))
 
 	// Int32
-	expectedTreatment(client.Treatment(int32(123), "feature", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: key %!s(int32=123) is not of type string, converting") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: key 123 is not of type string, converting"}).Return().Once()
+	assert.Equal(t, "TreatmentA", client.Treatment(int32(123), "feature", nil))
 
 	// Int 64
-	expectedTreatment(client.Treatment(int64(123), "feature", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: key %!s(int64=123) is not of type string, converting") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: key 123 is not of type string, converting"}).Return().Once()
+	assert.Equal(t, "TreatmentA", client.Treatment(int64(123), "feature", nil))
 
 	// Float
-	expectedTreatment(client.Treatment(1.3, "feature", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: key %!s(float64=1.3) is not of type string, converting") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: key 1.3 is not of type string, converting"}).Return().Once()
+	assert.Equal(t, "TreatmentA", client.Treatment(1.3, "feature", nil))
 
 	// NaN
-	expectedTreatment(client.Treatment(math.NaN, "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an invalid key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(math.NaN(), "feature", nil))
 
 	// Inf
-	expectedTreatment(client.Treatment(math.Inf, "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an invalid key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an invalid key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(math.Inf, "feature", nil))
+
+	loggerMock.AssertExpectations(t)
 }
 
 func getKey(matchingKey string, bucketingKey string) *Key {
@@ -235,128 +167,97 @@ func getKey(matchingKey string, bucketingKey string) *Key {
 }
 
 func TestTreatmentValidatorWithKeyObject(t *testing.T) {
-	client := getClient()
+	loggerMock := &lMock.LoggerMock{}
+	client := getClient(loggerMock)
+
 	// Empty
-	expectedTreatment(client.Treatment(getKey("", "bucketing"), "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an empty matchingKey, matchingKey must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(getKey("", "bucketing"), "feature", nil))
 
 	// Long
-	expectedTreatment(client.Treatment(getKey(getLongKey(), "bucketing"), "feature", nil), "control", t)
-	if !mW.Matches("Treatment: matchingKey too long - must be 250 characters or less") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: matchingKey too long - must be 250 characters or less"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(getKey(getLongKey(), "bucketing"), "feature", nil))
 
 	// Empty Bucketing
-	expectedTreatment(client.Treatment(getKey("matching", ""), "feature", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an empty bucketingKey, bucketingKey must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an empty bucketingKey, bucketingKey must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(getKey("matching", ""), "feature", nil))
 
 	// Long Bucketing
-	expectedTreatment(client.Treatment(getKey("matching", getLongKey()), "feature", nil), "control", t)
-	if !mW.Matches("Treatment: bucketingKey too long - must be 250 characters or less") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: bucketingKey too long - must be 250 characters or less"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment(getKey("matching", getLongKey()), "feature", nil))
 
 	// Ok
-	mW.Reset()
-	expectedTreatment(client.Treatment(getKey("matching", "bucketing"), "feature", nil), "TreatmentA", t)
-	if mW.Length() > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
+	assert.Equal(t, "TreatmentA", client.Treatment(getKey("matching", "bucketing"), "feature", nil))
+
+	loggerMock.AssertExpectations(t)
 }
 
 func TestTreatmentValidatorOnFeatureName(t *testing.T) {
-	client := getClient()
+	loggerMock := &lMock.LoggerMock{}
+	client := getClient(loggerMock)
+
 	// Empty
-	expectedTreatment(client.Treatment("key", "", nil), "control", t)
-	if !mW.Matches("Treatment: you passed an empty featureFlagName, flag name must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Error", []interface{}{"Treatment: you passed an empty featureFlagName, flag name must be a non-empty string"}).Return().Once()
+	assert.Equal(t, "control", client.Treatment("key", "", nil))
 
 	// Trimmed
-	expectedTreatment(client.Treatment("key", "  feature   ", nil), "TreatmentA", t)
-	if !mW.Matches("Treatment: featureFlagName '  feature   ' has extra whitespace, trimming") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: featureFlagName '  feature   ' has extra whitespace, trimming"}).Return().Once()
+	assert.Equal(t, "TreatmentA", client.Treatment("key", "  feature   ", nil))
 
 	// Non Existent
-	expectedTreatment(client.Treatment("key", "feature_non_existent", nil), "control", t)
-	if !mW.Matches("Treatment: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface") {
-		t.Error("Wrong message")
-	}
+	loggerMock.On("Warning", []interface{}{"Treatment: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	assert.Equal(t, "control", client.Treatment("key", "feature_non_existent", nil))
 
 	// Non Existent
-	expectedTreatmentAndConfig(client.TreatmentWithConfig("key", "feature_non_existent", nil), "control", "", t)
-	if !mW.Matches("TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface") {
-		t.Error("Wrong message")
-	}
-}
+	loggerMock.On("Warning", []interface{}{"TreatmentWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	results := client.TreatmentWithConfig("key", "feature_non_existent", nil)
+	assert.Equal(t, "control", results.Treatment)
+	assert.Nil(t, results.Config)
 
-func expectedTreatments(key interface{}, features []string, length int, t *testing.T) map[string]string {
-	client := getClient()
-	result := client.Treatments(key, features, nil)
-	if len(result) != length {
-		t.Error("Wrong len of elements")
-	}
-	return result
+	loggerMock.AssertExpectations(t)
 }
 
 func TestTreatmentsValidator(t *testing.T) {
-	client := getClient()
+	logger := &lMock.LoggerMock{}
+	client := getClient(logger)
+
 	// Empty features
-	expectedTreatments("key", []string{""}, 0, t)
-	if !mW.Matches("Treatments: featureFlagNames must be a non-empty array") {
-		t.Error("Wrong message")
-	}
+	logger.On("Error", []interface{}{"Treatments: you passed an empty featureFlagName, flag name must be a non-empty string"}).Return().Once()
+	logger.On("Error", []interface{}{"Treatments: featureFlagNames must be a non-empty array"}).Return().Once()
+	assert.Equal(t, map[string]string{}, client.Treatments("key", []string{""}, nil))
 
 	// Inf
-	result := expectedTreatments(math.Inf, []string{"feature"}, 1, t)
-	expectedTreatment(result["feature"], "control", t)
-	if !mW.Matches("Treatments: you passed an invalid key, key must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	logger.On("Error", []interface{}{"Treatments: you passed an invalid key, key must be a non-empty string"}).Return().Once()
+	assert.Equal(t, map[string]string{"feature": "control"}, client.Treatments(math.Inf, []string{"feature"}, nil))
 
 	// Float
-	result = expectedTreatments(1.3, []string{"feature"}, 1, t)
-	expectedTreatment(result["feature"], "TreatmentA", t)
-	if !mW.Matches("Treatments: key %!s(float64=1.3) is not of type string, converting") {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Treatments: key 1.3 is not of type string, converting"}).Return().Once()
+	assert.Equal(t, map[string]string{"feature": "TreatmentA"}, client.Treatments(1.3, []string{"feature"}, nil))
 
 	// Trimmed
-	result = expectedTreatments("key", []string{" some_feature  "}, 1, t)
-	expectedTreatment(result["some_feature"], "control", t)
-	if !mW.Matches("Treatments: featureFlagName ' some_feature  ' has extra whitespace, trimming") {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Treatments: featureFlagName ' some_feature  ' has extra whitespace, trimming"}).Return().Once()
+	assert.Equal(t, map[string]string{"some_feature": "control"}, client.Treatments("key", []string{" some_feature  "}, nil))
 
 	// Non Existent
-	result = expectedTreatments("key", []string{"feature_non_existent"}, 1, t)
-	expectedTreatment(result["feature_non_existent"], "control", t)
-	if !mW.Matches("Treatments: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface") {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Treatments: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	assert.Equal(t, map[string]string{"feature_non_existent": "control"}, client.Treatments("key", []string{"feature_non_existent"}, nil))
 
 	// Non Existent Config
-	resultWithConfig := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
-	expectedTreatmentAndConfig(resultWithConfig["feature_non_existent"], "control", "", t)
-	if !mW.Matches("TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface") {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"TreatmentsWithConfig: you passed feature_non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	result := client.TreatmentsWithConfig("key", []string{"feature_non_existent"}, nil)
+	assert.Equal(t, map[string]TreatmentResult{"feature_non_existent": {Treatment: "control", Config: nil}}, result)
+
+	logger.AssertExpectations(t)
 }
 
 func TestValidatorOnDestroy(t *testing.T) {
 	telemetryMockedStorage := mocks.MockTelemetryStorage{
 		RecordSessionLengthCall: func(session int64) {},
 	}
-	logger := getMockedLogger()
+	logger := &lMock.LoggerMock{}
 	localConfig := &synchronizer.LocalConfig{RefreshEnabled: false}
 	sync, _ := synchronizer.NewSynchronizerManager(
-		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
+		synchronizer.NewLocal(localConfig, &api.SplitAPI{}, mocks.MockSplitStorage{}, mocks.MockSegmentStorage{}, nil, &mocks.MockRuleBasedSegmentStorage{}, logger, telemetryMockedStorage, &application.Dummy{}),
 		logger,
 		commonsCfg.AdvancedConfig{},
 		authMocks.MockAuthClient{},
@@ -395,34 +296,23 @@ func TestValidatorOnDestroy(t *testing.T) {
 		initTelemetry: telemetryMockedStorage,
 	}
 
+	logger.On("Info", mock.Anything).Return()
 	client2.Destroy()
 
-	expectedTreatment(client2.Treatment("key", "  feature   ", nil), "control", t)
-	if !mW.Matches("Client has already been destroyed - no calls possible") {
-		t.Error("Wrong message")
-	}
+	logger.On("Error", []interface{}{"Client has already been destroyed - no calls possible"}).Return().Once()
+	assert.Equal(t, "control", client2.Treatment("key", "  feature   ", nil))
 
+	logger.On("Error", []interface{}{"Client has already been destroyed - no calls possible"}).Return().Once()
 	result := client2.Treatments("key", []string{"some_feature"}, nil)
-	expectedTreatment(result["some_feature"], "control", t)
-	if !mW.Matches("Client has already been destroyed - no calls possible") {
-		t.Error("Wrong message")
-	}
+	assert.Equal(t, map[string]string{"some_feature": "control"}, result)
 
-	expectedTrack(client2.Track("key", "trafficType", "eventType", 0, nil), "Client has already been destroyed - no calls possible", t)
+	logger.On("Error", []interface{}{"Client has already been destroyed - no calls possible"}).Return().Once()
+	assert.ErrorContains(t, client2.Track("key", "trafficType", "eventType", 0, nil), "Client has already been destroyed - no calls possible")
 
+	logger.On("Error", []interface{}{"Client has already been destroyed - no calls possible"}).Return().Once()
 	manager.Split("feature")
-	if !mW.Matches("Client has already been destroyed - no calls possible") {
-		t.Error("Wrong message")
-	}
-}
 
-func expectedTrack(err error, expected string, t *testing.T) {
-	if err != nil && err.Error() != expected {
-		t.Error("Wrong error", err.Error())
-	}
-	if !mW.Matches(expected) {
-		t.Error("Wrong message")
-	}
+	logger.AssertExpectations(t)
 }
 
 func makeBigString(length int) string {
@@ -435,15 +325,19 @@ func makeBigString(length int) string {
 }
 
 func TestTrackValidators(t *testing.T) {
-	client := getClient()
+	logger := &lMock.LoggerMock{}
+	client := getClient(logger)
 	// Empty key
-	expectedTrack(client.Track("", "trafficType", "eventType", nil, nil), "Track: you passed an empty key, key must be a non-empty string", t)
+	logger.On("Error", []interface{}{"Track: you passed an empty key, key must be a non-empty string"}).Return().Once()
+	assert.ErrorContains(t, client.Track("", "trafficType", "eventType", nil, nil), "Track: you passed an empty key, key must be a non-empty string")
 
 	// Long key
-	expectedTrack(client.Track(getLongKey(), "trafficType", "eventType", nil, nil), "Track: key too long - must be 250 characters or less", t)
+	logger.On("Error", []interface{}{"Track: key too long - must be 250 characters or less"}).Return().Once()
+	assert.ErrorContains(t, client.Track(getLongKey(), "trafficType", "eventType", nil, nil), "Track: key too long - must be 250 characters or less")
 
 	// Empty event type
-	expectedTrack(client.Track("key", "trafficType", "", nil, nil), "Track: you passed an empty event type, event type must be a non-empty string", t)
+	logger.On("Error", []interface{}{"Track: you passed an empty event type, event type must be a non-empty string"}).Return().Once()
+	assert.ErrorContains(t, client.Track("key", "trafficType", "", nil, nil), "Track: you passed an empty event type, event type must be a non-empty string")
 
 	// Not match regex
 	expected := "Track: you passed //, event name must adhere to " +
@@ -451,50 +345,55 @@ func TestTrackValidators(t *testing.T) {
 		"name must be alphanumeric, cannot be more than 80 characters long, and can " +
 		"only include a dash, underscore, period, or colon as separators of " +
 		"alphanumeric characters"
-	expectedTrack(client.Track("key", "trafficType", "//", nil, nil), expected, t)
+	logger.On("Error", []interface{}{expected}).Return().Once()
+	assert.ErrorContains(t, client.Track("key", "trafficType", "//", nil, nil), expected)
 
 	// Empty traffic type
-	expectedTrack(client.Track("key", "", "eventType", nil, nil), "Track: you passed an empty traffic type, traffic type must be a non-empty string", t)
+	logger.On("Error", []interface{}{"Track: you passed an empty traffic type, traffic type must be a non-empty string"}).Return().Once()
+	assert.ErrorContains(t, client.Track("key", "", "eventType", nil, nil), "Track: you passed an empty traffic type, traffic type must be a non-empty string")
 
 	// Not matching traffic type
 	expected = "Track: traffic type traffic does not have any corresponding feature flags in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split user interface"
-	expectedTrack(client.Track("key", "traffic", "eventType", nil, nil), expected, t)
+	logger.On("Warning", []interface{}{expected}).Return().Once()
+	assert.Nil(t, client.Track("key", "traffic", "eventType", nil, nil), expected)
 
 	// Uppercase traffic type
-	expectedTrack(client.Track("key", "traficTYPE", "eventType", nil, nil), "Track: traffic type should be all lowercase - converting string to lowercase", t)
+	logger.On("Warning", []interface{}{"Track: traffic type should be all lowercase - converting string to lowercase"}).Return().Once()
+	assert.Nil(t, client.Track("key", "traficTYPE", "eventType", nil, nil))
 
 	// Traffic Type No Ocurrences
-	err := client.Track("key", "trafficTypeNoOcurrences", "eventType", nil, nil)
-	if !mW.Matches("Track: traffic type traffictypenoocurrences does not have any corresponding feature flags in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split user interface") {
-		t.Error("Wrong message")
-	}
-	if err != nil {
-		t.Error("Should not be error")
-	}
+	logger.On("Warning", []interface{}{"Track: traffic type traffictypenoocurrences does not have any corresponding feature flags in this environment, make sure you’re tracking your events to a valid traffic type defined in the Split user interface"}).Return().Once()
+	assert.Nil(t, client.Track("key", "traffictypenoocurrences", "eventType", nil, nil))
 
 	// Value
-	expectedTrack(client.Track("key", "traffic", "eventType", true, nil), "Track: value must be a number", t)
+	logger.On("Warning", mock.Anything).Return().Once()
+	logger.On("Error", []interface{}{"Track: value must be a number"}).Return().Once()
+	assert.ErrorContains(t, client.Track("key", "traffic", "eventType", true, nil), "Track: value must be a number", t)
 
 	// Properties
 	props := make(map[string]interface{})
 	for i := 0; i < 301; i++ {
 		props[fmt.Sprintf("prop-%d", i)] = "asd"
 	}
-	expectedTrack(client.Track("key", "traffic", "eventType", 1, props), "Track: Event has more than 300 properties. Some of them will be trimmed when processed", t)
+	logger.On("Warning", mock.Anything).Return().Once()
+	logger.On("Warning", []interface{}{"Track: Event has more than 300 properties. Some of them will be trimmed when processed"}).Return().Once()
+	assert.Nil(t, client.Track("key", "traffic", "eventType", 1, props))
 
 	// Properties > 32kb
 	props2 := make(map[string]interface{})
 	for i := 0; i < 299; i++ {
 		props2[fmt.Sprintf("%s%d", makeBigString(255), i)] = makeBigString(255)
 	}
-	expectedTrack(client.Track("key", "traffic", "eventType", nil, props2), "The maximum size allowed for the properties is 32kb. Event not queued", t)
+	logger.On("Warning", mock.Anything).Return().Once()
+	logger.On("Error", []interface{}{"Track: The maximum size allowed for the properties is 32kb. Event not queued"}).Return().Once()
+	assert.ErrorContains(t, client.Track("key", "traffic", "eventType", nil, props2), "The maximum size allowed for the properties is 32kb. Event not queued", t)
 
 	// Ok
-	err = client.Track("key", "traffic", "eventType", 1, nil)
+	logger.On("Warning", mock.Anything).Return().Once()
+	assert.Nil(t, client.Track("key", "trafictype", "eventType", nil, nil))
+	assert.Nil(t, client.Track("key", "traffic", "eventType", 1, nil))
 
-	if err != nil {
-		t.Error("Should not return error")
-	}
+	logger.AssertExpectations(t)
 }
 
 func TestLocalhostTrafficType(t *testing.T) {
@@ -507,35 +406,22 @@ func TestLocalhostTrafficType(t *testing.T) {
 
 	factory.status.Store(sdkStatusInitializing)
 
-	if client.isReady() {
-		t.Error("Localhost should not be ready")
-	}
+	assert.False(t, client.isReady(), "Localhost should not be ready")
+	assert.Nil(t, client.Track("key", "traffic", "eventType", nil, nil))
 
-	err := client.Track("key", "traffic", "eventType", nil, nil)
-
-	if err != nil {
-		t.Error("It should not inform any err")
-	}
-
-	mW.Reset()
-	if mW.Length() > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
+	client.Destroy()
 }
 
 func TestInMemoryFactoryFlagSets(t *testing.T) {
-	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock.json")
-	var splitMock, _ = ioutil.ReadFile("../../testdata/split_mock.json")
+	var splitsMock, _ = os.ReadFile("../../testdata/splits_mock.json")
+	var splitMock, _ = os.ReadFile("../../testdata/split_mock.json")
 
 	postChannel := make(chan string, 1)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/splitChanges":
-			if r.RequestURI != "/splitChanges?s=1.1&since=-1&sets=a%2Cc%2Cd" {
-				t.Error("wrong RequestURI for flag sets")
-			}
+			assert.Equal(t, "/splitChanges?s=1.3&since=-1&rbSince=-1&sets=a%2Cc%2Cd", r.RequestURI)
 			fmt.Fprintln(w, fmt.Sprintf(string(splitsMock), splitMock))
 			return
 		case "/segmentChanges/___TEST___":
@@ -546,23 +432,13 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 			return
 		case "/testImpressions/bulk":
 		case "/events/bulk":
-			for header := range r.Header {
-				if (header == "SplitSDKMachineIP") || (header == "SplitSDKMachineName") {
-					t.Error("Should not insert one of SplitSDKMachineIP, SplitSDKMachineName")
-				}
-			}
+			assert.NotSubset(t, r.Header, map[string][]string{"SplitSDKMachineIP": {}, "SplitSDKMachineName": {}})
 
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost []map[string]interface{}
 			err := json.Unmarshal(rBody, &dataInPost)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-
-			if len(dataInPost) < 1 {
-				t.Error("It should send data")
-			}
+			assert.Nil(t, err)
+			assert.GreaterOrEqual(t, len(dataInPost), 1)
 			fmt.Fprintln(w, "ok")
 			postChannel <- "finished"
 		case "/segmentChanges":
@@ -570,16 +446,9 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 			rBody, _ := ioutil.ReadAll(r.Body)
 			var dataInPost dtos.Config
 			err := json.Unmarshal(rBody, &dataInPost)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			if dataInPost.FlagSetsInvalid != 4 {
-				t.Error("invalid flag sets should be 4")
-			}
-			if dataInPost.FlagSetsTotal != 7 {
-				t.Error("total flag sets should be 7")
-			}
+			assert.Nil(t, err)
+			assert.Equal(t, int64(4), dataInPost.FlagSetsInvalid, "invalid flag sets should be 4")
+			assert.Equal(t, int64(7), dataInPost.FlagSetsTotal, "total flag sets should be 7")
 		default:
 			fmt.Fprintln(w, "ok")
 			return
@@ -602,56 +471,34 @@ func TestInMemoryFactoryFlagSets(t *testing.T) {
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
 	errBlock := client.BlockUntilReady(15)
-
-	if errBlock != nil {
-		t.Error("client should be ready")
-	}
-
-	if !client.isReady() {
-		t.Error("InMemory should be ready")
-	}
-
-	mW.Reset()
-	if mW.Length() > 0 {
-		t.Error("Wrong message")
-	}
-	mW.Reset()
+	assert.Nil(t, errBlock, "client should be ready")
+	assert.True(t, client.isReady(), "InMemory should be ready")
 
 	client.Destroy()
 }
 
 func TestConsumerFactoryFlagSets(t *testing.T) {
-	logger := getMockedLogger()
+	logger := &lMock.LoggerMock{}
 	sdkConf := conf.Default()
 	sdkConf.OperationMode = conf.RedisConsumer
 	sdkConf.Advanced.FlagSetsFilter = []string{"a", "b"}
 	sdkConf.Logger = logger
 
+	logger.On("Debug", mock.Anything)
+	logger.On("Warning", []interface{}{"Factory Instantiation: You already have an instance of the Split factory. Make sure you definitely want this additional instance. We recommend keeping only one instance of the factory at all times (Singleton pattern) and reusing it throughout your application."})
+	logger.On("Warning", []interface{}{"FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded"}).Return().Once()
 	factory, _ := NewSplitFactory("something", sdkConf)
-	if !mW.Matches("FlagSets filter is not applicable for Consumer modes where the SDK does not keep rollout data in sync. FlagSet filter was discarded") {
-		t.Error("Wrong message")
-	}
-	if !factory.IsReady() {
-		t.Error("Factory should be ready immediately")
-	}
+	assert.True(t, factory.IsReady())
 	client := factory.Client()
-	if !client.factory.IsReady() {
-		t.Error("Client should be ready immediately")
-	}
+	assert.True(t, factory.IsReady())
 
 	err := client.BlockUntilReady(1)
-	if err != nil {
-		t.Error("Error was not expected")
-	}
+	assert.Nil(t, err)
 
 	manager := factory.Manager()
-	if !manager.factory.IsReady() {
-		t.Error("Manager should be ready immediately")
-	}
+	assert.True(t, manager.factory.IsReady())
 	err = manager.BlockUntilReady(1)
-	if err != nil {
-		t.Error("Error was not expected")
-	}
+	assert.Nil(t, err)
 
 	prefixedClient, _ := redis.NewRedisClient(&commonsCfg.RedisConfig{
 		Host:     "localhost",
@@ -666,14 +513,20 @@ func TestConsumerFactoryFlagSets(t *testing.T) {
 
 func TestNotReadyYet(t *testing.T) {
 	nonReadyUsages := 0
-	logger := getMockedLogger()
+	logger := &lMock.LoggerMock{}
 	telemetryStorage := mocks.MockTelemetryStorage{
+		RecordLatencyCall: func(method string, latency time.Duration) {},
 		RecordNonReadyUsageCall: func() {
 			nonReadyUsages++
 		},
 		RecordExceptionCall: func(method string) {},
 	}
-	factoryNotReady := &SplitFactory{}
+	impressionsCounter := strategy.NewImpressionsCounter()
+	filter := filter.NewBloomFilter(100, 0.01)
+	uniqueKeysTracker := strategy.NewUniqueKeysTracker(filter)
+	noneStrategy := strategy.NewNoneImpl(impressionsCounter, uniqueKeysTracker, false)
+	impressionManager := provisional.NewImpressionManagerImp(noneStrategy, noneStrategy)
+	factoryNotReady := &SplitFactory{cfg: conf.Default(), impressionManager: impressionManager}
 	clientNotReady := SplitClient{
 		evaluator:   &mockEvaluator{},
 		impressions: mutexqueue.NewMQImpressionsStorage(5000, make(chan string, 1), logger, mocks.MockTelemetryStorage{}),
@@ -688,9 +541,10 @@ func TestNotReadyYet(t *testing.T) {
 		factory:             factoryNotReady,
 		initTelemetry:       telemetryStorage,
 		evaluationTelemetry: telemetryStorage,
+		impressionManager:   impressionManager,
 	}
 	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
-	maganerNotReady := SplitManager{
+	managerNotReady := SplitManager{
 		initTelemetry: telemetryStorage,
 		factory:       factoryNotReady,
 		logger:        logger,
@@ -699,71 +553,53 @@ func TestNotReadyYet(t *testing.T) {
 
 	factoryNotReady.status.Store(sdkStatusInitializing)
 
-	expectedMessage := "{operation}: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
-	expectedMessage1 := "{operation}: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"
-	expectedMessage2 := "{operation}: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"
+	logger.On("Warning", []interface{}{"Treatment: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Equal(t, "control", clientNotReady.Treatment("test", "feature", nil))
 
-	clientNotReady.Treatment("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "Treatment", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Treatments: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Equal(t, map[string]string{"feature": "control", "feature_2": "control"}, clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil))
 
-	clientNotReady.Treatments("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "Treatments", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"TreatmentWithConfig: the SDK is not ready, results may be incorrect for feature flag feature. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Equal(t, TreatmentResult{Treatment: "control", Config: nil}, clientNotReady.TreatmentWithConfig("test", "feature", nil))
 
-	clientNotReady.TreatmentWithConfig("test", "feature", nil)
-	if !mW.Matches(strings.Replace(expectedMessage1, "{operation}", "TreatmentWithConfig", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"TreatmentsWithConfig: the SDK is not ready, results may be incorrect for feature flags feature, feature_2. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Equal(t, map[string]TreatmentResult{"feature": {Treatment: "control", Config: nil}, "feature_2": {Treatment: "control", Config: nil}}, clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil))
 
-	clientNotReady.TreatmentsWithConfig("test", []string{"feature", "feature_2"}, nil)
-	if !mW.Matches(strings.Replace(expectedMessage2, "{operation}", "TreatmentsWithConfig", 1)) {
-		t.Error("Wrong message", mW.messages)
-	}
-	expected := "Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"
-	expectedTrack(clientNotReady.Track("key", "traffic", "eventType", nil, nil), expected, t)
+	logger.On("Warning", []interface{}{"Track: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Nil(t, clientNotReady.Track("key", "traffic", "eventType", nil, nil))
 
-	maganerNotReady.Split("feature")
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Split", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Split: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	logger.On("Error", []interface{}{"Split: you passed feature that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	assert.Nil(t, managerNotReady.Split("feature"))
 
-	maganerNotReady.Splits()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "Splits", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"SplitNames: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Len(t, managerNotReady.SplitNames(), 0)
 
-	maganerNotReady.SplitNames()
-	if !mW.Matches(strings.Replace(expectedMessage, "{operation}", "SplitNames", 1)) {
-		t.Error("Wrong message")
-	}
+	logger.On("Warning", []interface{}{"Splits: the SDK is not ready, results may be incorrect. Make sure to wait for SDK readiness before using this method"}).Return().Once()
+	assert.Len(t, managerNotReady.Splits(), 0)
 
-	if nonReadyUsages != 8 {
-		t.Error("It should track a non ready usage")
-	}
+	assert.Equal(t, 8, nonReadyUsages, "It should track non ready usages")
+	logger.AssertExpectations(t)
 }
 
 func TestManagerWithEmptySplit(t *testing.T) {
 	flagSetFilter := flagsets.NewFlagSetFilter([]string{})
 	splitStorage := mutexmap.NewMMSplitStorage(flagSetFilter)
 	factory := SplitFactory{}
+	logger := &lMock.LoggerMock{}
 	manager := SplitManager{
 		splitStorage: splitStorage,
-		logger:       getMockedLogger(),
+		logger:       logger,
 	}
 
 	factory.status.Store(sdkStatusReady)
 	manager.factory = &factory
 
-	manager.Split("")
-	if !mW.Matches("Split: you passed an empty featureFlagName, flag name must be a non-empty string") {
-		t.Error("Wrong message")
-	}
+	logger.On("Error", []interface{}{"Split: you passed an empty featureFlagName, flag name must be a non-empty string"}).Return().Once()
+	assert.Nil(t, manager.Split(""))
 
-	manager.Split("non_existent")
-	if !mW.Matches("Split: you passed non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface.") {
-		t.Error("Wrong message")
-	}
+	logger.On("Error", []interface{}{"Split: you passed non_existent that does not exist in this environment, please double check what feature flags exist in the Split user interface."}).Return().Once()
+	assert.Nil(t, manager.Split("non_existent"))
+
+	logger.AssertExpectations(t)
 }

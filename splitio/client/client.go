@@ -4,19 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 
-	"github.com/splitio/go-split-commons/v6/dtos"
-	"github.com/splitio/go-split-commons/v6/engine/evaluator"
-	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v6/flagsets"
-	"github.com/splitio/go-split-commons/v6/provisional"
-	"github.com/splitio/go-split-commons/v6/storage"
-	"github.com/splitio/go-split-commons/v6/telemetry"
+	"github.com/splitio/go-split-commons/v7/dtos"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v7/flagsets"
+	"github.com/splitio/go-split-commons/v7/provisional"
+	"github.com/splitio/go-split-commons/v7/storage"
+	"github.com/splitio/go-split-commons/v7/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -74,6 +75,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	if c.isReady() {
 		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, featureFlags, attributes)
 	}
+	sort.Strings(featureFlags)
 	featureFlagsToPrint := strings.Join(featureFlags, ", ")
 	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flags %s. Make sure to wait for SDK readiness before using this method", operation, featureFlagsToPrint))
 	c.initTelemetry.RecordNonReadyUsage()

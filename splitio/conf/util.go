@@ -3,8 +3,8 @@ package conf
 import (
 	"strings"
 
-	"github.com/splitio/go-split-commons/v6/conf"
-	"github.com/splitio/go-split-commons/v6/flagsets"
+	"github.com/splitio/go-split-commons/v7/conf"
+	"github.com/splitio/go-split-commons/v7/flagsets"
 )
 
 // NormalizeSDKConf compares against SDK Config to set defaults

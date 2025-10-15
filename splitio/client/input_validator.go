@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/splitio/go-split-commons/v6/engine/evaluator/impressionlabels"
-	"github.com/splitio/go-split-commons/v6/storage"
+	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
+	"github.com/splitio/go-split-commons/v7/storage"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
@@ -120,7 +120,7 @@ func (i *inputValidation) ValidateTreatmentKey(key interface{}, operation string
 		if err != nil {
 			return "", nil, err
 		}
-		i.logger.Warning(fmt.Sprintf(operation+": key %s is not of type string, converting", key))
+		i.logger.Warning(fmt.Sprintf(operation+": key %v is not of type string, converting", key))
 	}
 	err = checkIsValidString(sMatchingKey, "key", "key", operation)
 	if err != nil {
@@ -270,15 +270,15 @@ func (i *inputValidation) validateTrackProperties(properties map[string]interfac
 			size += len(value)
 			processed[name] = value
 		default:
-			i.logger.Warning("Property %s is of invalid type. Setting value to nil")
+			i.logger.Warning("Track: Property %s is of invalid type. Setting value to nil")
 			processed[name] = nil
 		}
 
 		if size > MaxEventLength {
 			i.logger.Error(
-				"The maximum size allowed for the properties is 32kb. Event not queued",
+				"Track: The maximum size allowed for the properties is 32kb. Event not queued",
 			)
-			return nil, size, errors.New("The maximum size allowed for the properties is 32kb. Event not queued")
+			return nil, size, errors.New("Track: The maximum size allowed for the properties is 32kb. Event not queued")
 		}
 	}
 	return processed, size, nil

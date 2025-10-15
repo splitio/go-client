@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
@@ -74,6 +75,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 	if c.isReady() {
 		return c.evaluator.EvaluateFeatures(matchingKey, bucketingKey, featureFlags, attributes)
 	}
+	sort.Strings(featureFlags)
 	featureFlagsToPrint := strings.Join(featureFlags, ", ")
 	c.logger.Warning(fmt.Sprintf("%s: the SDK is not ready, results may be incorrect for feature flags %s. Make sure to wait for SDK readiness before using this method", operation, featureFlagsToPrint))
 	c.initTelemetry.RecordNonReadyUsage()

@@ -6,8 +6,9 @@ import (
 	"github.com/splitio/go-split-commons/v7/dtos"
 	"github.com/splitio/go-split-commons/v7/flagsets"
 	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
-	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSplitManager(t *testing.T) {
@@ -69,64 +70,33 @@ func TestSplitManager(t *testing.T) {
 	factory.status.Store(sdkStatusReady)
 
 	splitNames := manager.SplitNames()
-	splitNameSet := set.NewSet(splitNames[0], splitNames[1])
-	if !splitNameSet.IsEqual(set.NewSet("split1", "split2")) {
-		t.Error("Incorrect split names returned")
-	}
+	assert.ElementsMatch(t, []string{"split1", "split2"}, splitNames)
 
 	s1 := manager.Split("split1")
-	if s1.Name != "split1" || s1.Killed || s1.TrafficType != "tt1" || s1.ChangeNumber != 123 {
-		t.Error("Split 1 stored incorrectly")
-	}
-	if s1.Treatments[0] != "s1p1" && s1.Treatments[1] != "s1p2" && s1.Treatments[2] != "s1p3" {
-		t.Error("Incorrect treatments for split 1")
-	}
-
-	if len(s1.Sets) != 2 {
-		t.Error("split1 should have 2 sets")
-	}
-
-	if s1.DefaultTreatment != "s1p1" {
-		t.Error("the default treatment for split1 should be s1p1")
-	}
-
-	if s1.ImpressionsDisabled {
-		t.Error("track impressions for split1 should be false")
-	}
-
-	if s1.Prerequisites != nil {
-		t.Error("prerequisistes should be nil for s1")
-	}
+	assert.Equal(t, "split1", s1.Name)
+	assert.False(t, s1.Killed)
+	assert.Equal(t, "tt1", s1.TrafficType)
+	assert.Equal(t, int64(123), s1.ChangeNumber)
+	assert.ElementsMatch(t, []string{"s1p1", "s1p2", "s1p3"}, s1.Treatments)
+	assert.ElementsMatch(t, []string{"set1", "set2"}, s1.Sets)
+	assert.Equal(t, "s1p1", s1.DefaultTreatment)
+	assert.False(t, s1.ImpressionsDisabled)
+	assert.Nil(t, s1.Prerequisites)
 
 	s2 := manager.Split("split2")
-	if s2.Name != "split2" || !s2.Killed || s2.TrafficType != "tt2" || s2.ChangeNumber != 123 {
-		t.Error("Split 2 stored incorrectly")
-	}
-	if s2.Treatments[0] != "s1p2" && s2.Treatments[1] != "s2p2" && s2.Treatments[2] != "s2p3" {
-		t.Error("Incorrect treatments for split 2")
-	}
-
-	if s2.Sets == nil && len(s2.Sets) != 0 {
-		t.Error("split2 sets should be empty array")
-	}
-
-	if s2.ImpressionsDisabled {
-		t.Error("track impressions for split2 should be false")
-	}
-
-	if len(s2.Prerequisites) != 1 {
-		t.Error("prerequisites size should be 1")
-	}
+	assert.Equal(t, "split2", s2.Name)
+	assert.True(t, s2.Killed)
+	assert.Equal(t, "tt2", s2.TrafficType)
+	assert.Equal(t, int64(123), s2.ChangeNumber)
+	assert.ElementsMatch(t, []string{"s2p1", "s2p2", "s2p3"}, s2.Treatments)
+	assert.ElementsMatch(t, []string{}, s2.Sets)
+	assert.False(t, s2.ImpressionsDisabled)
+	assert.Len(t, s2.Prerequisites, 1)
 
 	all := manager.Splits()
-	if len(all) != 2 {
-		t.Error("Incorrect number of splits returned")
-	}
+	assert.Len(t, all, 2)
 
-	sx := manager.Split("split3492042")
-	if sx != nil {
-		t.Error("Nonexistent split should return nil")
-	}
+	assert.Nil(t, manager.Split("split3492042"))
 }
 
 func TestSplitManagerWithConfigs(t *testing.T) {
@@ -147,77 +117,48 @@ func TestSplitManagerWithConfigs(t *testing.T) {
 	manager.factory = &factory
 
 	splitNames := manager.SplitNames()
-	splitNameSet := set.NewSet(splitNames[0], splitNames[1], splitNames[2])
-	if !splitNameSet.IsEqual(set.NewSet("valid", "killed", "noConfig")) {
-		t.Error("Incorrect split names returned")
-	}
+	assert.ElementsMatch(t, []string{"valid", "killed", "noConfig"}, splitNames)
 
 	s1 := manager.Split("valid")
-	if s1.Name != "valid" || s1.Killed || s1.TrafficType != "user" || s1.ChangeNumber != 1494593336752 {
-		t.Error("Split 1 stored incorrectly")
-	}
-	if s1.Treatments[0] != "on" {
-		t.Error("Incorrect treatments for split 1")
-	}
-	if s1.Configs == nil {
-		t.Error("It should have configs")
-	}
-	if s1.Configs["on"] != "{\"color\": \"blue\",\"size\": 13}" {
-		t.Error("It should have configs")
-	}
-	if s1.DefaultTreatment != "off" {
-		t.Error("the default treatment for valid should be off")
-	}
-	if s1.ImpressionsDisabled {
-		t.Error("ImpressionsDisabled for valid should be false")
-	}
+	assert.Equal(t, "valid", s1.Name)
+	assert.False(t, s1.Killed)
+	assert.Equal(t, "user", s1.TrafficType)
+	assert.Equal(t, int64(1494593336752), s1.ChangeNumber)
+	assert.ElementsMatch(t, []string{"on"}, s1.Treatments)
+	assert.NotNil(t, s1.Configs)
+	assert.Equal(t, "{\"color\": \"blue\",\"size\": 13}", s1.Configs["on"])
+	assert.Equal(t, "off", s1.DefaultTreatment)
+	assert.False(t, s1.ImpressionsDisabled)
 
 	s2 := manager.Split("killed")
-	if s2.Name != "killed" || !s2.Killed || s2.TrafficType != "user" || s2.ChangeNumber != 1494593336752 {
-		t.Error("Split 2 stored incorrectly")
-	}
-	if s2.Treatments[0] != "off" {
-		t.Error("Incorrect treatments for split 2")
-	}
-	if s2.Configs == nil {
-		t.Error("It should have configs")
-	}
-	if s2.Configs["defTreatment"] != "{\"color\": \"orange\",\"size\": 15}" {
-		t.Error("It should have configs")
-	}
-	if s2.DefaultTreatment != "defTreatment" {
-		t.Error("the default treatment for killed should be defTreatment")
-	}
-	if s2.ImpressionsDisabled {
-		t.Error("track impressions for killed should be false")
-	}
+	assert.Equal(t, "killed", s2.Name)
+	assert.True(t, s2.Killed)
+	assert.Equal(t, "user", s2.TrafficType)
+	assert.Equal(t, int64(1494593336752), s2.ChangeNumber)
+	assert.ElementsMatch(t, []string{"off"}, s2.Treatments)
+	assert.NotNil(t, s2.Configs)
+	assert.Equal(t, "{\"color\": \"orange\",\"size\": 15}", s2.Configs["defTreatment"])
+	assert.ElementsMatch(t, []string{"off"}, s2.Treatments)
+	assert.NotNil(t, s2.Configs)
+	assert.Equal(t, "{\"color\": \"orange\",\"size\": 15}", s2.Configs["defTreatment"])
+	assert.ElementsMatch(t, []string{"off"}, s2.Treatments)
+	assert.NotNil(t, s2.Configs)
+	assert.False(t, s2.ImpressionsDisabled)
 
 	s3 := manager.Split("noConfig")
-	if s3.Name != "noConfig" || s3.Killed || s3.TrafficType != "user" || s3.ChangeNumber != 1494593336752 {
-		t.Error("Split 3 stored incorrectly")
-	}
-	if s3.Treatments[0] != "off" {
-		t.Error("Incorrect treatments for split 3")
-	}
-	if s3.Configs != nil {
-		t.Error("It should not have configs")
-	}
-	if s3.DefaultTreatment != "defTreatment" {
-		t.Error("the default treatment for killed should be defTreatment")
-	}
-	if s3.ImpressionsDisabled {
-		t.Error("track impressions for noConfig should be false")
-	}
+	assert.Equal(t, "noConfig", s3.Name)
+	assert.False(t, s3.Killed)
+	assert.Equal(t, "user", s3.TrafficType)
+	assert.Equal(t, int64(1494593336752), s3.ChangeNumber)
+	assert.ElementsMatch(t, []string{"off"}, s3.Treatments)
+	assert.Nil(t, s3.Configs)
+	assert.Equal(t, "defTreatment", s3.DefaultTreatment)
+	assert.False(t, s3.ImpressionsDisabled)
 
 	all := manager.Splits()
-	if len(all) != 3 {
-		t.Error("Incorrect number of splits returned")
-	}
+	assert.Len(t, all, 3)
 
-	sx := manager.Split("split3492042")
-	if sx != nil {
-		t.Error("Nonexistent split should return nil")
-	}
+	assert.Nil(t, manager.Split("split3492042"))
 }
 
 func TestSplitManagerTrackImpressions(t *testing.T) {
@@ -240,17 +181,11 @@ func TestSplitManagerTrackImpressions(t *testing.T) {
 	manager.factory = &factory
 
 	s1 := manager.Split("valid")
-	if !s1.ImpressionsDisabled {
-		t.Error("track impressions for valid should be true")
-	}
+	assert.True(t, s1.ImpressionsDisabled)
 
 	s2 := manager.Split("killed")
-	if s2.ImpressionsDisabled {
-		t.Error("track impressions for killed should be false")
-	}
+	assert.False(t, s2.ImpressionsDisabled)
 
 	s3 := manager.Split("noConfig")
-	if !s3.ImpressionsDisabled {
-		t.Error("track impressions for noConfig should be true")
-	}
+	assert.True(t, s3.ImpressionsDisabled)
 }

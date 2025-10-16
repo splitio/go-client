@@ -1005,26 +1005,30 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(3 * time.Second)
-		if r.URL.Path != "/splitChanges" || r.Method != "GET" {
-			t.Error("Invalid request. Should be GET to /splitChanges")
+		switch r.URL.Path {
+		case "/version":
+			w.WriteHeader(http.StatusOK)
+		case "/splitChanges":
+			time.Sleep(3 * time.Second)
+			splitChanges := dtos.SplitChangesDTO{
+				FeatureFlags: dtos.FeatureFlagsDTO{
+					Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+					Since:  3,
+					Till:   3,
+				},
+			}
+
+			raw, err := json.Marshal(splitChanges)
+			if err != nil {
+				t.Error("Error building json")
+				return
+			}
+
+			w.Write(raw)
+		default:
+			t.Error("Unexpected path")
 		}
 
-		splitChanges := dtos.SplitChangesDTO{
-			FeatureFlags: dtos.FeatureFlagsDTO{
-				Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
-				Since:  3,
-				Till:   3,
-			},
-		}
-
-		raw, err := json.Marshal(splitChanges)
-		if err != nil {
-			t.Error("Error building json")
-			return
-		}
-
-		w.Write(raw)
 	}))
 	defer sdkServer.Close()
 
@@ -1150,7 +1154,7 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 
 	err = client.BlockUntilReady(2)
 	if err != nil {
-		t.Error("Wrong message error")
+		t.Error("Wrong message error", err.Error())
 	}
 
 	if !client.factory.IsReady() || !manager.factory.IsReady() {

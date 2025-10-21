@@ -3,9 +3,9 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v7/dtos"
-	"github.com/splitio/go-split-commons/v7/flagsets"
-	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v8/dtos"
+	"github.com/splitio/go-split-commons/v8/flagsets"
+	"github.com/splitio/go-split-commons/v8/storage/inmemory/mutexmap"
 	"github.com/splitio/go-toolkit/v5/logging"
 
 	"github.com/stretchr/testify/assert"

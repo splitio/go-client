@@ -1010,7 +1010,7 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/splitChanges":
 			time.Sleep(3 * time.Second)
-			splitChanges := dtos.SplitChangesDTO{
+			splitChanges := dtos.RuleChangesDTO{
 				FeatureFlags: dtos.FeatureFlagsDTO{
 					Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
 					Since:  3,
@@ -2447,7 +2447,7 @@ func TestTelemetryMemory(t *testing.T) {
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
-		splitChanges := dtos.SplitChangesDTO{
+		splitChanges := dtos.RuleChangesDTO{
 			FeatureFlags: dtos.FeatureFlagsDTO{
 				Splits: []dtos.SplitDTO{
 					{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},

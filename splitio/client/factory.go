@@ -405,6 +405,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	storages := sdkStorages{
 		splits:              redis.NewSplitStorage(redisClient, logger, flagSetFilter),
 		segments:            redis.NewSegmentStorage(redisClient, logger),
+		ruleBasedSegments:   redis.NewRuleBasedStorage(redisClient, logger),
 		impressionsConsumer: impressionStorage,
 		impressions:         impressionStorage,
 		events:              redis.NewEventsStorage(redisClient, metadata, logger),

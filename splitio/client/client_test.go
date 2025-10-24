@@ -18,24 +18,24 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 
-	commonsCfg "github.com/splitio/go-split-commons/v7/conf"
-	"github.com/splitio/go-split-commons/v7/dtos"
-	"github.com/splitio/go-split-commons/v7/engine/evaluator"
-	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
-	evaluatorMock "github.com/splitio/go-split-commons/v7/engine/evaluator/mocks"
-	"github.com/splitio/go-split-commons/v7/healthcheck/application"
-	"github.com/splitio/go-split-commons/v7/provisional"
-	"github.com/splitio/go-split-commons/v7/provisional/strategy"
-	authMocks "github.com/splitio/go-split-commons/v7/service/mocks"
-	"github.com/splitio/go-split-commons/v7/storage"
-	"github.com/splitio/go-split-commons/v7/storage/inmemory"
-	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v7/storage/mocks"
-	"github.com/splitio/go-split-commons/v7/storage/redis"
-	"github.com/splitio/go-split-commons/v7/synchronizer"
-	syncMock "github.com/splitio/go-split-commons/v7/synchronizer/mocks"
-	"github.com/splitio/go-split-commons/v7/telemetry"
-	"github.com/splitio/go-split-commons/v7/util"
+	commonsCfg "github.com/splitio/go-split-commons/v8/conf"
+	"github.com/splitio/go-split-commons/v8/dtos"
+	"github.com/splitio/go-split-commons/v8/engine/evaluator"
+	"github.com/splitio/go-split-commons/v8/engine/evaluator/impressionlabels"
+	evaluatorMock "github.com/splitio/go-split-commons/v8/engine/evaluator/mocks"
+	"github.com/splitio/go-split-commons/v8/healthcheck/application"
+	"github.com/splitio/go-split-commons/v8/provisional"
+	"github.com/splitio/go-split-commons/v8/provisional/strategy"
+	authMocks "github.com/splitio/go-split-commons/v8/service/mocks"
+	"github.com/splitio/go-split-commons/v8/storage"
+	"github.com/splitio/go-split-commons/v8/storage/inmemory"
+	"github.com/splitio/go-split-commons/v8/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v8/storage/mocks"
+	"github.com/splitio/go-split-commons/v8/storage/redis"
+	"github.com/splitio/go-split-commons/v8/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/v8/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v8/telemetry"
+	"github.com/splitio/go-split-commons/v8/util"
 
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
@@ -1005,26 +1005,30 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(3 * time.Second)
-		if r.URL.Path != "/splitChanges" || r.Method != "GET" {
-			t.Error("Invalid request. Should be GET to /splitChanges")
+		switch r.URL.Path {
+		case "/version":
+			w.WriteHeader(http.StatusOK)
+		case "/splitChanges":
+			time.Sleep(3 * time.Second)
+			splitChanges := dtos.RuleChangesDTO{
+				FeatureFlags: dtos.FeatureFlagsDTO{
+					Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+					Since:  3,
+					Till:   3,
+				},
+			}
+
+			raw, err := json.Marshal(splitChanges)
+			if err != nil {
+				t.Error("Error building json")
+				return
+			}
+
+			w.Write(raw)
+		default:
+			t.Error("Unexpected path")
 		}
 
-		splitChanges := dtos.SplitChangesDTO{
-			FeatureFlags: dtos.FeatureFlagsDTO{
-				Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
-				Since:  3,
-				Till:   3,
-			},
-		}
-
-		raw, err := json.Marshal(splitChanges)
-		if err != nil {
-			t.Error("Error building json")
-			return
-		}
-
-		w.Write(raw)
 	}))
 	defer sdkServer.Close()
 
@@ -1150,7 +1154,7 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 
 	err = client.BlockUntilReady(2)
 	if err != nil {
-		t.Error("Wrong message error")
+		t.Error("Wrong message error", err.Error())
 	}
 
 	if !client.factory.IsReady() || !manager.factory.IsReady() {
@@ -2443,7 +2447,7 @@ func TestTelemetryMemory(t *testing.T) {
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
-		splitChanges := dtos.SplitChangesDTO{
+		splitChanges := dtos.RuleChangesDTO{
 			FeatureFlags: dtos.FeatureFlagsDTO{
 				Splits: []dtos.SplitDTO{
 					{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},

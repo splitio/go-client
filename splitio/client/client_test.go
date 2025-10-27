@@ -17,6 +17,7 @@ import (
 	"github.com/splitio/go-client/v6/splitio"
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
+	"github.com/stretchr/testify/assert"
 
 	commonsCfg "github.com/splitio/go-split-commons/v8/conf"
 	"github.com/splitio/go-split-commons/v8/dtos"
@@ -3193,6 +3194,13 @@ func TestRuleBasedSegmentRedis(t *testing.T) {
 	}
 
 	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	// Clean redis
+	defer func() {
+		keys, _ := prefixedClient.Keys("test-prefix-rulebased*")
+		for _, k := range keys {
+			prefixedClient.Del(k)
+		}
+	}()
 	raw, _ := json.Marshal(*splitRuleBased)
 	prefixedClient.Set("SPLITIO.split.rbsplit", raw, 0)
 	rbraw, _ := json.Marshal(*rbsegment1)
@@ -3208,23 +3216,13 @@ func TestRuleBasedSegmentRedis(t *testing.T) {
 
 	factory, _ := NewSplitFactory("test", cfg)
 	client := factory.Client()
-	client.BlockUntilReady(2)
 
 	// Calls treatments to generate one valid impression
-	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
 	attributes := make(map[string]interface{})
 	attributes["version"] = "3.4.5"
 	evaluation := client.Treatment("user1", "rbsplit", attributes)
-	if evaluation != "on" {
-		t.Error("evaluation for rbsplit should be on")
-	}
+	assert.Equal(t, "on", evaluation, "evaluation for rbsplit should be on")
 	client.Destroy()
-
-	// Clean redis
-	keys, _ := prefixedClient.Keys("SPLITIO*")
-	for _, k := range keys {
-		prefixedClient.Del(k)
-	}
 }
 
 func TestPrerequisites(t *testing.T) {

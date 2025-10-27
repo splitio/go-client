@@ -3115,6 +3115,118 @@ func TestUnsupportedandSemverMatcherRedis(t *testing.T) {
 	}
 }
 
+var splitRuleBased = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "off",
+	Killed:                false,
+	Name:                  "rbsplit",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"on": "{\"color\": \"blue\",\"size\": 13}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+						},
+						MatcherType: "IN_RULE_BASED_SEGMENT",
+						UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+							SegmentName: "rbsegment1",
+						},
+						Negate: false,
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "on",
+				},
+				{
+					Size:      0,
+					Treatment: "off",
+				},
+			},
+		},
+	},
+}
+
+var rbsegment1 = &dtos.RuleBasedSegmentDTO{
+	Name: "rbsegment1",
+	Conditions: []dtos.RuleBasedConditionDTO{
+		{
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   &attribute,
+						},
+						MatcherType: "EQUAL_TO_SEMVER",
+						String:      &semver,
+						Whitelist:   nil,
+						Negate:      false,
+					},
+				},
+			},
+		},
+	},
+	TrafficTypeName: "user",
+}
+
+func TestRuleBasedSegmentRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-rulebased",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	raw, _ := json.Marshal(*splitRuleBased)
+	prefixedClient.Set("SPLITIO.split.rbsplit", raw, 0)
+	rbraw, _ := json.Marshal(*rbsegment1)
+	prefixedClient.Set("SPLITIO.rbsegment.rbsegment1", rbraw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeOptimized
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+	client.BlockUntilReady(2)
+
+	// Calls treatments to generate one valid impression
+	time.Sleep(300 * time.Millisecond) // Let's wait until first call of recorders have finished
+	attributes := make(map[string]interface{})
+	attributes["version"] = "3.4.5"
+	evaluation := client.Treatment("user1", "rbsplit", attributes)
+	if evaluation != "on" {
+		t.Error("evaluation for rbsplit should be on")
+	}
+	client.Destroy()
+
+	// Clean redis
+	keys, _ := prefixedClient.Keys("SPLITIO*")
+	for _, k := range keys {
+		prefixedClient.Del(k)
+	}
+}
+
 func TestPrerequisites(t *testing.T) {
 	var isDestroyCalled = false
 	var splitsMock, _ = ioutil.ReadFile("../../testdata/splits_mock_5.json")

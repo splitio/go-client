@@ -17,25 +17,26 @@ import (
 	"github.com/splitio/go-client/v6/splitio"
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
+	"github.com/stretchr/testify/assert"
 
-	commonsCfg "github.com/splitio/go-split-commons/v7/conf"
-	"github.com/splitio/go-split-commons/v7/dtos"
-	"github.com/splitio/go-split-commons/v7/engine/evaluator"
-	"github.com/splitio/go-split-commons/v7/engine/evaluator/impressionlabels"
-	evaluatorMock "github.com/splitio/go-split-commons/v7/engine/evaluator/mocks"
-	"github.com/splitio/go-split-commons/v7/healthcheck/application"
-	"github.com/splitio/go-split-commons/v7/provisional"
-	"github.com/splitio/go-split-commons/v7/provisional/strategy"
-	authMocks "github.com/splitio/go-split-commons/v7/service/mocks"
-	"github.com/splitio/go-split-commons/v7/storage"
-	"github.com/splitio/go-split-commons/v7/storage/inmemory"
-	"github.com/splitio/go-split-commons/v7/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v7/storage/mocks"
-	"github.com/splitio/go-split-commons/v7/storage/redis"
-	"github.com/splitio/go-split-commons/v7/synchronizer"
-	syncMock "github.com/splitio/go-split-commons/v7/synchronizer/mocks"
-	"github.com/splitio/go-split-commons/v7/telemetry"
-	"github.com/splitio/go-split-commons/v7/util"
+	commonsCfg "github.com/splitio/go-split-commons/v8/conf"
+	"github.com/splitio/go-split-commons/v8/dtos"
+	"github.com/splitio/go-split-commons/v8/engine/evaluator"
+	"github.com/splitio/go-split-commons/v8/engine/evaluator/impressionlabels"
+	evaluatorMock "github.com/splitio/go-split-commons/v8/engine/evaluator/mocks"
+	"github.com/splitio/go-split-commons/v8/healthcheck/application"
+	"github.com/splitio/go-split-commons/v8/provisional"
+	"github.com/splitio/go-split-commons/v8/provisional/strategy"
+	authMocks "github.com/splitio/go-split-commons/v8/service/mocks"
+	"github.com/splitio/go-split-commons/v8/storage"
+	"github.com/splitio/go-split-commons/v8/storage/inmemory"
+	"github.com/splitio/go-split-commons/v8/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v8/storage/mocks"
+	"github.com/splitio/go-split-commons/v8/storage/redis"
+	"github.com/splitio/go-split-commons/v8/synchronizer"
+	syncMock "github.com/splitio/go-split-commons/v8/synchronizer/mocks"
+	"github.com/splitio/go-split-commons/v8/telemetry"
+	"github.com/splitio/go-split-commons/v8/util"
 
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
@@ -1005,26 +1006,30 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	mockedSplit3 := dtos.SplitDTO{Name: "split3", Killed: true, Status: "INACTIVE"}
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(3 * time.Second)
-		if r.URL.Path != "/splitChanges" || r.Method != "GET" {
-			t.Error("Invalid request. Should be GET to /splitChanges")
+		switch r.URL.Path {
+		case "/version":
+			w.WriteHeader(http.StatusOK)
+		case "/splitChanges":
+			time.Sleep(3 * time.Second)
+			splitChanges := dtos.RuleChangesDTO{
+				FeatureFlags: dtos.FeatureFlagsDTO{
+					Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
+					Since:  3,
+					Till:   3,
+				},
+			}
+
+			raw, err := json.Marshal(splitChanges)
+			if err != nil {
+				t.Error("Error building json")
+				return
+			}
+
+			w.Write(raw)
+		default:
+			t.Error("Unexpected path")
 		}
 
-		splitChanges := dtos.SplitChangesDTO{
-			FeatureFlags: dtos.FeatureFlagsDTO{
-				Splits: []dtos.SplitDTO{mockedSplit1, mockedSplit2, mockedSplit3},
-				Since:  3,
-				Till:   3,
-			},
-		}
-
-		raw, err := json.Marshal(splitChanges)
-		if err != nil {
-			t.Error("Error building json")
-			return
-		}
-
-		w.Write(raw)
 	}))
 	defer sdkServer.Close()
 
@@ -1150,7 +1155,7 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 
 	err = client.BlockUntilReady(2)
 	if err != nil {
-		t.Error("Wrong message error")
+		t.Error("Wrong message error", err.Error())
 	}
 
 	if !client.factory.IsReady() || !manager.factory.IsReady() {
@@ -2443,7 +2448,7 @@ func TestTelemetryMemory(t *testing.T) {
 
 	sdkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
-		splitChanges := dtos.SplitChangesDTO{
+		splitChanges := dtos.RuleChangesDTO{
 			FeatureFlags: dtos.FeatureFlagsDTO{
 				Splits: []dtos.SplitDTO{
 					{Name: "split1", Killed: true, Status: "ACTIVE", DefaultTreatment: "on"},
@@ -3109,6 +3114,115 @@ func TestUnsupportedandSemverMatcherRedis(t *testing.T) {
 	for _, k := range keys {
 		prefixedClient.Del(k)
 	}
+}
+
+var splitRuleBased = &dtos.SplitDTO{
+	Algo:                  2,
+	ChangeNumber:          1494593336752,
+	DefaultTreatment:      "off",
+	Killed:                false,
+	Name:                  "rbsplit",
+	Seed:                  -1992295819,
+	Status:                "ACTIVE",
+	TrafficAllocation:     100,
+	TrafficAllocationSeed: -285565213,
+	TrafficTypeName:       "user",
+	Configurations:        map[string]string{"on": "{\"color\": \"blue\",\"size\": 13}"},
+	Conditions: []dtos.ConditionDTO{
+		{
+			ConditionType: "ROLLOUT",
+			Label:         "default rule",
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+						},
+						MatcherType: "IN_RULE_BASED_SEGMENT",
+						UserDefinedSegment: &dtos.UserDefinedSegmentMatcherDataDTO{
+							SegmentName: "rbsegment1",
+						},
+						Negate: false,
+					},
+				},
+			},
+			Partitions: []dtos.PartitionDTO{
+				{
+					Size:      100,
+					Treatment: "on",
+				},
+				{
+					Size:      0,
+					Treatment: "off",
+				},
+			},
+		},
+	},
+}
+
+var rbsegment1 = &dtos.RuleBasedSegmentDTO{
+	Name: "rbsegment1",
+	Conditions: []dtos.RuleBasedConditionDTO{
+		{
+			MatcherGroup: dtos.MatcherGroupDTO{
+				Combiner: "AND",
+				Matchers: []dtos.MatcherDTO{
+					{
+						KeySelector: &dtos.KeySelectorDTO{
+							TrafficType: "user",
+							Attribute:   &attribute,
+						},
+						MatcherType: "EQUAL_TO_SEMVER",
+						String:      &semver,
+						Whitelist:   nil,
+						Negate:      false,
+					},
+				},
+			},
+		},
+	},
+	TrafficTypeName: "user",
+}
+
+func TestRuleBasedSegmentRedis(t *testing.T) {
+	redisConfig := &commonsCfg.RedisConfig{
+		Host:     "localhost",
+		Port:     6379,
+		Password: "",
+		Prefix:   "test-prefix-rulebased",
+	}
+
+	prefixedClient, _ := redis.NewRedisClient(redisConfig, logging.NewLogger(&logging.LoggerOptions{}))
+	// Clean redis
+	defer func() {
+		keys, _ := prefixedClient.Keys("test-prefix-rulebased*")
+		for _, k := range keys {
+			prefixedClient.Del(k)
+		}
+	}()
+	raw, _ := json.Marshal(*splitRuleBased)
+	prefixedClient.Set("SPLITIO.split.rbsplit", raw, 0)
+	rbraw, _ := json.Marshal(*rbsegment1)
+	prefixedClient.Set("SPLITIO.rbsegment.rbsegment1", rbraw, 0)
+
+	impTest := &ImpressionListenerTest{}
+	cfg := conf.Default()
+	cfg.LabelsEnabled = true
+	cfg.Advanced.ImpressionListener = impTest
+	cfg.ImpressionsMode = commonsCfg.ImpressionsModeOptimized
+	cfg.OperationMode = conf.RedisConsumer
+	cfg.Redis = *redisConfig
+
+	factory, _ := NewSplitFactory("test", cfg)
+	client := factory.Client()
+
+	// Calls treatments to generate one valid impression
+	attributes := make(map[string]interface{})
+	attributes["version"] = "3.4.5"
+	evaluation := client.Treatment("user1", "rbsplit", attributes)
+	assert.Equal(t, "on", evaluation, "evaluation for rbsplit should be on")
+	client.Destroy()
 }
 
 func TestPrerequisites(t *testing.T) {

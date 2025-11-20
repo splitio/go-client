@@ -8,8 +8,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
-replace github.com/splitio/go-split-commons/v8 => /Users/nadiamayor/go/src/github.com/splitio/go-split-commons
-
 require (
 	github.com/bits-and-blooms/bitset v1.3.1 // indirect
 	github.com/bits-and-blooms/bloom/v3 v3.3.1 // indirect

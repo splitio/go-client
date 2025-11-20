@@ -3,10 +3,12 @@ module github.com/splitio/go-client/v6
 go 1.18
 
 require (
-	github.com/splitio/go-split-commons/v8 v8.0.0
+	github.com/splitio/go-split-commons/v8 v8.0.1-0.20251120161359-a7eb977ebb64
 	github.com/splitio/go-toolkit/v5 v5.4.1
 	github.com/stretchr/testify v1.11.1
 )
+
+replace github.com/splitio/go-split-commons/v8 => /Users/nadiamayor/go/src/github.com/splitio/go-split-commons
 
 require (
 	github.com/bits-and-blooms/bitset v1.3.1 // indirect

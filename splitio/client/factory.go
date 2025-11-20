@@ -65,27 +65,28 @@ type sdkStorages struct {
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	startTime             time.Time // Tracking startTime
-	metadata              dtos.Metadata
-	storages              sdkStorages
-	apikey                string
-	status                atomic.Value
-	readinessSubscriptors map[int]chan int
-	operationMode         string
-	mutex                 sync.Mutex
-	cfg                   *conf.SplitSdkConfig
-	impressionListener    *impressionlistener.WrapperImpressionListener
-	logger                logging.LoggerInterface
-	syncManager           synchronizer.Manager
-	telemetrySync         telemetry.TelemetrySynchronizer // To execute SynchronizeInit
-	impressionManager     provisional.ImpressionManager
+	startTime                   time.Time // Tracking startTime
+	metadata                    dtos.Metadata
+	storages                    sdkStorages
+	apikey                      string
+	status                      atomic.Value
+	readinessSubscriptors       map[int]chan int
+	operationMode               string
+	mutex                       sync.Mutex
+	cfg                         *conf.SplitSdkConfig
+	impressionListener          *impressionlistener.WrapperImpressionListener
+	logger                      logging.LoggerInterface
+	syncManager                 synchronizer.Manager
+	telemetrySync               telemetry.TelemetrySynchronizer // To execute SynchronizeInit
+	impressionManager           provisional.ImpressionManager
+	fallbackTreatmentCalculator dtos.FallbackTreatmentCalculator
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules, f.fallbackTreatmentCalculator),
 		impressions: f.storages.impressions,
 		events:      f.storages.events,
 		validator: inputValidation{
@@ -297,7 +298,15 @@ func setupInMemoryFactory(
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
 
 	isProxy := splitAPI.SplitFetcher.IsProxy()
-	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules)
+
+	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
+	if cfg.Advanced.FallbackTreatment != nil {
+		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
+		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
+	}
+	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
+
+	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, fallbackTreatmentCalculator)
 	ruleBuilder := grammar.NewRuleBuilder(segmentsStorage, ruleBasedSegmentStorage, nil, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, logger, evaluator)
 	workers := synchronizer.Workers{
 		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter, ruleBuilder, isProxy, advanced.FlagsSpecVersion),
@@ -360,17 +369,18 @@ func setupInMemoryFactory(
 	}
 
 	splitFactory := SplitFactory{
-		startTime:             time.Now().UTC(),
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              metadata,
-		logger:                logger,
-		operationMode:         conf.InMemoryStandAlone,
-		storages:              storages,
-		readinessSubscriptors: make(map[int]chan int),
-		syncManager:           syncManager,
-		telemetrySync:         workers.TelemetryRecorder,
-		impressionManager:     impressionManager,
+		startTime:                   time.Now().UTC(),
+		apikey:                      apikey,
+		cfg:                         cfg,
+		metadata:                    metadata,
+		logger:                      logger,
+		operationMode:               conf.InMemoryStandAlone,
+		storages:                    storages,
+		readinessSubscriptors:       make(map[int]chan int),
+		syncManager:                 syncManager,
+		telemetrySync:               workers.TelemetryRecorder,
+		impressionManager:           impressionManager,
+		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 	setFactory(splitFactory.apikey, splitFactory.logger)
@@ -438,18 +448,26 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 
 	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl, logger)
 
+	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
+	if cfg.Advanced.FallbackTreatment != nil {
+		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
+		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
+	}
+	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
+
 	factory := &SplitFactory{
-		startTime:             time.Now().UTC(),
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              metadata,
-		logger:                logger,
-		operationMode:         conf.RedisConsumer,
-		storages:              storages,
-		readinessSubscriptors: make(map[int]chan int),
-		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
-		impressionManager:     impressionManager,
-		syncManager:           syncManager,
+		startTime:                   time.Now().UTC(),
+		apikey:                      apikey,
+		cfg:                         cfg,
+		metadata:                    metadata,
+		logger:                      logger,
+		operationMode:               conf.RedisConsumer,
+		storages:                    storages,
+		readinessSubscriptors:       make(map[int]chan int),
+		telemetrySync:               telemetry.NewSynchronizerRedis(telemetryStorage, logger),
+		impressionManager:           impressionManager,
+		syncManager:                 syncManager,
+		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
 	}
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
@@ -514,6 +532,13 @@ func setupLocalhostFactory(
 		return nil, err
 	}
 
+	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
+	if cfg.Advanced.FallbackTreatment != nil {
+		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
+		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
+	}
+	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
+
 	splitFactory := &SplitFactory{
 		startTime: time.Now().UTC(),
 		apikey:    apikey,
@@ -530,9 +555,10 @@ func setupLocalhostFactory(
 			evaluationTelemetry: telemetryStorage,
 			runtimeTelemetry:    telemetryStorage,
 		},
-		readinessSubscriptors: make(map[int]chan int),
-		syncManager:           syncManager,
-		telemetrySync:         &telemetry.NoOp{},
+		readinessSubscriptors:       make(map[int]chan int),
+		syncManager:                 syncManager,
+		telemetrySync:               &telemetry.NoOp{},
+		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 

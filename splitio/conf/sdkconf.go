@@ -7,10 +7,12 @@ import (
 	"math"
 	"os/user"
 	"path"
+	"regexp"
 	"strings"
 
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	"github.com/splitio/go-split-commons/v8/conf"
+	"github.com/splitio/go-split-commons/v8/dtos"
 	"github.com/splitio/go-split-commons/v8/engine/grammar/constants"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
@@ -24,6 +26,13 @@ const (
 	Localhost = "localhost"
 	// InMemoryStandAlone mode
 	InMemoryStandAlone = "inmemory-standalone"
+
+	// Max Flag name length
+	MaxFlagNameLength = 100
+	// Max Treatment length
+	MaxTreatmentLength = 100
+	// Treatment regexp
+	TreatmentRegexp = "^[0-9]+[.a-zA-Z0-9_-]*$|^[a-zA-Z]+[a-zA-Z0-9_-]*$"
 )
 
 var featureFlagsRules = []string{constants.MatcherTypeAllKeys, constants.MatcherTypeInSegment, constants.MatcherTypeWhitelist, constants.MatcherTypeEqualTo, constants.MatcherTypeGreaterThanOrEqualTo, constants.MatcherTypeLessThanOrEqualTo, constants.MatcherTypeBetween,
@@ -108,6 +117,7 @@ type AdvancedConfig struct {
 	FeatureFlagRules      []string
 	RuleBasedSegmentRules []string
 	RetryEnabled          bool
+	FallbackTreatment     *conf.FallbackTreatmentConf
 }
 
 // Default returns a config struct with all the default values
@@ -174,6 +184,7 @@ func Default() *SplitSdkConfig {
 			FeatureFlagRules:      featureFlagsRules,
 			RuleBasedSegmentRules: ruleBasedSegmentRules,
 			RetryEnabled:          true,
+			FallbackTreatment:     nil,
 		},
 	}
 }
@@ -279,4 +290,56 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	}
 
 	return validConfigRates(cfg)
+}
+
+func SanitizeGlobalFallbackTreatment(global *conf.FallbackTreatmentForConf, logger logging.LoggerInterface) *dtos.FallbackTreatment {
+	if global == nil {
+		return nil
+	}
+	if !isValidTreatment(global) {
+		logger.Error(fmt.Sprintf("Fallback treatments - Discarded global fallback: Invalid treatment (max %d chars and comply with %s)", MaxTreatmentLength, TreatmentRegexp))
+		return nil
+	}
+	return &dtos.FallbackTreatment{
+		Treatment: global.Treatment,
+		Config:    global.Config,
+	}
+}
+
+func isValidTreatment(fallbackTreatment *conf.FallbackTreatmentForConf) bool {
+	if fallbackTreatment == nil || fallbackTreatment.Treatment == nil {
+		return false
+	}
+	value := *fallbackTreatment.Treatment
+	pattern := regexp.MustCompile(TreatmentRegexp)
+	return len(value) <= MaxTreatmentLength && pattern.MatchString(value)
+}
+
+func SanitizeByFlagFallBackTreatment(byFlag map[string]conf.FallbackTreatmentForConf, logger logging.LoggerInterface) map[string]dtos.FallbackTreatment {
+	sanitized := map[string]dtos.FallbackTreatment{}
+	if len(byFlag) == 0 {
+		return sanitized
+	}
+	for flagName, treatment := range byFlag {
+		if !isValidFlagName(&flagName) {
+			logger.Error(fmt.Sprintf("Fallback treatments - Discarded flag: Invalid flag name (max %d chars, no spaces)", MaxFlagNameLength))
+			continue
+		}
+		if !isValidTreatment(&treatment) {
+			logger.Error(fmt.Sprintf("Fallback treatments - Discarded global fallback: Invalid treatment (max %d chars and comply with %s)", MaxTreatmentLength, TreatmentRegexp))
+			continue
+		}
+		sanitized[flagName] = dtos.FallbackTreatment{
+			Treatment: treatment.Treatment,
+			Config:    treatment.Config,
+		}
+	}
+	return sanitized
+}
+
+func isValidFlagName(flagName *string) bool {
+	if flagName == nil {
+		return false
+	}
+	return len(*flagName) <= MaxFlagNameLength && !strings.Contains(*flagName, " ")
 }

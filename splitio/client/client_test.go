@@ -1322,6 +1322,22 @@ func TestClient(t *testing.T) {
 	cfg.LabelsEnabled = true
 	logger := logging.NewLogger(nil)
 
+	stringConfig := "flag1_config"
+	globalTreatment := "global_treatment"
+	flag1Treatment := "flag1_treatment"
+	config := &dtos.FallbackTreatmentConfig{
+		GlobalFallbackTreatment: &dtos.FallbackTreatment{
+			Treatment: &globalTreatment,
+		},
+		ByFlagFallbackTreatment: map[string]dtos.FallbackTreatment{
+			"flag1": {
+				Treatment: &flag1Treatment,
+				Config:    &stringConfig,
+			},
+		},
+	}
+	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(config)
+
 	evaluator := evaluator.NewEvaluator(
 		mocks.MockSplitStorage{
 			SplitCall: func(splitName string) *dtos.SplitDTO {
@@ -1374,6 +1390,7 @@ func TestClient(t *testing.T) {
 		logger,
 		cfg.Advanced.FeatureFlagRules,
 		cfg.Advanced.RuleBasedSegmentRules,
+		fallbackTreatmentCalculator,
 	)
 
 	mockedTelemetryStorage := mocks.MockTelemetryStorage{
@@ -1409,19 +1426,19 @@ func TestClient(t *testing.T) {
 		t.Error("Wrong impression saved")
 	}
 
-	expectedTreatment(client.Treatment("invalid", "invalid", nil), "control", t)
-	if client.Treatment("invalid", "invalid", nil) != "control" {
+	expectedTreatment(client.Treatment("invalid", "invalid", nil), "global_treatment", t)
+	if client.Treatment("invalid", "invalid", nil) != "global_treatment" {
 		t.Error("Unexpected Treatment Result")
 	}
 
 	expectedTreatment(client.Treatment("invalid", "killed", nil), "defTreatment", t)
-	if isInvalidImpression(client, "invalid", "killed", "defTreatment") {
+	if isInvalidImpression(client, "invalid", "invalid", "global_treatment") {
 		t.Error("Wrong impression saved")
 	}
 
 	// Assertion Treatments
 	treatments := client.Treatments("user1", []string{"valid", "invalid", "killed"}, nil)
-	expectedTreatment(treatments["invalid"], "control", t)
+	expectedTreatment(treatments["invalid"], "global_treatment", t)
 	expectedTreatment(treatments["killed"], "defTreatment", t)
 	expectedTreatment(treatments["valid"], "on", t)
 	client.impressions.(storage.ImpressionStorage).PopN(cfg.Advanced.ImpressionsBulkSize)
@@ -1437,15 +1454,15 @@ func TestClient(t *testing.T) {
 		t.Error("Wrong impression saved")
 	}
 
-	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "invalid", nil), "control", "", t)
+	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "invalid", nil), "global_treatment", "", t)
 	expectedTreatmentAndConfig(client.TreatmentWithConfig("invalid", "killed", nil), "defTreatment", "{\"color\": \"orange\",\"size\": 15}", t)
-	if isInvalidImpression(client, "invalid", "killed", "defTreatment") {
+	if isInvalidImpression(client, "invalid", "invalid", "global_treatment") {
 		t.Error("Wrong impression saved")
 	}
 
 	// Assertion TreatmentsWithConfig
 	treatmentsWithConfigs := client.TreatmentsWithConfig("user1", []string{"valid", "invalid", "killed"}, nil)
-	expectedTreatmentAndConfig(treatmentsWithConfigs["invalid"], "control", "", t)
+	expectedTreatmentAndConfig(treatmentsWithConfigs["invalid"], "global_treatment", "", t)
 	expectedTreatmentAndConfig(treatmentsWithConfigs["killed"], "defTreatment", "{\"color\": \"orange\",\"size\": 15}", t)
 	expectedTreatmentAndConfig(treatmentsWithConfigs["valid"], "on", "{\"color\": \"blue\",\"size\": 13}", t)
 }

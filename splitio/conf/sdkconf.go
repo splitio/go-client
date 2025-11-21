@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
-	"github.com/splitio/go-split-commons/v8/conf"
-	"github.com/splitio/go-split-commons/v8/dtos"
-	"github.com/splitio/go-split-commons/v8/engine/grammar/constants"
+	"github.com/splitio/go-split-commons/v9/conf"
+	"github.com/splitio/go-split-commons/v9/dtos"
+	"github.com/splitio/go-split-commons/v9/engine/grammar/constants"
 	"github.com/splitio/go-toolkit/v5/datastructures/set"
 	"github.com/splitio/go-toolkit/v5/logging"
 	"github.com/splitio/go-toolkit/v5/nethelpers"

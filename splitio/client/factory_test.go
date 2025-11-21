@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v8/flagsets"
+	"github.com/splitio/go-split-commons/v9/flagsets"
 	"github.com/splitio/go-toolkit/v5/logging/mocks"
 
 	"github.com/stretchr/testify/assert"

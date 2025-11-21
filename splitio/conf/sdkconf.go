@@ -117,7 +117,7 @@ type AdvancedConfig struct {
 	FeatureFlagRules      []string
 	RuleBasedSegmentRules []string
 	RetryEnabled          bool
-	FallbackTreatment     *conf.FallbackTreatmentConf
+	FallbackTreatment     *dtos.FallbackTreatmentConfig
 }
 
 // Default returns a config struct with all the default values
@@ -292,7 +292,7 @@ func Normalize(apikey string, cfg *SplitSdkConfig) error {
 	return validConfigRates(cfg)
 }
 
-func SanitizeGlobalFallbackTreatment(global *conf.FallbackTreatmentForConf, logger logging.LoggerInterface) *dtos.FallbackTreatment {
+func SanitizeGlobalFallbackTreatment(global *dtos.FallbackTreatment, logger logging.LoggerInterface) *dtos.FallbackTreatment {
 	if global == nil {
 		return nil
 	}
@@ -306,7 +306,7 @@ func SanitizeGlobalFallbackTreatment(global *conf.FallbackTreatmentForConf, logg
 	}
 }
 
-func isValidTreatment(fallbackTreatment *conf.FallbackTreatmentForConf) bool {
+func isValidTreatment(fallbackTreatment *dtos.FallbackTreatment) bool {
 	if fallbackTreatment == nil || fallbackTreatment.Treatment == nil {
 		return false
 	}
@@ -315,7 +315,7 @@ func isValidTreatment(fallbackTreatment *conf.FallbackTreatmentForConf) bool {
 	return len(value) <= MaxTreatmentLength && pattern.MatchString(value)
 }
 
-func SanitizeByFlagFallBackTreatment(byFlag map[string]conf.FallbackTreatmentForConf, logger logging.LoggerInterface) map[string]dtos.FallbackTreatment {
+func SanitizeByFlagFallBackTreatment(byFlag map[string]dtos.FallbackTreatment, logger logging.LoggerInterface) map[string]dtos.FallbackTreatment {
 	sanitized := map[string]dtos.FallbackTreatment{}
 	if len(byFlag) == 0 {
 		return sanitized

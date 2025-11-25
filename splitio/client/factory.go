@@ -299,12 +299,7 @@ func setupInMemoryFactory(
 
 	isProxy := splitAPI.SplitFetcher.IsProxy()
 
-	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
-	if cfg.Advanced.FallbackTreatment != nil {
-		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
-		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
-	}
-	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
+	fallbackTreatmentCalculator := createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger)
 
 	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, fallbackTreatmentCalculator)
 	ruleBuilder := grammar.NewRuleBuilder(segmentsStorage, ruleBasedSegmentStorage, nil, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, logger, evaluator)
@@ -448,13 +443,6 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 
 	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl, logger)
 
-	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
-	if cfg.Advanced.FallbackTreatment != nil {
-		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
-		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
-	}
-	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
-
 	factory := &SplitFactory{
 		startTime:                   time.Now().UTC(),
 		apikey:                      apikey,
@@ -467,7 +455,7 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 		telemetrySync:               telemetry.NewSynchronizerRedis(telemetryStorage, logger),
 		impressionManager:           impressionManager,
 		syncManager:                 syncManager,
-		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
+		fallbackTreatmentCalculator: createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger),
 	}
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
@@ -532,13 +520,6 @@ func setupLocalhostFactory(
 		return nil, err
 	}
 
-	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
-	if cfg.Advanced.FallbackTreatment != nil {
-		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(cfg.Advanced.FallbackTreatment.GlobalFallbackTreatment, logger)
-		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(cfg.Advanced.FallbackTreatment.ByFlagFallbackTreatment, logger)
-	}
-	fallbackTreatmentCalculator := dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
-
 	splitFactory := &SplitFactory{
 		startTime: time.Now().UTC(),
 		apikey:    apikey,
@@ -558,7 +539,7 @@ func setupLocalhostFactory(
 		readinessSubscriptors:       make(map[int]chan int),
 		syncManager:                 syncManager,
 		telemetrySync:               &telemetry.NoOp{},
-		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
+		fallbackTreatmentCalculator: createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger),
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
@@ -621,4 +602,13 @@ func printWarnings(logger logging.LoggerInterface, errs []error) {
 			}
 		}
 	}
+}
+
+func createFallbackTreatmentCalculator(fallbackTreatmentConfig *dtos.FallbackTreatmentConfig, logger logging.LoggerInterface) dtos.FallbackTreatmentCalculator {
+	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
+	if fallbackTreatmentConfig != nil {
+		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(fallbackTreatmentConfig.GlobalFallbackTreatment, logger)
+		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(fallbackTreatmentConfig.ByFlagFallbackTreatment, logger)
+	}
+	return dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
 }

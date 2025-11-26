@@ -3,8 +3,18 @@ package conf
 import (
 	"testing"
 
-	"github.com/splitio/go-split-commons/v8/conf"
+	"github.com/splitio/go-split-commons/v9/conf"
+	"github.com/splitio/go-split-commons/v9/dtos"
+	"github.com/splitio/go-toolkit/v5/logging"
 )
+
+// MockLogger implements logging.LoggerInterface for testing
+type MockLogger struct {
+	logging.LoggerInterface
+}
+
+func (m *MockLogger) Error(msg ...interface{}) {}
+
 
 func TestSdkConfNormalization(t *testing.T) {
 	cfg := Default()
@@ -42,6 +52,94 @@ func TestSdkConfNormalization(t *testing.T) {
 	err = Normalize("asd", cfg)
 	if err != nil || cfg.IPAddress == "NA" || cfg.InstanceName == "NA" {
 		t.Error("Should not be NA")
+	}
+}
+
+func TestSanitizeGlobalFallbackTreatment(t *testing.T) {
+	logger := &MockLogger{}
+
+	// Test nil input
+	result := SanitizeGlobalFallbackTreatment(nil, logger)
+	if result != nil {
+		t.Error("Expected nil result for nil input")
+	}
+
+	// Test valid treatment
+	validTreatment := "on"
+	global := &dtos.FallbackTreatment{Treatment: &validTreatment}
+	result = SanitizeGlobalFallbackTreatment(global, logger)
+	if result == nil || *result.Treatment != validTreatment {
+		t.Error("Expected valid treatment to be returned as is")
+	}
+
+	// Test invalid treatment (too long)
+	longTreatment := "thisIsAVeryLongTreatmentThatExceedsTheMaxLengthOfOneHundredCharactersAndShouldDefinitelyBeTruncatedBecauseItIsTooLongToBeValid"
+	global = &dtos.FallbackTreatment{Treatment: &longTreatment}
+	result = SanitizeGlobalFallbackTreatment(global, logger)
+	if result != nil {
+		t.Error("Expected nil result for invalid treatment")
+	}
+
+	// Test invalid treatment (invalid characters)
+	invalidTreatment := "invalid treatment"
+	global = &dtos.FallbackTreatment{Treatment: &invalidTreatment}
+	result = SanitizeGlobalFallbackTreatment(global, logger)
+	if result != nil {
+		t.Error("Expected nil result for treatment with invalid characters")
+	}
+}
+
+func TestSanitizeByFlagFallBackTreatment(t *testing.T) {
+	logger := &MockLogger{}
+
+	// Test empty map
+	result := SanitizeByFlagFallBackTreatment(nil, logger)
+	if len(result) != 0 {
+		t.Error("Expected empty map for nil input")
+	}
+
+	// Test valid entries
+	validTreatment := "on"
+	validFlag := "feature1"
+	byFlag := map[string]dtos.FallbackTreatment{
+		validFlag: {Treatment: &validTreatment},
+	}
+	result = SanitizeByFlagFallBackTreatment(byFlag, logger)
+	if len(result) != 1 || *result[validFlag].Treatment != validTreatment {
+		t.Error("Expected valid flag and treatment to be included")
+	}
+
+	// Test invalid flag name (contains space)
+	invalidFlag := "invalid flag"
+	byFlag = map[string]dtos.FallbackTreatment{
+		invalidFlag: {Treatment: &validTreatment},
+	}
+	result = SanitizeByFlagFallBackTreatment(byFlag, logger)
+	if len(result) != 0 {
+		t.Error("Expected invalid flag name to be excluded")
+	}
+
+	// Test invalid treatment
+	invalidTreatment := "invalid treatment"
+	byFlag = map[string]dtos.FallbackTreatment{
+		validFlag: {Treatment: &invalidTreatment},
+	}
+	result = SanitizeByFlagFallBackTreatment(byFlag, logger)
+	if len(result) != 0 {
+		t.Error("Expected invalid treatment to be excluded")
+	}
+
+	// Test multiple entries with mix of valid and invalid
+	validTreatment2 := "off"
+	validFlag2 := "feature2"
+	byFlag = map[string]dtos.FallbackTreatment{
+		validFlag:    {Treatment: &validTreatment},
+		validFlag2:   {Treatment: &validTreatment2},
+		invalidFlag: {Treatment: &validTreatment},
+	}
+	result = SanitizeByFlagFallBackTreatment(byFlag, logger)
+	if len(result) != 2 || *result[validFlag].Treatment != validTreatment || *result[validFlag2].Treatment != validTreatment2 {
+		t.Error("Expected only valid entries to be included")
 	}
 }
 

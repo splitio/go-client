@@ -15,30 +15,30 @@ import (
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	"github.com/splitio/go-client/v6/splitio/impressions"
 
-	config "github.com/splitio/go-split-commons/v8/conf"
-	"github.com/splitio/go-split-commons/v8/dtos"
-	"github.com/splitio/go-split-commons/v8/engine"
-	"github.com/splitio/go-split-commons/v8/engine/evaluator"
-	"github.com/splitio/go-split-commons/v8/engine/grammar"
-	"github.com/splitio/go-split-commons/v8/flagsets"
-	"github.com/splitio/go-split-commons/v8/healthcheck/application"
-	"github.com/splitio/go-split-commons/v8/provisional"
-	"github.com/splitio/go-split-commons/v8/provisional/strategy"
-	"github.com/splitio/go-split-commons/v8/service/api"
-	"github.com/splitio/go-split-commons/v8/service/api/specs"
-	"github.com/splitio/go-split-commons/v8/service/local"
-	"github.com/splitio/go-split-commons/v8/storage"
-	"github.com/splitio/go-split-commons/v8/storage/inmemory"
-	"github.com/splitio/go-split-commons/v8/storage/inmemory/mutexmap"
-	"github.com/splitio/go-split-commons/v8/storage/inmemory/mutexqueue"
-	"github.com/splitio/go-split-commons/v8/storage/mocks"
-	"github.com/splitio/go-split-commons/v8/storage/redis"
-	"github.com/splitio/go-split-commons/v8/synchronizer"
-	"github.com/splitio/go-split-commons/v8/synchronizer/worker/event"
-	"github.com/splitio/go-split-commons/v8/synchronizer/worker/segment"
-	"github.com/splitio/go-split-commons/v8/synchronizer/worker/split"
-	"github.com/splitio/go-split-commons/v8/tasks"
-	"github.com/splitio/go-split-commons/v8/telemetry"
+	config "github.com/splitio/go-split-commons/v9/conf"
+	"github.com/splitio/go-split-commons/v9/dtos"
+	"github.com/splitio/go-split-commons/v9/engine"
+	"github.com/splitio/go-split-commons/v9/engine/evaluator"
+	"github.com/splitio/go-split-commons/v9/engine/grammar"
+	"github.com/splitio/go-split-commons/v9/flagsets"
+	"github.com/splitio/go-split-commons/v9/healthcheck/application"
+	"github.com/splitio/go-split-commons/v9/provisional"
+	"github.com/splitio/go-split-commons/v9/provisional/strategy"
+	"github.com/splitio/go-split-commons/v9/service/api"
+	"github.com/splitio/go-split-commons/v9/service/api/specs"
+	"github.com/splitio/go-split-commons/v9/service/local"
+	"github.com/splitio/go-split-commons/v9/storage"
+	"github.com/splitio/go-split-commons/v9/storage/inmemory"
+	"github.com/splitio/go-split-commons/v9/storage/inmemory/mutexmap"
+	"github.com/splitio/go-split-commons/v9/storage/inmemory/mutexqueue"
+	"github.com/splitio/go-split-commons/v9/storage/mocks"
+	"github.com/splitio/go-split-commons/v9/storage/redis"
+	"github.com/splitio/go-split-commons/v9/synchronizer"
+	"github.com/splitio/go-split-commons/v9/synchronizer/worker/event"
+	"github.com/splitio/go-split-commons/v9/synchronizer/worker/segment"
+	"github.com/splitio/go-split-commons/v9/synchronizer/worker/split"
+	"github.com/splitio/go-split-commons/v9/tasks"
+	"github.com/splitio/go-split-commons/v9/telemetry"
 	"github.com/splitio/go-toolkit/v5/logging"
 )
 
@@ -65,27 +65,28 @@ type sdkStorages struct {
 
 // SplitFactory struct is responsible for instantiating and storing instances of client and manager.
 type SplitFactory struct {
-	startTime             time.Time // Tracking startTime
-	metadata              dtos.Metadata
-	storages              sdkStorages
-	apikey                string
-	status                atomic.Value
-	readinessSubscriptors map[int]chan int
-	operationMode         string
-	mutex                 sync.Mutex
-	cfg                   *conf.SplitSdkConfig
-	impressionListener    *impressionlistener.WrapperImpressionListener
-	logger                logging.LoggerInterface
-	syncManager           synchronizer.Manager
-	telemetrySync         telemetry.TelemetrySynchronizer // To execute SynchronizeInit
-	impressionManager     provisional.ImpressionManager
+	startTime                   time.Time // Tracking startTime
+	metadata                    dtos.Metadata
+	storages                    sdkStorages
+	apikey                      string
+	status                      atomic.Value
+	readinessSubscriptors       map[int]chan int
+	operationMode               string
+	mutex                       sync.Mutex
+	cfg                         *conf.SplitSdkConfig
+	impressionListener          *impressionlistener.WrapperImpressionListener
+	logger                      logging.LoggerInterface
+	syncManager                 synchronizer.Manager
+	telemetrySync               telemetry.TelemetrySynchronizer // To execute SynchronizeInit
+	impressionManager           provisional.ImpressionManager
+	fallbackTreatmentCalculator dtos.FallbackTreatmentCalculator
 }
 
 // Client returns the split client instantiated by the factory
 func (f *SplitFactory) Client() *SplitClient {
 	return &SplitClient{
 		logger:      f.logger,
-		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules),
+		evaluator:   evaluator.NewEvaluator(f.storages.splits, f.storages.segments, f.storages.ruleBasedSegments, nil, engine.NewEngine(f.logger), f.logger, f.cfg.Advanced.FeatureFlagRules, f.cfg.Advanced.RuleBasedSegmentRules, f.fallbackTreatmentCalculator),
 		impressions: f.storages.impressions,
 		events:      f.storages.events,
 		validator: inputValidation{
@@ -297,7 +298,10 @@ func setupInMemoryFactory(
 	splitAPI := api.NewSplitAPI(apikey, advanced, logger, metadata)
 
 	isProxy := splitAPI.SplitFetcher.IsProxy()
-	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules)
+
+	fallbackTreatmentCalculator := createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger)
+
+	evaluator := evaluator.NewEvaluator(splitsStorage, segmentsStorage, ruleBasedSegmentStorage, nil, engine.NewEngine(logger), logger, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, fallbackTreatmentCalculator)
 	ruleBuilder := grammar.NewRuleBuilder(segmentsStorage, ruleBasedSegmentStorage, nil, cfg.Advanced.FeatureFlagRules, cfg.Advanced.RuleBasedSegmentRules, logger, evaluator)
 	workers := synchronizer.Workers{
 		SplitUpdater:      split.NewSplitUpdater(splitsStorage, ruleBasedSegmentStorage, splitAPI.SplitFetcher, logger, telemetryStorage, dummyHC, flagSetFilter, ruleBuilder, isProxy, advanced.FlagsSpecVersion),
@@ -360,17 +364,18 @@ func setupInMemoryFactory(
 	}
 
 	splitFactory := SplitFactory{
-		startTime:             time.Now().UTC(),
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              metadata,
-		logger:                logger,
-		operationMode:         conf.InMemoryStandAlone,
-		storages:              storages,
-		readinessSubscriptors: make(map[int]chan int),
-		syncManager:           syncManager,
-		telemetrySync:         workers.TelemetryRecorder,
-		impressionManager:     impressionManager,
+		startTime:                   time.Now().UTC(),
+		apikey:                      apikey,
+		cfg:                         cfg,
+		metadata:                    metadata,
+		logger:                      logger,
+		operationMode:               conf.InMemoryStandAlone,
+		storages:                    storages,
+		readinessSubscriptors:       make(map[int]chan int),
+		syncManager:                 syncManager,
+		telemetrySync:               workers.TelemetryRecorder,
+		impressionManager:           impressionManager,
+		fallbackTreatmentCalculator: fallbackTreatmentCalculator,
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 	setFactory(splitFactory.apikey, splitFactory.logger)
@@ -439,17 +444,18 @@ func setupRedisFactory(apikey string, cfg *conf.SplitSdkConfig, logger logging.L
 	syncManager := synchronizer.NewSynchronizerManagerRedis(syncImpl, logger)
 
 	factory := &SplitFactory{
-		startTime:             time.Now().UTC(),
-		apikey:                apikey,
-		cfg:                   cfg,
-		metadata:              metadata,
-		logger:                logger,
-		operationMode:         conf.RedisConsumer,
-		storages:              storages,
-		readinessSubscriptors: make(map[int]chan int),
-		telemetrySync:         telemetry.NewSynchronizerRedis(telemetryStorage, logger),
-		impressionManager:     impressionManager,
-		syncManager:           syncManager,
+		startTime:                   time.Now().UTC(),
+		apikey:                      apikey,
+		cfg:                         cfg,
+		metadata:                    metadata,
+		logger:                      logger,
+		operationMode:               conf.RedisConsumer,
+		storages:                    storages,
+		readinessSubscriptors:       make(map[int]chan int),
+		telemetrySync:               telemetry.NewSynchronizerRedis(telemetryStorage, logger),
+		impressionManager:           impressionManager,
+		syncManager:                 syncManager,
+		fallbackTreatmentCalculator: createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger),
 	}
 	factory.status.Store(sdkStatusInitializing)
 	setFactory(factory.apikey, factory.logger)
@@ -530,9 +536,10 @@ func setupLocalhostFactory(
 			evaluationTelemetry: telemetryStorage,
 			runtimeTelemetry:    telemetryStorage,
 		},
-		readinessSubscriptors: make(map[int]chan int),
-		syncManager:           syncManager,
-		telemetrySync:         &telemetry.NoOp{},
+		readinessSubscriptors:       make(map[int]chan int),
+		syncManager:                 syncManager,
+		telemetrySync:               &telemetry.NoOp{},
+		fallbackTreatmentCalculator: createFallbackTreatmentCalculator(cfg.Advanced.FallbackTreatment, logger),
 	}
 	splitFactory.status.Store(sdkStatusInitializing)
 
@@ -595,4 +602,13 @@ func printWarnings(logger logging.LoggerInterface, errs []error) {
 			}
 		}
 	}
+}
+
+func createFallbackTreatmentCalculator(fallbackTreatmentConfig *dtos.FallbackTreatmentConfig, logger logging.LoggerInterface) dtos.FallbackTreatmentCalculator {
+	fallbackTreatmentConf := dtos.FallbackTreatmentConfig{}
+	if fallbackTreatmentConfig != nil {
+		fallbackTreatmentConf.GlobalFallbackTreatment = conf.SanitizeGlobalFallbackTreatment(fallbackTreatmentConfig.GlobalFallbackTreatment, logger)
+		fallbackTreatmentConf.ByFlagFallbackTreatment = conf.SanitizeByFlagFallBackTreatment(fallbackTreatmentConfig.ByFlagFallbackTreatment, logger)
+	}
+	return dtos.NewFallbackTreatmentCalculatorImp(&fallbackTreatmentConf)
 }

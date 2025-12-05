@@ -243,7 +243,7 @@ func TestClientGetTreatmentWithEvaluationProperties(t *testing.T) {
 			"balance": 99.5,
 		},
 	}
-	expectedTreatment(client.TreatmentWithEvaluationOptions("key", "feature", nil, opts), "TreatmentA", t)
+	expectedTreatment(client.Treatment("key", "feature", nil, client.WithEvaluationOptions(&opts)), "TreatmentA", t)
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
 	impressions, _ := impressionsQueue.PopN(5000)
 	impression := impressions[0]
@@ -311,7 +311,7 @@ func TestClientGetTreatmentByFlagSetWithEvaluationProperties(t *testing.T) {
 		},
 	}
 
-	res := client.TreatmentsByFlagSetWithEvaluationOptions("user1", "set1", nil, opts)
+	res := client.TreatmentsByFlagSet("user1", "set1", nil, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"], "TreatmentA", t)
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
@@ -387,7 +387,7 @@ func TestClientGetTreatmentByFlagSetsWithEvaluationProperties(t *testing.T) {
 		},
 	}
 
-	res := client.TreatmentsByFlagSetsWithEvaluationOptions("user1", []string{"set1", "set2"}, nil, opts)
+	res := client.TreatmentsByFlagSets("user1", []string{"set1", "set2"}, nil, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"], "TreatmentA", t)
 	expectedTreatment(res["feature2"], "TreatmentB", t)
@@ -451,7 +451,7 @@ func TestClientGetTreatmentWithConfigByFlagSetAndEvaluationProperties(t *testing
 		},
 	}
 
-	res := client.TreatmentsWithConfigByFlagSetAndEvaluationOptions("user1", "set1", nil, opts)
+	res := client.TreatmentsWithConfigByFlagSet("user1", "set1", nil, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
 	impressionsQueue := client.impressions.(storage.ImpressionStorage)
@@ -526,7 +526,7 @@ func TestClientGetTreatmentWithConfigByFlagSetsAndEvaluationOptions(t *testing.T
 		},
 	}
 
-	res := client.TreatmentsWithConfigByFlagSetsAndEvaluationOptions("user1", []string{"set1", "set2"}, nil, opts)
+	res := client.TreatmentsWithConfigByFlagSets("user1", []string{"set1", "set2"}, nil, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
 	expectedTreatment(res["feature2"].Treatment, "TreatmentB", t)
@@ -567,7 +567,7 @@ func TestTreatmentsWithEvaluationOptions(t *testing.T) {
 		},
 	}
 
-	res := client.TreatmentsWithEvaluationOptions("user1", []string{"feature", "notFeature"}, nil, opts)
+	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"], "TreatmentA", t)
 	expectedTreatment(res["notFeature"], evaluator.Control, t)
@@ -941,7 +941,7 @@ func TestImpressionListenerForTreatmentsWithEvaluationOptions(t *testing.T) {
 		},
 	}
 
-	res := client.TreatmentsWithEvaluationOptions("user1", []string{"feature", "feature2"}, attributes, opts)
+	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes, client.WithEvaluationOptions(&opts))
 
 	expectedTreatment(res["feature"], "TreatmentA", t)
 	expectedTreatment(res["feature2"], "TreatmentB", t)

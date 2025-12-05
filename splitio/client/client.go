@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -54,6 +55,22 @@ type TreatmentResult struct {
 	Config    *string `json:"config"`
 }
 
+type options struct {
+	evaluationOptions *dtos.EvaluationOptions
+}
+
+type OptFn = func(o *options)
+
+func (c *SplitClient) WithEvaluationOptions(e *dtos.EvaluationOptions) OptFn {
+	return func(o *options) { o.evaluationOptions = e }
+}
+
+func defaultOpts() options {
+	return options{
+		evaluationOptions: nil,
+	}
+}
+
 // getEvaluationResult calls evaluation for one particular feature flag
 func (c *SplitClient) getEvaluationResult(matchingKey string, bucketingKey *string, featureFlag string, attributes map[string]interface{}, operation string) *evaluator.Result {
 	if c.isReady() {
@@ -95,7 +112,7 @@ func (c *SplitClient) getEvaluationsResult(matchingKey string, bucketingKey *str
 }
 
 // createImpression creates impression to be stored and used by listener
-func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64, disabled bool) dtos.Impression {
+func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string, evaluationLabel string, matchingKey string, treatment string, changeNumber int64, disabled bool, properties string) dtos.Impression {
 	var label string
 	if c.factory.cfg.LabelsEnabled {
 		label = evaluationLabel
@@ -115,6 +132,7 @@ func (c *SplitClient) createImpression(featureFlag string, bucketingKey *string,
 		Treatment:    treatment,
 		Time:         time.Now().UTC().UnixNano() / int64(time.Millisecond), // Convert standard timestamp to java's ms timestamps
 		Disabled:     disabled,
+		Properties:   properties,
 	}
 }
 
@@ -140,7 +158,7 @@ func (c *SplitClient) storeData(impressions []dtos.Impression, attributes map[st
 }
 
 // doTreatmentCall retrieves treatments of an specific feature flag with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attributes map[string]interface{}, operation string, metricsLabel string) (t TreatmentResult) {
+func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attributes map[string]interface{}, operation string, metricsLabel string, evaluationOptions *dtos.EvaluationOptions) (t TreatmentResult) {
 	controlTreatment := TreatmentResult{
 		Treatment: evaluator.Control,
 		Config:    nil,
@@ -184,7 +202,7 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 
 	c.storeData(
-		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber, evaluationResult.ImpressionsDisabled)},
+		[]dtos.Impression{c.createImpression(featureFlag, bucketingKey, evaluationResult.Label, matchingKey, evaluationResult.Treatment, evaluationResult.SplitChangeNumber, evaluationResult.ImpressionsDisabled, serializeProperties(evaluationOptions))},
 		attributes,
 		metricsLabel,
 		evaluationResult.EvaluationTime,
@@ -196,16 +214,42 @@ func (c *SplitClient) doTreatmentCall(key interface{}, featureFlag string, attri
 	}
 }
 
+func serializeProperties(opts *dtos.EvaluationOptions) string {
+	if opts == nil {
+		return ""
+	}
+	if len(opts.Properties) == 0 {
+		return ""
+	}
+
+	properties, err := json.Marshal(opts.Properties)
+	if err != nil {
+		return ""
+	}
+
+	return string(properties)
+}
+
 // Treatment implements the main functionality of split. Retrieve treatments of a specific feature flag
 // for a certain key and set of attributes
-func (c *SplitClient) Treatment(key interface{}, featureFlagName string, attributes map[string]interface{}) string {
-	return c.doTreatmentCall(key, featureFlagName, attributes, treatment, telemetry.Treatment).Treatment
+func (c *SplitClient) Treatment(key interface{}, featureFlagName string, attributes map[string]interface{}, optFns ...OptFn) string {
+	options := getOptions(optFns...)
+	return c.doTreatmentCall(key, featureFlagName, attributes, treatment, telemetry.Treatment, options.evaluationOptions).Treatment
+}
+
+func getOptions(optFns ...OptFn) options {
+	options := defaultOpts()
+	for _, optFn := range optFns {
+		optFn(&options)
+	}
+	return options
 }
 
 // TreatmentWithConfig implements the main functionality of split. Retrieves the treatment of a specific feature flag
 // with the corresponding configuration if it is present
-func (c *SplitClient) TreatmentWithConfig(key interface{}, featureFlagName string, attributes map[string]interface{}) TreatmentResult {
-	return c.doTreatmentCall(key, featureFlagName, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig)
+func (c *SplitClient) TreatmentWithConfig(key interface{}, featureFlagName string, attributes map[string]interface{}, optFns ...OptFn) TreatmentResult {
+	options := getOptions(optFns...)
+	return c.doTreatmentCall(key, featureFlagName, attributes, treatmentWithConfig, telemetry.TreatmentWithConfig, options.evaluationOptions)
 }
 
 // Generates control treatments
@@ -224,7 +268,7 @@ func (c *SplitClient) generateControlTreatments(featureFlagNames []string, opera
 	return treatments
 }
 
-func (c *SplitClient) processResult(result evaluator.Results, operation string, bucketingKey *string, matchingKey string, attributes map[string]interface{}, metricsLabel string) (t map[string]TreatmentResult) {
+func (c *SplitClient) processResult(result evaluator.Results, operation string, bucketingKey *string, matchingKey string, attributes map[string]interface{}, metricsLabel string, evaluationOptions *dtos.EvaluationOptions) (t map[string]TreatmentResult) {
 	var bulkImpressions []dtos.Impression
 	treatments := make(map[string]TreatmentResult)
 	for feature, evaluation := range result.Evaluations {
@@ -234,7 +278,8 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 				Config:    nil,
 			}
 		} else {
-			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled))
+			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled, serializeProperties(evaluationOptions)))
+			//bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled, ""))
 
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,
@@ -247,7 +292,7 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 }
 
 // doTreatmentsCall retrieves treatments of an specific array of feature flag names with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []string, attributes map[string]interface{}, operation string, metricsLabel string, evaluationOptions *dtos.EvaluationOptions) (t map[string]TreatmentResult) {
 	// Set up a guard deferred function to recover if the SDK starts panicking
 	defer func() {
 		if r := recover(); r != nil {
@@ -280,11 +325,11 @@ func (c *SplitClient) doTreatmentsCall(key interface{}, featureFlagNames []strin
 
 	evaluationsResult := c.getEvaluationsResult(matchingKey, bucketingKey, filteredFeatures, attributes, operation)
 
-	return c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
+	return c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel, evaluationOptions)
 }
 
 // doTreatmentsCallByFlagSets retrieves treatments of a specific array of feature flag names, that belong to flag sets, with configurations object if it is present for a certain key and set of attributes
-func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, operation string, metricsLabel string) (t map[string]TreatmentResult) {
+func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, operation string, metricsLabel string, evaluationOptions *dtos.EvaluationOptions) (t map[string]TreatmentResult) {
 	treatments := make(map[string]TreatmentResult)
 
 	// Set up a guard deferred function to recover if the SDK starts panicking
@@ -312,15 +357,16 @@ func (c *SplitClient) doTreatmentsCallByFlagSets(key interface{}, flagSets []str
 
 	if c.isReady() {
 		evaluationsResult := c.evaluator.EvaluateFeatureByFlagSets(matchingKey, bucketingKey, flagSets, attributes)
-		treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel)
+		treatments = c.processResult(evaluationsResult, operation, bucketingKey, matchingKey, attributes, metricsLabel, evaluationOptions)
 	}
 	return treatments
 }
 
 // Treatments evaluates multiple feature flag names for a single user and set of attributes at once
-func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, attributes map[string]interface{}) map[string]string {
+func (c *SplitClient) Treatments(key interface{}, featureFlagNames []string, attributes map[string]interface{}, optFns ...OptFn) map[string]string {
+	options := getOptions(optFns...)
 	treatmentsResult := map[string]string{}
-	result := c.doTreatmentsCall(key, featureFlagNames, attributes, treatments, telemetry.Treatments)
+	result := c.doTreatmentsCall(key, featureFlagNames, attributes, treatments, telemetry.Treatments, options.evaluationOptions)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
@@ -348,13 +394,14 @@ func (c *SplitClient) validateSets(flagSets []string) []string {
 }
 
 // Treatments evaluate multiple feature flag names belonging to a flag set for a single user and a set of attributes at once
-func (c *SplitClient) TreatmentsByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]string {
+func (c *SplitClient) TreatmentsByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}, optFns ...OptFn) map[string]string {
+	options := getOptions(optFns...)
 	treatmentsResult := map[string]string{}
 	sets := c.validateSets([]string{flagSet})
 	if sets == nil {
 		return treatmentsResult
 	}
-	result := c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsByFlagSet, telemetry.TreatmentsByFlagSet)
+	result := c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsByFlagSet, telemetry.TreatmentsByFlagSet, options.evaluationOptions)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
@@ -362,13 +409,14 @@ func (c *SplitClient) TreatmentsByFlagSet(key interface{}, flagSet string, attri
 }
 
 // Treatments evaluate multiple feature flag names belonging to flag sets for a single user and a set of attributes at once
-func (c *SplitClient) TreatmentsByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]string {
+func (c *SplitClient) TreatmentsByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, optFns ...OptFn) map[string]string {
+	options := getOptions(optFns...)
 	treatmentsResult := map[string]string{}
 	flagSets = c.validateSets(flagSets)
 	if flagSets == nil {
 		return treatmentsResult
 	}
-	result := c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsByFlagSets, telemetry.TreatmentsByFlagSets)
+	result := c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsByFlagSets, telemetry.TreatmentsByFlagSets, options.evaluationOptions)
 	for feature, treatmentResult := range result {
 		treatmentsResult[feature] = treatmentResult.Treatment
 	}
@@ -388,28 +436,31 @@ func (c *SplitClient) filterSetsAreInConfig(flagSets []string) []string {
 }
 
 // TreatmentsWithConfig evaluates multiple feature flag names for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlagNames []string, attributes map[string]interface{}) map[string]TreatmentResult {
-	return c.doTreatmentsCall(key, featureFlagNames, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig)
+func (c *SplitClient) TreatmentsWithConfig(key interface{}, featureFlagNames []string, attributes map[string]interface{}, optFns ...OptFn) map[string]TreatmentResult {
+	options := getOptions(optFns...)
+	return c.doTreatmentsCall(key, featureFlagNames, attributes, treatmentsWithConfig, telemetry.TreatmentsWithConfig, options.evaluationOptions)
 }
 
 // TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag set for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}) map[string]TreatmentResult {
+func (c *SplitClient) TreatmentsWithConfigByFlagSet(key interface{}, flagSet string, attributes map[string]interface{}, optFns ...OptFn) map[string]TreatmentResult {
+	options := getOptions(optFns...)
 	treatmentsResult := make(map[string]TreatmentResult)
 	sets := c.validateSets([]string{flagSet})
 	if sets == nil {
 		return treatmentsResult
 	}
-	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSet, telemetry.TreatmentsWithConfigByFlagSet)
+	return c.doTreatmentsCallByFlagSets(key, sets, attributes, treatmentsWithConfigByFlagSet, telemetry.TreatmentsWithConfigByFlagSet, options.evaluationOptions)
 }
 
 // TreatmentsWithConfigByFlagSet evaluates multiple feature flag names belonging to a flag sets for a single user and set of attributes at once and returns configurations
-func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}) map[string]TreatmentResult {
+func (c *SplitClient) TreatmentsWithConfigByFlagSets(key interface{}, flagSets []string, attributes map[string]interface{}, optFns ...OptFn) map[string]TreatmentResult {
+	options := getOptions(optFns...)
 	treatmentsResult := make(map[string]TreatmentResult)
 	flagSets = c.validateSets(flagSets)
 	if flagSets == nil {
 		return treatmentsResult
 	}
-	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsWithConfigByFlagSets)
+	return c.doTreatmentsCallByFlagSets(key, flagSets, attributes, treatmentsWithConfigByFlagSets, telemetry.TreatmentsWithConfigByFlagSets, options.evaluationOptions)
 }
 
 // isDestroyed returns true if the client has been destroyed

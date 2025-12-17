@@ -18,6 +18,7 @@ import (
 	"github.com/splitio/go-client/v6/splitio/conf"
 	impressionlistener "github.com/splitio/go-client/v6/splitio/impressionListener"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	commonsCfg "github.com/splitio/go-split-commons/v9/conf"
 	"github.com/splitio/go-split-commons/v9/dtos"
@@ -229,31 +230,52 @@ func TestClientGetTreatment(t *testing.T) {
 	}
 }
 
+func TestClientGetTreatmentWithEvaluationProperties(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = &mockEvaluator{}
+	factory.status.Store(sdkStatusReady)
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+	expectedTreatment(client.Treatment("key", "feature", nil, client.WithEvaluationOptions(&opts)), "TreatmentA", t)
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	impression := impressions[0]
+
+	assert.Equal(t, "aLabel", impression.Label, "Impression should have label when labelsEnabled is true")
+	assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impression.Properties, "Should have properties")
+
+	client.factory.cfg.LabelsEnabled = false
+	expectedTreatment(client.Treatment("key", "feature2", nil), "TreatmentB", t)
+
+	impressions, _ = impressionsQueue.PopN(5000)
+	impression = impressions[0]
+	assert.Equal(t, "", impression.Label, "Impression should have label when labelsEnabled is true")
+}
+
 func TestClientGetTreatmentByFlagSet(t *testing.T) {
 	factory := getFactoryByFlagSets()
 	client := factory.Client()
-	client.evaluator = evaluatorMock.MockEvaluator{
-		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
-			results := evaluator.Results{
-				Evaluations:    make(map[string]evaluator.Result),
-				EvaluationTime: 0,
-			}
-			for _, flagSet := range flagSets {
-				switch flagSet {
-				case "set1":
-					results.Evaluations["feature"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "aLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentA",
-					}
-				default:
-					t.Error("Should be set1 or set2")
-				}
-			}
-			return results
-		},
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
 	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
+
 	factory.status.Store(sdkStatusReady)
 
 	res := client.TreatmentsByFlagSet("user1", "set1", nil)
@@ -261,38 +283,68 @@ func TestClientGetTreatmentByFlagSet(t *testing.T) {
 	expectedTreatment(res["feature"], "TreatmentA", t)
 }
 
+func TestClientGetTreatmentByFlagSetWithEvaluationProperties(t *testing.T) {
+	factory := getFactoryByFlagSets()
+	client := factory.Client()
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
+	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
+
+	factory.status.Store(sdkStatusReady)
+
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.TreatmentsByFlagSet("user1", "set1", nil, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	impression := impressions[0]
+
+	assert.Equal(t, "aLabel", impression.Label, "Impression should have label when labelsEnabled is true")
+	assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impression.Properties, "Should have properties")
+}
+
 func TestClientGetTreatmentByFlagSets(t *testing.T) {
 	factory := getFactory()
 	client := factory.Client()
-	client.evaluator = evaluatorMock.MockEvaluator{
-		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
-			results := evaluator.Results{
-				Evaluations:    make(map[string]evaluator.Result),
-				EvaluationTime: 0,
-			}
-			for _, flagSet := range flagSets {
-				switch flagSet {
-				case "set1":
-					results.Evaluations["feature"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "aLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentA",
-					}
-				case "set2":
-					results.Evaluations["feature2"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "bLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentB",
-					}
-				default:
-					t.Error("Should be set1 or set2")
-				}
-			}
-			return results
-		},
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
 	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	results.Evaluations["feature2"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "bLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentB",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
 	factory.status.Store(sdkStatusReady)
 
 	res := client.TreatmentsByFlagSets("user1", []string{"set1", "set2"}, nil)
@@ -301,31 +353,71 @@ func TestClientGetTreatmentByFlagSets(t *testing.T) {
 	expectedTreatment(res["feature2"], "TreatmentB", t)
 }
 
+func TestClientGetTreatmentByFlagSetsWithEvaluationProperties(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
+	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	results.Evaluations["feature2"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "bLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentB",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
+	factory.status.Store(sdkStatusReady)
+
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.TreatmentsByFlagSets("user1", []string{"set1", "set2"}, nil, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["feature2"], "TreatmentB", t)
+
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	for i := range impressions {
+		if impressions[i].FeatureName == "feature" {
+			assert.Equal(t, "aLabel", impressions[i].Label, "Impression should have label when labelsEnabled is true")
+			assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impressions[i].Properties, "Should have properties")
+		}
+	}
+}
+
 func TestClientGetTreatmentWithConfigByFlagSet(t *testing.T) {
 	factory := getFactory()
 	client := factory.Client()
-	client.evaluator = evaluatorMock.MockEvaluator{
-		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
-			results := evaluator.Results{
-				Evaluations:    make(map[string]evaluator.Result),
-				EvaluationTime: 0,
-			}
-			for _, flagSet := range flagSets {
-				switch flagSet {
-				case "set1":
-					results.Evaluations["feature"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "aLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentA",
-					}
-				default:
-					t.Error("Should be set1 or set2")
-				}
-			}
-			return results
-		},
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
 	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
 	factory.status.Store(sdkStatusReady)
 
 	res := client.TreatmentsWithConfigByFlagSet("user1", "set1", nil)
@@ -333,44 +425,119 @@ func TestClientGetTreatmentWithConfigByFlagSet(t *testing.T) {
 	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
 }
 
+func TestClientGetTreatmentWithConfigByFlagSetAndEvaluationProperties(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
+	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
+	factory.status.Store(sdkStatusReady)
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.TreatmentsWithConfigByFlagSet("user1", "set1", nil, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	for i := range impressions {
+		if impressions[i].FeatureName == "feature" {
+			assert.Equal(t, "aLabel", impressions[i].Label, "Impression should have label when labelsEnabled is true")
+			assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impressions[i].Properties, "Should have properties")
+		}
+	}
+}
+
 func TestClientGetTreatmentWithConfigByFlagSets(t *testing.T) {
 	factory := getFactory()
 	client := factory.Client()
-	client.evaluator = evaluatorMock.MockEvaluator{
-		EvaluateFeatureByFlagSetsCall: func(key string, bucketingKey *string, flagSets []string, attributes map[string]interface{}) evaluator.Results {
-			results := evaluator.Results{
-				Evaluations:    make(map[string]evaluator.Result),
-				EvaluationTime: 0,
-			}
-			for _, flagSet := range flagSets {
-				switch flagSet {
-				case "set1":
-					results.Evaluations["feature"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "aLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentA",
-					}
-				case "set2":
-					results.Evaluations["feature2"] = evaluator.Result{
-						EvaluationTime:    0,
-						Label:             "bLabel",
-						SplitChangeNumber: 123,
-						Treatment:         "TreatmentB",
-					}
-				default:
-					t.Error("Should be set1 or set2")
-				}
-			}
-			return results
-		},
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
 	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	results.Evaluations["feature2"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "bLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentB",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
 	factory.status.Store(sdkStatusReady)
 
 	res := client.TreatmentsWithConfigByFlagSets("user1", []string{"set1", "set2"}, nil)
 
 	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
 	expectedTreatment(res["feature2"].Treatment, "TreatmentB", t)
+}
+
+func TestClientGetTreatmentWithConfigByFlagSetsAndEvaluationOptions(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	results := evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
+	}
+	results.Evaluations["feature"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "aLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentA",
+	}
+	results.Evaluations["feature2"] = evaluator.Result{
+		EvaluationTime:    0,
+		Label:             "bLabel",
+		SplitChangeNumber: 123,
+		Treatment:         "TreatmentB",
+	}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(results)
+	client.evaluator = evaluatorMock
+	factory.status.Store(sdkStatusReady)
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.TreatmentsWithConfigByFlagSets("user1", []string{"set1", "set2"}, nil, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"].Treatment, "TreatmentA", t)
+	expectedTreatment(res["feature2"].Treatment, "TreatmentB", t)
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	for i := range impressions {
+		if impressions[i].FeatureName == "feature" {
+			assert.Equal(t, "aLabel", impressions[i].Label, "Impression should have label when labelsEnabled is true")
+			assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impressions[i].Properties, "Should have properties")
+		}
+	}
 }
 
 func TestTreatments(t *testing.T) {
@@ -383,6 +550,36 @@ func TestTreatments(t *testing.T) {
 
 	expectedTreatment(res["feature"], "TreatmentA", t)
 	expectedTreatment(res["notFeature"], evaluator.Control, t)
+}
+
+func TestTreatmentsWithEvaluationOptions(t *testing.T) {
+	factory := getFactory()
+	client := factory.Client()
+	client.evaluator = &mockEvaluator{}
+	factory.status.Store(sdkStatusReady)
+
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.Treatments("user1", []string{"feature", "notFeature"}, nil, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["notFeature"], evaluator.Control, t)
+
+	impressionsQueue := client.impressions.(storage.ImpressionStorage)
+	impressions, _ := impressionsQueue.PopN(5000)
+	for i := range impressions {
+		if impressions[i].FeatureName == "feature" {
+			assert.Equal(t, "aLabel", impressions[i].Label, "Impression should have label when labelsEnabled is true")
+			assert.Equal(t, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}", impressions[i].Properties, "Should have properties")
+		}
+	}
 }
 
 func TestLocalhostMode(t *testing.T) {
@@ -490,14 +687,12 @@ func TestClientPanicking(t *testing.T) {
 	}
 
 	client := factory.Client()
-	client.evaluator = evaluatorMock.MockEvaluator{
-		EvaluateFeatureCall: func(key string, bucketingKey *string, feature string, attributes map[string]interface{}) *evaluator.Result {
-			panic("Testing panicking")
-		},
-		EvaluateFeaturesCall: func(key string, bucketingKey *string, features []string, attributes map[string]interface{}) evaluator.Results {
-			panic("Testing panicking")
-		},
-	}
+	evaluatorMock := evaluatorMock.MockEvaluator{}
+	evaluatorMock.On("EvaluateFeatureByFlagSets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(evaluator.Results{
+		Evaluations:    make(map[string]evaluator.Result),
+		EvaluationTime: 0,
+	})
+	client.evaluator = evaluatorMock
 	factory.status.Store(sdkStatusReady)
 
 	expectedTreatment(client.Treatment("key", "some", nil), evaluator.Control, t)
@@ -612,11 +807,12 @@ func (i *ImpressionListenerTest) LogImpression(data impressionlistener.ILObject)
 	ilTest["Version"] = data.SDKLanguageVersion
 	ilTest["InstanceName"] = data.InstanceID
 	ilTest["Pt"] = data.Impression.Pt
+	ilTest["Properties"] = data.Impression.Properties
 
 	ilResult[data.Impression.FeatureName] = ilTest
 }
 
-func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string) bool {
+func compareListener(ilTest map[string]interface{}, f string, k string, l string, t string, c int64, b string, a string, i string, v string, p string) bool {
 	if ilTest["FeatureName"] != f || ilTest["KeyName"] != k || ilTest["Label"] != l || ilTest["Treatment"] != t || ilTest["ChangeNumber"] != c || ilTest["BucketingKey"] != b {
 		return false
 	}
@@ -624,6 +820,9 @@ func compareListener(ilTest map[string]interface{}, f string, k string, l string
 		return false
 	}
 	if ilTest["InstanceName"] != i {
+		return false
+	}
+	if ilTest["Properties"] != p {
 		return false
 	}
 	attr1, _ := ilTest["Attributes"].(map[string]interface{})
@@ -690,7 +889,7 @@ func TestImpressionListener(t *testing.T) {
 	expectedTreatment(client.Treatment("user1", "feature", attributes), "TreatmentA", t)
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion, "") {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -715,11 +914,49 @@ func TestImpressionListenerForTreatments(t *testing.T) {
 
 	expectedVersion := "go-" + splitio.Version
 
-	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion, "") {
 		t.Error("Impression should match")
 	}
 
-	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", "ip-123-123-123-123", expectedVersion) {
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", "ip-123-123-123-123", expectedVersion, "") {
+		t.Error("Impression should match")
+	}
+	ilResult = make(map[string]interface{})
+
+	delete(ilResult, "feature")
+	delete(ilResult, "feature2")
+}
+
+func TestImpressionListenerForTreatmentsWithEvaluationOptions(t *testing.T) {
+	client := getClientForListener()
+
+	attributes := make(map[string]interface{})
+	attributes["One"] = "test"
+	opts := dtos.EvaluationOptions{
+		Properties: map[string]interface{}{
+			"userId":  "123",
+			"age":     30,
+			"premium": true,
+			"balance": 99.5,
+		},
+	}
+
+	res := client.Treatments("user1", []string{"feature", "feature2"}, attributes, client.WithEvaluationOptions(&opts))
+
+	expectedTreatment(res["feature"], "TreatmentA", t)
+	expectedTreatment(res["feature2"], "TreatmentB", t)
+
+	if len(ilResult) != 2 {
+		t.Error("Error on ImpressionListener")
+	}
+
+	expectedVersion := "go-" + splitio.Version
+
+	if !compareListener(ilResult["feature"].(map[string]interface{}), "feature", "user1", "aLabel", "TreatmentA", int64(123), "", "test", "ip-123-123-123-123", expectedVersion, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}") {
+		t.Error("Impression should match")
+	}
+
+	if !compareListener(ilResult["feature2"].(map[string]interface{}), "feature2", "user1", "bLabel", "TreatmentB", int64(123), "", "test", "ip-123-123-123-123", expectedVersion, "{\"age\":30,\"balance\":99.5,\"premium\":true,\"userId\":\"123\"}") {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})
@@ -946,6 +1183,7 @@ func TestBlockUntilReadyInMemoryError(t *testing.T) {
 		"",
 		"test",
 		sdkConf.InstanceName, expectedVersion,
+		"",
 	) {
 		t.Error("Impression should match")
 	}
@@ -1108,13 +1346,13 @@ func TestBlockUntilReadyInMemoryOk(t *testing.T) {
 	}
 
 	expectedTreatment(client.Treatment("not_ready2", "not_ready2", attributes), evaluator.Control, t)
-	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["not_ready2"].(map[string]interface{}), "not_ready2", "not_ready2", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion, "") {
 		t.Error("Impression should match")
 	}
 
 	result := client.Treatments("not_ready3", []string{"not_ready3"}, attributes)
 	expectedTreatment(result["not_ready3"], evaluator.Control, t)
-	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion) {
+	if !compareListener(ilResult["not_ready3"].(map[string]interface{}), "not_ready3", "not_ready3", "not ready", "control", int64(0), "", "test", sdkConf.InstanceName, expectedVersion, "") {
 		t.Error("Impression should match")
 	}
 	ilResult = make(map[string]interface{})

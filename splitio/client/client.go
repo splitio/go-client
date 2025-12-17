@@ -279,8 +279,6 @@ func (c *SplitClient) processResult(result evaluator.Results, operation string, 
 			}
 		} else {
 			bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled, serializeProperties(evaluationOptions)))
-			//bulkImpressions = append(bulkImpressions, c.createImpression(feature, bucketingKey, evaluation.Label, matchingKey, evaluation.Treatment, evaluation.SplitChangeNumber, evaluation.ImpressionsDisabled, ""))
-
 			treatments[feature] = TreatmentResult{
 				Treatment: evaluation.Treatment,
 				Config:    evaluation.Config,

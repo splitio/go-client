@@ -23,6 +23,8 @@ github.com/redis/go-redis/v9 v9.0.4 h1:FC82T+CHJ/Q/PdyLW++GeCO+Ol59Y4T7R4jbgjvkt
 github.com/redis/go-redis/v9 v9.0.4/go.mod h1:WqMKv5vnQbRuZstUwxQI195wHy+t4PuXDOjzMvcuQHk=
 github.com/splitio/go-split-commons/v9 v9.1.1-0.20260108203531-f490f1c43867 h1:OP5Z1JgB72nR7d1RaE5xmjT94l0Go7MXwSVSDDqGMfU=
 github.com/splitio/go-split-commons/v9 v9.1.1-0.20260108203531-f490f1c43867/go.mod h1:g5e1rqukGeShxQhCRcjeoMAGrVXUFmhDua/D3BZCuSA=
+github.com/splitio/go-split-commons/v9 v9.1.1-0.20260111231146-151a863036ca h1:9KqiSIW0IwotS+N3JM5gTrXZJbV+bIiM7bIkBTrChMs=
+github.com/splitio/go-split-commons/v9 v9.1.1-0.20260111231146-151a863036ca/go.mod h1:pUU0cRM9ejCK1HIvwt/h2J+rLY8xlESNTGREUckKk0c=
 github.com/splitio/go-toolkit/v5 v5.4.1 h1:srTyvDBJZMUcJ/KiiQDMyjCuELVgTBh2TGRVn0sOXEE=
 github.com/splitio/go-toolkit/v5 v5.4.1/go.mod h1:SifzysrOVDbzMcOE8zjX02+FG5az4FrR3Us/i5SeStw=
 github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=

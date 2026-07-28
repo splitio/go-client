@@ -1,0 +1,14 @@
+inputSet:
+  name: go_client_ci_pr
+  identifier: go_client_ci_pr
+  orgIdentifier: PROD
+  projectIdentifier: Harness_Split
+  pipeline:
+    identifier: go_client_ci
+    properties:
+      ci:
+        codebase:
+          build:
+            type: PR
+            spec:
+              number: <+trigger.prNumber>

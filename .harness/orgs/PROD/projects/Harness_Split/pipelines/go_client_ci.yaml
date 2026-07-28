@@ -1,0 +1,143 @@
+pipeline:
+  name: go_client_ci
+  identifier: go_client_ci
+  projectIdentifier: Harness_Split
+  orgIdentifier: PROD
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: fmegithubrunnersci
+        repoName: go-client
+        build: <+input>
+        sparseCheckout: []
+        depth: 0
+  stages:
+    - stage:
+        name: CI
+        identifier: CI
+        type: CI
+        spec:
+          cloneCodebase: true
+          caching:
+            enabled: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec:
+              size: flex
+          execution:
+            steps:
+              - step:
+                  identifier: run_tests
+                  name: Run Tests
+                  type: Run
+                  spec:
+                    connectorRef: dockerhub
+                    image: golang:1.18
+                    shell: Bash
+                    # Tests in splitio/client/ hardcode localhost:6379, mirroring the GHA
+                    # `services: redis` behavior. On Harness Cloud a Background step runs as
+                    # a separate container (unreachable at localhost), so we start redis-server
+                    # inside this container instead — same technique as split_synchronizer_ci.
+                    command: |-
+                      apt-get update -qq && apt-get install -y -qq --no-install-recommends redis-server
+                      redis-server --daemonize yes
+                      for i in $(seq 1 30); do
+                        redis-cli ping 2>/dev/null | grep -q PONG && { echo "Redis is up"; break; }
+                        echo "Waiting for Redis... ($i/30)"; sleep 1
+                      done
+
+                      go mod tidy
+                      go test -coverprofile=coverage.out -count=1 -race ./...
+              - step:
+                  identifier: sonarqube_analysis
+                  name: SonarQube Analysis
+                  type: Run
+                  spec:
+                    connectorRef: dockerhub
+                    image: golang:1.18
+                    shell: Sh
+                    command: |
+                      apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip
+
+                      export SONAR_SCANNER_VERSION=6.2.1.4610
+                      curl -sSLo sonar-scanner.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip"
+                      unzip -q sonar-scanner.zip
+                      export PATH="$(pwd)/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64/bin:$PATH"
+
+                      VERSION="$(grep 'Version =' splitio/version.go | awk '{print $4}' | tr -d '"')"
+
+                      SONAR_EXTRA_ARGS=""
+                      if [ "<+codebase.build.type>" = "PR" ]; then
+                        SONAR_EXTRA_ARGS="-Dsonar.pullrequest.key=<+codebase.prNumber> \
+                          -Dsonar.pullrequest.branch=<+codebase.sourceBranch> \
+                          -Dsonar.pullrequest.base=<+codebase.targetBranch>"
+                      elif [ "<+codebase.branch>" != "main" ] && [ "<+codebase.branch>" != "development" ]; then
+                        SONAR_EXTRA_ARGS="-Dsonar.branch.name=<+codebase.branch>"
+                      fi
+
+                      sonar-scanner \
+                        -Dsonar.host.url="https://sonar.harness.io/" \
+                        -Dsonar.token="${SONAR_TOKEN}" \
+                        -Dsonar.projectVersion="${VERSION}" \
+                        $SONAR_EXTRA_ARGS
+                    envVariables:
+                      SONAR_TOKEN: <+secrets.getValue("sonarqube-token")>
+                      SONAR_HOST_URL: https://sonar.harness.io
+              - step:
+                  identifier: post_quality_gate
+                  name: Post Quality Gate
+                  type: Run
+                  spec:
+                    connectorRef: dockerhub
+                    image: golang:1.18
+                    shell: Sh
+                    command: |
+                      REPORT_FILE=".scannerwork/report-task.txt"
+                      if [ ! -f "$REPORT_FILE" ]; then
+                        echo "ERROR: $REPORT_FILE not found."
+                        exit 1
+                      fi
+                      cat "$REPORT_FILE"
+                      CE_TASK_URL=$(grep "ceTaskUrl" "$REPORT_FILE" | cut -d'=' -f2-)
+
+                      MAX_RETRIES=30; RETRY_INTERVAL=10; TASK_STATUS="PENDING"
+                      for i in $(seq 1 $MAX_RETRIES); do
+                        echo "Attempt $i/$MAX_RETRIES - checking analysis task..."
+                        TASK_RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" "$CE_TASK_URL")
+                        TASK_STATUS=$(echo "$TASK_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['task']['status'])" 2>/dev/null || echo "UNKNOWN")
+                        echo "Task status: $TASK_STATUS"
+                        [ "$TASK_STATUS" = "SUCCESS" ] || [ "$TASK_STATUS" = "FAILED" ] || [ "$TASK_STATUS" = "CANCELLED" ] && break
+                        sleep $RETRY_INTERVAL
+                      done
+
+                      if [ "$TASK_STATUS" != "SUCCESS" ]; then
+                        echo "Analysis task did not complete successfully: $TASK_STATUS"; exit 1
+                      fi
+
+                      ANALYSIS_ID=$(echo "$TASK_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['task']['analysisId'])")
+                      QG_RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" "https://sonar.harness.io/api/qualitygates/project_status?analysisId=${ANALYSIS_ID}")
+                      echo "Quality Gate response: $QG_RESPONSE"
+                      QG_STATUS=$(echo "$QG_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['projectStatus']['status'])")
+                      echo "Quality Gate Status: $QG_STATUS"
+
+                      case "$QG_STATUS" in
+                        OK)    GH_STATE="success"; DESC="Quality gate passed" ;;
+                        ERROR) GH_STATE="failure"; DESC="Quality gate failed" ;;
+                        WARN)  GH_STATE="success"; DESC="Quality gate passed with warnings" ;;
+                        *)     GH_STATE="failure"; DESC="Quality gate status: $QG_STATUS" ;;
+                      esac
+
+                      curl -s -X POST \
+                        -H "Authorization: token ${GITHUB_TOKEN}" \
+                        -H "Accept: application/vnd.github.v3+json" \
+                        "https://api.github.com/repos/splitio/go-client/statuses/<+codebase.commitSha>" \
+                        -d "{\"state\":\"${GH_STATE}\",\"description\":\"${DESC}\",\"context\":\"sonarqube/quality-gate\",\"target_url\":\"https://sonar.harness.io/dashboard?id=go-client\"}"
+
+                      echo "Posted GitHub status: $GH_STATE - $DESC"
+                    envVariables:
+                      SONAR_TOKEN: <+secrets.getValue("sonarqube-token")>
+                      GITHUB_TOKEN: <+secrets.getValue("fme-github-netrc-token")>

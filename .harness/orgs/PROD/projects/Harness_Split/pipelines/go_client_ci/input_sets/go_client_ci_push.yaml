@@ -1,0 +1,14 @@
+inputSet:
+  name: go_client_ci_push
+  identifier: go_client_ci_push
+  orgIdentifier: PROD
+  projectIdentifier: Harness_Split
+  pipeline:
+    identifier: go_client_ci
+    properties:
+      ci:
+        codebase:
+          build:
+            type: branch
+            spec:
+              branch: <+trigger.branch>

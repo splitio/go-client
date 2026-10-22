@@ -19,6 +19,8 @@ pipeline:
         type: CI
         spec:
           cloneCodebase: true
+          envVariables:
+            CI_ENABLE_HCLI_FOR_TESTS: "true"
           caching:
             enabled: true
           platform:
@@ -52,6 +54,21 @@ pipeline:
 
                       go mod tidy
                       go test -coverprofile=coverage.out -count=1 -race ./...
+              - step:
+                  name: harnessCoverage
+                  identifier: harnessCoverage
+                  template:
+                    templateRef: account.codeCoverage
+                    versionLabel: v1
+                    templateInputs:
+                      type: Run
+                      spec:
+                        envVariables:
+                          patch_coverage_percent: "80"
+                          file_path: "coverage.out"
+                          overall_coverage_percent: ""
+                          ignore_failure: "true"
+                          exclude: "**/*_test.go,**/vendor/**"
               - step:
                   identifier: sonarqube_analysis
                   name: SonarQube Analysis

@@ -1,6 +1,6 @@
 module github.com/splitio/go-client/v6
 
-go 1.18
+go 1.26.10
 
 require (
 	github.com/splitio/go-split-commons/v9 v9.1.0

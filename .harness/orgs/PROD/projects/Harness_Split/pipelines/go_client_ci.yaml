@@ -38,14 +38,14 @@ pipeline:
                   type: Run
                   spec:
                     connectorRef: dockerhub
-                    image: golang:1.18
-                    shell: Bash
+                    image: harness0.harness.io/oci/docker_artifacts/rf-curated/golang:1.26.10-alpine3.24-curated
+                    shell: Sh
                     # Tests in splitio/client/ hardcode localhost:6379, mirroring the GHA
                     # `services: redis` behavior. On Harness Cloud a Background step runs as
                     # a separate container (unreachable at localhost), so we start redis-server
                     # inside this container instead — same technique as split_synchronizer_ci.
                     command: |-
-                      apt-get update -qq && apt-get install -y -qq --no-install-recommends redis-server
+                      apk add --no-cache redis gcc musl-dev
                       redis-server --daemonize yes
                       for i in $(seq 1 30); do
                         redis-cli ping 2>/dev/null | grep -q PONG && { echo "Redis is up"; break; }
@@ -75,15 +75,15 @@ pipeline:
                   type: Run
                   spec:
                     connectorRef: dockerhub
-                    image: golang:1.18
+                    image: harness0.harness.io/oci/docker_artifacts/rf-curated/golang:1.26.10-alpine3.24-curated
                     shell: Sh
                     command: |
-                      apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip
+                      apk add --no-cache unzip curl git openjdk17-jre-headless
 
                       export SONAR_SCANNER_VERSION=6.2.1.4610
-                      curl -sSLo sonar-scanner.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip"
+                      curl -sSLo sonar-scanner.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"
                       unzip -q sonar-scanner.zip
-                      export PATH="$(pwd)/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64/bin:$PATH"
+                      export PATH="$(pwd)/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:$PATH"
 
                       VERSION="$(grep 'Version =' splitio/version.go | awk '{print $4}' | tr -d '"')"
 
@@ -110,9 +110,10 @@ pipeline:
                   type: Run
                   spec:
                     connectorRef: dockerhub
-                    image: golang:1.18
+                    image: harness0.harness.io/oci/docker_artifacts/rf-curated/golang:1.26.10-alpine3.24-curated
                     shell: Sh
                     command: |
+                      apk add --no-cache curl python3
                       REPORT_FILE=".scannerwork/report-task.txt"
                       if [ ! -f "$REPORT_FILE" ]; then
                         echo "ERROR: $REPORT_FILE not found."
